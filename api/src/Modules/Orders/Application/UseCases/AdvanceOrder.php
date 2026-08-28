@@ -7,8 +7,10 @@ namespace Modules\Orders\Application\UseCases;
 use App\Models\Orders\OrderModel;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\DatabaseManager;
+use Modules\Catalog\Application\Contracts\ProductCatalog;
 use Modules\Orders\Application\Exceptions\OrderMovedByOther;
 use Modules\Orders\Application\Exceptions\OrderNotFound;
+use Modules\Orders\Domain\Events\ConfirmedOrderLine;
 use Modules\Orders\Domain\Events\OrderConfirmed;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Platform\Audit\AuditLogger;
@@ -32,6 +34,7 @@ final class AdvanceOrder
         private readonly AuditLogger $audit,
         private readonly Dispatcher $events,
         private readonly TenantContext $context,
+        private readonly ProductCatalog $products,
     ) {}
 
     public function execute(string $orderId, OrderStatus $next, ?string $byName = null): OrderModel
@@ -87,15 +90,54 @@ final class AdvanceOrder
          * cliente sin que nadie toque este caso de uso.
          */
         if ($next === OrderStatus::Confirmed) {
-            $this->events->dispatch(new OrderConfirmed(
-                tenantId: $this->context->id(),
-                orderId: $orderId,
-                number: (int) $model->number,
-                confirmedByName: $byName,
-            ));
+            $this->events->dispatch($this->confirmedEvent($model, $byName));
         }
 
         return $model->refresh();
+    }
+
+    /**
+     * Arma el evento con todo lo que la cocina necesita.
+     *
+     * El tiempo de preparación sale del CATÁLOGO, no del pedido: no se guarda
+     * en la línea porque no es un dato del pedido sino de lo que se vende, y
+     * porque si el dueño ajusta el tiempo de la parrilla, las comandas
+     * siguientes deben usar el nuevo.
+     *
+     * Se toma el MÁXIMO de las líneas, no la suma: los platos se hacen a la
+     * vez, no en fila. Sumar daría media hora para dos arepas y el semáforo no
+     * marcaría nada como tarde nunca.
+     */
+    private function confirmedEvent(OrderModel $model, ?string $byName): OrderConfirmed
+    {
+        $items = $model->items()->with('modifiers')->get();
+
+        $snapshots = $this->products->findMany(
+            $items->pluck('product_id')->filter()->unique()->values()->all(),
+        );
+
+        $prepMinutes = collect($snapshots)
+            ->map(fn ($snapshot): ?int => $snapshot->prepMinutes)
+            ->filter()
+            ->max();
+
+        return new OrderConfirmed(
+            tenantId: $this->context->id(),
+            orderId: (string) $model->id,
+            number: (int) $model->number,
+            serviceType: $model->service_type->value,
+            lines: $items->map(fn ($item): ConfirmedOrderLine => new ConfirmedOrderLine(
+                productId: $item->product_id,
+                name: (string) $item->product_name,
+                quantity: (int) $item->quantity,
+                // Ya en texto: la cocina lee «Sin cebolla», no un id.
+                modifiers: $item->modifiers->pluck('name')->all(),
+                notes: $item->notes,
+            ))->all(),
+            prepMinutes: $prepMinutes === null ? null : (int) $prepMinutes,
+            notes: $model->notes,
+            confirmedByName: $byName,
+        );
     }
 
     private static function stampColumn(OrderStatus $status): string

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Providers\AppServiceProvider;
 use Modules\Catalog\CatalogServiceProvider;
+use Modules\Kitchen\KitchenServiceProvider;
 use Platform\PlatformServiceProvider;
 
 /*
@@ -22,6 +23,7 @@ return [
     PlatformServiceProvider::class,
 
     CatalogServiceProvider::class,
+    KitchenServiceProvider::class,
 
     AppServiceProvider::class,
 ];

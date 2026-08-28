@@ -26,6 +26,9 @@ use Platform\Auth\ActionAuthorizer;
  */
 final class OrderController
 {
+    /** Cuántos pedidos caben en el tablero antes de tener que avisar. */
+    private const TOPE = 200;
+
     public function index(Request $request): JsonResponse
     {
         $orders = OrderModel::query()
@@ -46,11 +49,31 @@ final class OrderController
             // Del más viejo al más nuevo: el que lleva más esperando va
             // primero, que es el orden en el que hay que atenderlos.
             ->orderBy('placed_at')
-            ->limit(200)
+            ->limit(self::TOPE)
             ->get();
+
+        /*
+         * Si hay más de los que caben, **se dice**.
+         *
+         * Como el orden va del más viejo al más nuevo, lo que se queda fuera
+         * son los pedidos RECIÉN entrados. Cortar en silencio significa que un
+         * negocio con el tablero lleno deja de ver lo que acaba de llegar — sin
+         * ningún aviso, y con el cliente esperando. Es el mismo cuidado que se
+         * tuvo con la pantalla de cocina.
+         */
+        $vivos = $orders->count() < self::TOPE
+            ? $orders->count()
+            : OrderModel::query()->whereNotIn('status', [
+                OrderStatus::Delivered->value,
+                OrderStatus::Cancelled->value,
+            ])->count();
 
         return response()->json([
             'data' => $orders->map(fn (OrderModel $o): array => OrderResource::make($o))->all(),
+            'meta' => [
+                'total' => $vivos,
+                'hidden' => max(0, $vivos - $orders->count()),
+            ],
         ]);
     }
 

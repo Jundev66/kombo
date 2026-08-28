@@ -76,8 +76,14 @@ export function paymentLabel(method: string): string {
   return PAYMENT_METHODS.find((m) => m.value === method)?.label ?? method
 }
 
+export interface BoardMeta {
+  total: number
+  /** Cuántos pedidos vivos no caben en el tablero. Si no es cero, se dice. */
+  hidden: number
+}
+
 export const orders = {
-  open: () => api.get<{ data: Order[] }>('/orders?abiertos=1').then((r) => r.data),
+  open: () => api.get<{ data: Order[]; meta: BoardMeta }>('/orders?abiertos=1'),
 
   one: (id: string) => api.get<{ data: Order }>(`/orders/${id}`).then((r) => r.data),
 

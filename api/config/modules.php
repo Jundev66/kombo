@@ -11,6 +11,7 @@ use Modules\Documents\DocumentsModule;
 use Modules\Kitchen\KitchenModule;
 use Modules\Orders\OrdersModule;
 use Modules\Portal\PortalModule;
+use Modules\Reports\ReportsModule;
 
 return [
     /*
@@ -39,7 +40,7 @@ return [
         DeliveryModule::class,
         PortalModule::class,
         ChannelsModule::class,
+        ReportsModule::class,
 
-        // Fase 9: ReportsModule
     ],
 ];

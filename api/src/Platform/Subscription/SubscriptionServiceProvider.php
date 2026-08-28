@@ -6,6 +6,7 @@ namespace Platform\Subscription;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
+use Platform\Subscription\Http\CleanDemoDataCommand;
 use Platform\Subscription\Http\SweepSubscriptionsCommand;
 
 /**
@@ -19,7 +20,7 @@ final class SubscriptionServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->commands([SweepSubscriptionsCommand::class]);
+        $this->commands([SweepSubscriptionsCommand::class, CleanDemoDataCommand::class]);
     }
 
     public function boot(): void

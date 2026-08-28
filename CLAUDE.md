@@ -173,6 +173,14 @@ make test-isolation  # que un negocio no vea los datos de otro
 make e2e             # pruebas de usuario por el navegador
 ```
 
+Tareas programadas, que corren solas y conviene conocer:
+
+```bash
+php artisan suscripciones:revisar    # diaria: marca vencidos y suspende
+php artisan pedidos:cerrar-vencidos  # cada 10 min: cierra los que no pagaron
+php artisan demo:limpiar --horas=0   # sólo en demostración: vacía los tableros
+```
+
 Direcciones en desarrollo:
 
 ```
@@ -279,10 +287,21 @@ día. No hay banderas que alguien tenga que acordarse de mover: hay una fecha y
 un trabajo diario que la mira. Ése fue justo el hueco del proyecto anterior —
 existía un `plan_expires_at` que no leía nadie.
 
-**Cortar en silencio es el peor fallo de una pantalla.** La cocina tiene un tope
-de comandas y ordena de la más vieja a la más nueva, así que pasarse el tope
-esconde las RECIÉN entradas. La respuesta trae `meta.hidden` y la pantalla lo
-grita. Cualquier lista con tope debe hacer lo mismo.
+**Cortar en silencio es el peor fallo de una pantalla.** La cocina y el tablero
+de pedidos tienen tope y ordenan de lo más viejo a lo más nuevo, así que
+pasarse el tope esconde lo RECIÉN entrado. Las dos respuestas traen
+`meta.hidden` y las dos pantallas lo gritan. Cualquier lista con tope debe
+hacer lo mismo.
+
+**Una venta es un pedido CONFIRMADO y no cancelado**, y esa definición vive en
+un solo sitio (`SalesReport::sales()`). Si cada reporte la definiera por su
+cuenta, el total del resumen no cuadraría con la suma por canal y nadie sabría
+cuál de los dos creer. Y **vendido no es cobrado**: la diferencia es lo que
+falta por cobrar, y es de las primeras cosas que un dueño mira.
+
+**Márgenes no hay, y no se inventan.** Calcular ganancia exige costos por
+producto, que el sistema no tiene. Enseñar una «ganancia» calculada sobre la
+nada sería peor que no enseñarla: alguien tomaría decisiones con ella.
 
 ---
 

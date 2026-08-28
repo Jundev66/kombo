@@ -42,12 +42,22 @@ export function OrdersScreen() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-[var(--text-strong)]">Pedidos</h1>
-        {board.data != null && <Badge>{board.data.length} abiertos</Badge>}
+        {board.data != null && <Badge>{board.data.meta.total} abiertos</Badge>}
       </div>
+
+      {/* Si hay más de los que caben, SE DICE. Como el orden va del más viejo
+          al más nuevo, lo que se queda fuera son los recién entrados — y un
+          tablero que los esconde en silencio es peor que uno lleno. */}
+      {(board.data?.meta.hidden ?? 0) > 0 && (
+        <p role="alert" className="rounded-[var(--radius-md)] bg-bad-50 px-3 py-2 text-sm font-medium text-bad-700">
+          Hay {board.data?.meta.hidden} pedidos más que no caben aquí. Cierra los que ya
+          entregaste.
+        </p>
+      )}
 
       {board.isLoading && <Spinner />}
 
-      {board.data?.length === 0 && (
+      {board.data?.data.length === 0 && (
         <EmptyState
           title="No hay pedidos abiertos"
           description="Aquí van a aparecer solos según entren, por el portal, por WhatsApp o desde el mostrador."
@@ -55,7 +65,7 @@ export function OrdersScreen() {
       )}
 
       <ul className="flex flex-col gap-2">
-        {board.data?.map((order) => (
+        {board.data?.data.map((order) => (
           <li key={order.id}>
             <Card className="p-3">
               <div className="flex items-start gap-3">

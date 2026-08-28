@@ -38,5 +38,15 @@ docker compose exec -T api php artisan db:seed --force
 # identificador que ya no existe.
 docker compose exec -T api php artisan cache:clear >/dev/null
 
+# Se cierra lo que quedó abierto de corridas anteriores.
+#
+# Las pantallas de trabajo enseñan lo que está VIVO y tienen tope: sin esto,
+# los pedidos de las pruebas de ayer se acumulan hasta llenarlas, y los que
+# crea esta corrida dejan de caber. La pantalla lo AVISA —para eso está el
+# aviso— pero la prueba que busca el suyo no lo encuentra y falla por un motivo
+# que no tiene nada que ver con lo que estaba probando.
+echo "→ Cerrando lo que quedó abierto de otras corridas…"
+docker compose exec -T api php artisan demo:limpiar --horas=0 >/dev/null
+
 echo "→ Corriendo las pruebas…"
 exec docker compose run --rm e2e npx playwright test "${ARGS[@]}"

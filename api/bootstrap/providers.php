@@ -10,6 +10,7 @@ use Modules\Delivery\DeliveryServiceProvider;
 use Modules\Documents\DocumentsServiceProvider;
 use Modules\Kitchen\KitchenServiceProvider;
 use Modules\Portal\PortalServiceProvider;
+use Modules\Reports\ReportsServiceProvider;
 use Platform\PlatformServiceProvider;
 use Platform\Subscription\SubscriptionServiceProvider;
 
@@ -36,6 +37,7 @@ return [
     DeliveryServiceProvider::class,
     PortalServiceProvider::class,
     ChannelsServiceProvider::class,
+    ReportsServiceProvider::class,
 
     AppServiceProvider::class,
 ];

@@ -4,6 +4,7 @@ import { ChannelsScreen } from '../screens/ChannelsScreen'
 import { ModifiersScreen } from '../screens/ModifiersScreen'
 import { OrdersScreen } from '../screens/OrdersScreen'
 import { ProductsScreen } from '../screens/ProductsScreen'
+import { ReportsScreen } from '../screens/ReportsScreen'
 import { RateScreen } from '../screens/RateScreen'
 import { ZonesScreen } from '../screens/ZonesScreen'
 
@@ -60,6 +61,17 @@ export const MODULE_UI: ModuleUi[] = [
     label: 'Zonas',
   },
   {
+    // Tercero en el sitio de honor: es lo que el dueño abre desde el teléfono
+    // al cerrar, y no tiene por qué buscarlo.
+    module: 'reports',
+    path: '/ventas',
+    permission: 'reports.view_sales',
+    Screen: ReportsScreen,
+    icon: '📈',
+    label: 'Ventas',
+    primary: 3,
+  },
+  {
     module: 'channels',
     path: '/canales',
     permission: 'channels.view',
@@ -74,7 +86,6 @@ export const MODULE_UI: ModuleUi[] = [
     Screen: RateScreen,
     icon: '💵',
     label: 'Tasa',
-    primary: 3,
   },
 
   // Fase 8: equipo y configuración

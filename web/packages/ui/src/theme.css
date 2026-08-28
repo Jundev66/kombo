@@ -1,0 +1,190 @@
+@import "tailwindcss";
+
+/*
+ * El sistema visual de Kombo.
+ *
+ * Sin tailwind.config.js y sin PostCSS: en Tailwind 4 el tema es CSS. Esto es
+ * la única fuente de verdad de color, tipografía y espaciado, y las pantallas
+ * usan las superficies semánticas de abajo —no los neutros crudos—.
+ */
+
+/*
+ * El modo oscuro va por ATRIBUTO en el <html>, no por preferencia del sistema.
+ *
+ * No es un gusto: la cocina es oscura siempre porque se lee de lejos y con luz
+ * de plancha; la caja es clara siempre porque está bajo un fluorescente. Que
+ * dependiera del teléfono de quien la abrió sería un sorteo.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * `static` es obligatorio aquí: emite TODAS las variables, no sólo las que
+ * alguna utilidad usa. Sin él, Tailwind elimina las que cree no usadas —y las
+ * superficies semánticas, que se referencian desde otras variables y no desde
+ * clases, apuntarían a la nada.
+ */
+@theme static {
+  /* ── Tipografía ─────────────────────────────────────────────────────────
+     La pila del sistema, cero webfonts. Son ~100 KB y un parpadeo de texto
+     que no compran nada en una pantalla que dice números. */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  /* ── Neutros, ligeramente cálidos ───────────────────────────────────────
+     Un gris puro se lee frío y clínico. Esto es comida. */
+  --color-ink-50: #faf9f7;
+  --color-ink-100: #f2f0ed;
+  --color-ink-200: #e4e1db;
+  --color-ink-300: #cbc6bd;
+  --color-ink-400: #a39d92;
+  --color-ink-500: #7d766a;
+  --color-ink-600: #5d5750;
+  --color-ink-700: #45403a;
+  --color-ink-800: #2b2824;
+  --color-ink-900: #1a1816;
+  --color-ink-950: #0f0e0d;
+
+  /* ── Marca ──────────────────────────────────────────────────────────────
+     Verde de cocina: fresco, comestible, y distinto del verde de "correcto". */
+  --color-brand-50: #eef7f2;
+  --color-brand-100: #d5ebe0;
+  --color-brand-200: #aad7c1;
+  --color-brand-300: #77bd9d;
+  --color-brand-400: #4a9f78;
+  --color-brand-500: #2f855a;
+  --color-brand-600: #256b49;
+  --color-brand-700: #1f6f4a;
+  --color-brand-800: #17452f;
+  --color-brand-900: #0f2c1e;
+
+  /* ── Acento ─────────────────────────────────────────────────────────────
+     La acción principal y nada más. Naranja y no verde a propósito: el verde
+     está reservado para "esto salió bien", y "Cobrar" no es un estado. */
+  --color-accent-50: #fef3ec;
+  --color-accent-100: #fbe0cd;
+  --color-accent-200: #f7bf9b;
+  --color-accent-300: #f19a66;
+  --color-accent-400: #e8783c;
+  --color-accent-500: #d95d22;
+  --color-accent-600: #b8481a;
+  --color-accent-700: #933716;
+  --color-accent-800: #6d2911;
+  --color-accent-900: #4a1c0c;
+
+  /* ── Estado, y sólo estado ──────────────────────────────────────────────
+     Verde, ámbar y rojo no se usan para decorar. Si aparece rojo en la
+     pantalla de cocina es porque un pedido va tarde, no porque quedaba bonito. */
+  --color-ok-50: #eaf7ef;
+  --color-ok-500: #2e9e5b;
+  --color-ok-700: #1f6b3e;
+
+  --color-warn-50: #fdf5e3;
+  --color-warn-500: #d99a1f;
+  --color-warn-700: #8f6410;
+
+  --color-bad-50: #fdecec;
+  --color-bad-500: #d93a3a;
+  --color-bad-700: #93211f;
+
+  /* ── Toque ──────────────────────────────────────────────────────────────
+     56 px es el mínimo con el que se acierta un botón con el pulgar, de pie,
+     con prisa y a veces con guantes. */
+  --spacing-touch: 3.5rem;
+  --spacing-touch-lg: 4.5rem;
+
+  /* ── La escala del dinero ───────────────────────────────────────────────
+     El número es el protagonista: el total, el vuelto y el saldo van en la
+     mayor escala de su pantalla. */
+  --text-money-sm: 1.125rem;
+  --text-money: 1.75rem;
+  --text-money-lg: 2.75rem;
+  --text-money-xl: 4rem;
+
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  /* Sombras muy tenues a propósito: con luz que rebota en una superficie de
+     acero, una sombra marcada se ve como suciedad en la pantalla. */
+  --shadow-card: 0 1px 2px rgb(15 14 13 / 0.06), 0 1px 3px rgb(15 14 13 / 0.05);
+  --shadow-raised: 0 2px 6px rgb(15 14 13 / 0.08), 0 6px 16px rgb(15 14 13 / 0.06);
+  --shadow-sheet: 0 -4px 24px rgb(15 14 13 / 0.12);
+}
+
+/*
+ * Superficies semánticas.
+ *
+ * Las pantallas usan estas y nunca los neutros crudos. Así el modo oscuro es
+ * una redefinición de ocho variables y no una segunda hoja de estilos que se
+ * desincroniza en cuanto alguien toca la primera.
+ */
+:root {
+  --surface: var(--color-ink-50);
+  --surface-sunken: var(--color-ink-100);
+  --surface-raised: #ffffff;
+  --surface-border: var(--color-ink-300);
+  --surface-hairline: var(--color-ink-200);
+  --text-strong: var(--color-ink-900);
+  --text-default: var(--color-ink-800);
+  --text-muted: var(--color-ink-500);
+}
+
+[data-theme="dark"] {
+  --surface: var(--color-ink-900);
+  --surface-sunken: var(--color-ink-950);
+  --surface-raised: var(--color-ink-800);
+  --surface-border: var(--color-ink-700);
+  --surface-hairline: var(--color-ink-800);
+  --text-strong: var(--color-ink-50);
+  --text-default: var(--color-ink-100);
+  --text-muted: var(--color-ink-400);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* El destello gris de Android al tocar hace que la interfaz parezca lenta
+       aunque responda al instante. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--surface);
+    color: var(--text-default);
+    font-family: var(--font-sans);
+  }
+
+  /* Cifras de ancho fijo: sin esto, una columna de importes baila al
+     actualizarse y cuesta compararla de un vistazo. */
+  .tabular,
+  input[type="number"],
+  td[data-numeric],
+  th[data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Foco siempre visible. No es opcional: hay quien opera esto con teclado, y
+     quitarlo "porque se ve feo" deja a esa persona a ciegas. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+
+  /* Sin esto, el último botón de una barra fija queda debajo de la barra de
+     gestos del teléfono y no se puede tocar. */
+  .pb-safe {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

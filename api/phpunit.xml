@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         failOnWarning="true"
+         failOnRisky="true"
+         failOnDeprecation="false"
+         beStrictAboutOutputDuringTests="true"
+>
+    <testsuites>
+        <!-- PHP puro: value objects, máquinas de estado, cálculo. Sin framework. -->
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+
+        <!-- Los límites del diseño. Recorren ficheros y el catálogo de PostgreSQL. -->
+        <testsuite name="Architecture">
+            <directory>tests/Architecture</directory>
+        </testsuite>
+
+        <!-- Las más importantes: que un negocio no pueda ver los datos de otro. -->
+        <testsuite name="Isolation">
+            <directory>tests/Isolation</directory>
+        </testsuite>
+
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory>app</directory>
+            <directory>src</directory>
+        </include>
+    </source>
+
+    <php>
+        <!--
+            force="true" en cada uno, por lo mismo que existe tests/bootstrap.php:
+            sin él, una variable ya presente en el entorno del contenedor gana y
+            la suite acaba probando contra otra cosa.
+        -->
+        <env name="APP_ENV" value="testing" force="true"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file" force="true"/>
+        <env name="BCRYPT_ROUNDS" value="4" force="true"/>
+        <env name="CACHE_STORE" value="array" force="true"/>
+        <env name="MAIL_MAILER" value="array" force="true"/>
+        <env name="QUEUE_CONNECTION" value="sync" force="true"/>
+        <env name="SESSION_DRIVER" value="array" force="true"/>
+
+        <env name="DB_CONNECTION" value="pgsql" force="true"/>
+        <env name="DB_DATABASE" value="kombo_test" force="true"/>
+        <env name="DB_USERNAME" value="kombo_app" force="true"/>
+
+        <env name="KOMBO_ROOT_DOMAIN" value="localhost" force="true"/>
+        <env name="KOMBO_DEMO_TOOLS" value="false" force="true"/>
+    </php>
+</phpunit>

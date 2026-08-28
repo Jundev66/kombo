@@ -1,0 +1,14 @@
+{
+  "name": "kombo-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report --host 0.0.0.0 reportes"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.9.0"
+  }
+}

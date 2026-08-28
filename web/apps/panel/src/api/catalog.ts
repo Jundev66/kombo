@@ -1,0 +1,111 @@
+import { api } from '@kombo/api-client'
+
+/**
+ * Lo que el panel le pide a la carta.
+ *
+ * Los importes viajan y se guardan **en centavos**, siempre. Se formatean sólo
+ * en el componente que los pinta: mandar «12,30» obligaría a re-parsearlo para
+ * sumar, que es justo donde vuelven a aparecer los errores de coma flotante.
+ */
+
+export interface Product {
+  id: string
+  name: string
+  description: string | null
+  photoUrl: string | null
+  priceCents: number
+  currency: string
+  priceUpdatedAt: string | null
+  categoryId: string | null
+  prepMinutes: number | null
+  isActive: boolean
+  tracksStock: boolean
+  stockQty: number | null
+  isSoldOut: boolean
+  sortOrder: number
+  modifierGroupIds: string[] | null
+}
+
+export interface Category {
+  id: string
+  name: string
+  sortOrder: number
+  isActive: boolean
+  productCount: number
+}
+
+export interface Modifier {
+  id: string
+  name: string
+  priceDeltaCents: number
+  isActive: boolean
+}
+
+export interface ModifierGroup {
+  id: string
+  name: string
+  minChoices: number
+  maxChoices: number
+  /** La regla ya explicada por el servidor: «Elige una opción.» */
+  rule: string
+  isActive: boolean
+  modifiers: Modifier[]
+}
+
+export interface ExchangeRate {
+  rate: number
+  source: string
+  effectiveDate: string
+  isToday: boolean
+}
+
+interface Envelope<T> {
+  data: T
+}
+
+export const catalog = {
+  products: (params?: { category?: string; buscar?: string; incluirInactivos?: boolean }) => {
+    const query = new URLSearchParams()
+    if (params?.category) query.set('category', params.category)
+    if (params?.buscar) query.set('buscar', params.buscar)
+    if (params?.incluirInactivos) query.set('incluir_inactivos', '1')
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+
+    return api.get<{ data: Product[] }>(`/catalog/products${suffix}`).then((r) => r.data)
+  },
+
+  product: (id: string) => api.get<Envelope<Product>>(`/catalog/products/${id}`).then((r) => r.data),
+
+  createProduct: (body: Record<string, unknown>) =>
+    api.post<Envelope<Product>>('/catalog/products', body).then((r) => r.data),
+
+  updateProduct: (id: string, body: Record<string, unknown>) =>
+    api.patch<Envelope<Product>>(`/catalog/products/${id}`, body).then((r) => r.data),
+
+  /**
+   * El precio tiene su propia llamada, no un campo más del formulario.
+   *
+   * Es lo que hace real el permiso aparte: alguien puede tener `catalog.manage`
+   * y no `catalog.change_price`, y para él este botón sencillamente no existe.
+   */
+  changePrice: (id: string, priceCents: number) =>
+    api.post<Envelope<Product>>(`/catalog/products/${id}/price`, { price_cents: priceCents }).then((r) => r.data),
+
+  categories: () => api.get<{ data: Category[] }>('/catalog/categories').then((r) => r.data),
+
+  createCategory: (name: string) => api.post('/catalog/categories', { name }),
+
+  deleteCategory: (id: string) => api.delete(`/catalog/categories/${id}`),
+
+  modifierGroups: () =>
+    api.get<{ data: ModifierGroup[] }>('/catalog/modifier-groups').then((r) => r.data),
+
+  createModifierGroup: (body: Record<string, unknown>) => api.post('/catalog/modifier-groups', body),
+
+  deleteModifierGroup: (id: string) => api.delete(`/catalog/modifier-groups/${id}`),
+
+  rate: () => api.get<{ data: ExchangeRate | null }>('/exchange-rate').then((r) => r.data),
+
+  setRate: (rate: number) => api.post('/exchange-rate', { rate }),
+}

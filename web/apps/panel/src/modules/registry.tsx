@@ -1,0 +1,52 @@
+import type { ModuleUi } from '@kombo/shell'
+import { CategoriesScreen } from '../screens/CategoriesScreen'
+import { ModifiersScreen } from '../screens/ModifiersScreen'
+import { ProductsScreen } from '../screens/ProductsScreen'
+import { RateScreen } from '../screens/RateScreen'
+
+/**
+ * Cómo se dibuja cada módulo en el panel. **No cuáles existen.**
+ *
+ * Un módulo que este negocio no tiene no aparece, y uno que el frontend
+ * todavía no sabe dibujar tampoco — sin romper nada. Por eso las fases que
+ * vienen se añaden aquí y en ningún otro sitio.
+ */
+export const MODULE_UI: ModuleUi[] = [
+  {
+    module: 'catalog',
+    path: '/carta',
+    permission: 'catalog.view',
+    Screen: ProductsScreen,
+    icon: '🍽️',
+    label: 'Carta',
+    primary: 1,
+  },
+  {
+    module: 'catalog',
+    path: '/categorias',
+    permission: 'catalog.manage',
+    Screen: CategoriesScreen,
+    icon: '🗂️',
+    label: 'Categorías',
+  },
+  {
+    module: 'catalog',
+    path: '/agregados',
+    permission: 'catalog.manage',
+    Screen: ModifiersScreen,
+    icon: '➕',
+    label: 'Agregados',
+  },
+  {
+    module: 'core',
+    path: '/tasa',
+    permission: 'settings.manage',
+    Screen: RateScreen,
+    icon: '💵',
+    label: 'Tasa',
+    primary: 2,
+  },
+
+  // Fase 3: pedidos · Fase 4: cocina · Fase 5: caja y notas
+  // Fase 8: equipo y configuración
+]

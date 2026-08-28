@@ -1,84 +1,82 @@
-import { Boot, logout, useSession } from '@kombo/shell'
-import { Button } from '@kombo/ui'
+import { AppShell, Boot, useSession } from '@kombo/shell'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { MODULE_UI } from './modules/registry'
+import { ProductFormScreen } from './screens/ProductFormScreen'
+import { buildMenu } from '@kombo/shell'
 
 /**
- * El panel del dueño. Por ahora, lo que la Fase 1 ya puede demostrar: que se
- * entra, que el servidor sabe quién eres y qué puedes, y que el frontend
- * pinta eso sin decidir nada.
+ * El panel del dueño.
  *
- * Las pantallas de verdad —pedidos, catálogo, equipo— llegan en su fase.
+ * `basename` es `/panel/` porque nginx sirve esta aplicación bajo esa ruta,
+ * dentro del mismo origen que el portal y la cocina. El mismo origen no es
+ * casualidad: es lo que hace que el navegador aísle el almacenamiento por
+ * negocio sin que nadie escriba una línea.
  */
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // 30 s: suficiente para que moverse entre pantallas no dispare una
+      // consulta por cada vuelta, y poco como para no trabajar sobre una carta
+      // que otro acaba de cambiar.
+      staleTime: 30_000,
+      // Un reintento. En una conexión mala, cinco sólo alargan la espera antes
+      // de decir que no se pudo.
+      retry: 1,
+    },
+  },
+})
+
 export function App() {
   return (
-    <Boot>
-      <Inicio />
-    </Boot>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter basename="/panel">
+        <Boot>
+          <AppShell registry={MODULE_UI}>
+            <PanelRoutes />
+          </AppShell>
+        </Boot>
+      </BrowserRouter>
+    </QueryClientProvider>
   )
 }
 
-function Inicio() {
+function PanelRoutes() {
   const { capabilities } = useSession()
 
-  if (capabilities?.user == null) return null
+  if (capabilities == null) return null
 
-  const { tenant, user, modules, permissions, limits, moduleNames } = capabilities
+  // Sólo se registran las rutas de los módulos que este negocio tiene y este
+  // usuario puede ver. Quien escriba `/tasa` a mano sin permiso no llega a una
+  // pantalla en gris: esa ruta no existe en su aplicación, igual que el
+  // endpoint responde 404.
+  const entries = buildMenu(MODULE_UI, capabilities)
+  const home = entries[0]?.path ?? '/sin-acceso'
 
   return (
-    <main className="mx-auto min-h-dvh max-w-2xl p-6">
-      <header className="mb-8 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--text-strong)]">{tenant?.name}</h1>
-          <p className="text-sm text-[var(--text-muted)]">
-            {user.name} · {user.isOwner ? 'Dueño' : 'Equipo'}
+    /*
+     * La `key` por usuario no es decorativa: sin ella, al cambiar de persona
+     * React no desmonta la pantalla actual —misma ruta— y la anterior sigue
+     * viendo datos que el servidor ya no le manda.
+     */
+    <Routes key={capabilities.user?.id ?? 'anonimo'}>
+      {entries.map((entry) => (
+        <Route key={entry.path} path={entry.path} element={<entry.Screen />} />
+      ))}
+
+      {/* El formulario no está en el menú: se llega desde la carta. */}
+      <Route path="/carta/nuevo" element={<ProductFormScreen />} />
+      <Route path="/carta/:id" element={<ProductFormScreen />} />
+
+      <Route path="/" element={<Navigate to={home} replace />} />
+      <Route
+        path="*"
+        element={
+          <p className="py-12 text-center text-[var(--text-muted)]">
+            Esa pantalla no existe para tu negocio.
           </p>
-        </div>
-        <Button variant="secondary" size="sm" onClick={() => void logout()}>
-          Salir
-        </Button>
-      </header>
-
-      {tenant?.needsAttention === true && (
-        <p
-          role="alert"
-          className="mb-6 rounded-[var(--radius-md)] bg-warn-50 p-3 text-sm text-warn-700"
-        >
-          Tu cuenta necesita atención. Revisa el pago para no quedarte en sólo lectura.
-        </p>
-      )}
-
-      <section className="mb-6">
-        <h2 className="mb-2 text-sm font-semibold text-[var(--text-muted)]">Lo que tienes</h2>
-        <ul className="flex flex-wrap gap-2">
-          {modules.map((code) => (
-            <li
-              key={code}
-              className="rounded-[var(--radius-md)] bg-[var(--surface-raised)] px-3 py-1.5 text-sm"
-            >
-              {moduleNames[code] ?? code}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="mb-6">
-        <h2 className="mb-2 text-sm font-semibold text-[var(--text-muted)]">Lo que puedes hacer</h2>
-        <ul className="flex flex-wrap gap-2">
-          {permissions.map((permission) => (
-            <li key={permission} className="font-mono text-xs text-[var(--text-muted)]">
-              {permission}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section>
-        <h2 className="mb-2 text-sm font-semibold text-[var(--text-muted)]">Tu plan</h2>
-        <p className="text-sm">
-          {/* `null` es ilimitado, nunca cero. */}
-          Hasta {limits.maxUsers ?? '∞'} personas en el equipo ·{' '}
-          {limits.maxProducts ?? '∞'} productos
-        </p>
-      </section>
-    </main>
+        }
+      />
+    </Routes>
   )
 }

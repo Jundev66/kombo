@@ -25,11 +25,14 @@ test('cada negocio tiene su propia pantalla de entrar', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Pizzería La Esquina' })).toBeVisible()
 })
 
-test('la dueña entra y ve su negocio', async ({ page }) => {
+test('la dueña entra y ve su negocio y su nombre', async ({ page }) => {
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
 
-  await expect(page.getByRole('heading', { name: 'Arepera El Sazón' })).toBeVisible()
-  await expect(page.getByText('María · Dueño')).toBeVisible()
+  // En la cabecera del armazón, no en un encabezado de página: quién eres y
+  // dónde estás tienen que verse desde cualquier pantalla, no sólo desde la
+  // primera.
+  await expect(page.getByText('Arepera El Sazón')).toBeVisible()
+  await expect(page.getByText('María')).toBeVisible()
 })
 
 test('una contraseña que no es, no entra', async ({ page }) => {
@@ -43,21 +46,37 @@ test('una contraseña que no es, no entra', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Salir' })).toBeHidden()
 })
 
-test('lo que se ve en pantalla es lo que dijo el servidor', async ({ page }) => {
-  // Afirmar la CAUSA además del síntoma. Una prueba que sólo mira la pantalla
-  // pasaría en verde con los permisos pintados a mano en React.
+test('el menú lo decide el servidor, no una lista escrita en React', async ({ page }) => {
+  // Afirmar la CAUSA además del síntoma: una prueba que sólo mirase la pantalla
+  // pasaría en verde con el menú pintado a mano.
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
 
-  const capacidades = await apiFetch<{ user: { name: string }; modules: string[] }>(
-    page,
-    '/api/v1/me',
-  )
+  const capacidades = await apiFetch<{
+    user: { name: string }
+    permissions: string[]
+  }>(page, '/api/v1/me')
 
   expect(capacidades.user.name).toBe('María')
 
-  for (const modulo of capacidades.modules) {
-    await expect(page.getByText(modulo === 'core' ? 'Configuración' : modulo)).toBeVisible()
-  }
+  const nav = page.getByRole('navigation', { name: 'Secciones' }).first()
+
+  // La dueña puede gestionar la carta y la configuración, así que las ve.
+  expect(capacidades.permissions).toContain('catalog.view')
+  await expect(nav.getByRole('link', { name: 'Carta' })).toBeVisible()
+
+  expect(capacidades.permissions).toContain('settings.manage')
+  await expect(nav.getByRole('link', { name: 'Tasa' })).toBeVisible()
+})
+
+test('la cocina no ve las secciones que no le tocan', async ({ page }) => {
+  // Carlos sólo tiene la pantalla de comandas. Nada de carta ni de tasa: lo
+  // que no aplica NO EXISTE, no aparece en gris.
+  await signIn(page, TENANTS.arepera, 'carlos@elsazon.test')
+
+  const nav = page.getByRole('navigation', { name: 'Secciones' }).first()
+
+  await expect(nav.getByRole('link', { name: 'Carta' })).toBeHidden()
+  await expect(nav.getByRole('link', { name: 'Tasa' })).toBeHidden()
 })
 
 test('salir deja la sesión cerrada de verdad', async ({ page }) => {

@@ -65,6 +65,17 @@ final class TenantSchema
         'subscription_payments',
         'platform_users',
         'platform_audit_log',
+
+        /*
+         * La guía telefónica de los webhooks.
+         *
+         * Un mensaje que llega de Meta no trae subdominio: llega a una URL
+         * común con el identificador del número dentro. Hay que saber de qué
+         * negocio es ANTES de poder consultar nada suyo, que es justo lo que
+         * RLS impide sin contexto. Aquí no hay ni credenciales ni mensajes:
+         * sólo «este número es de este negocio».
+         */
+        'channel_routes',
     ];
 
     /**

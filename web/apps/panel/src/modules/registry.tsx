@@ -1,5 +1,6 @@
 import type { ModuleUi } from '@kombo/shell'
 import { CategoriesScreen } from '../screens/CategoriesScreen'
+import { ChannelsScreen } from '../screens/ChannelsScreen'
 import { ModifiersScreen } from '../screens/ModifiersScreen'
 import { OrdersScreen } from '../screens/OrdersScreen'
 import { ProductsScreen } from '../screens/ProductsScreen'
@@ -59,6 +60,14 @@ export const MODULE_UI: ModuleUi[] = [
     label: 'Zonas',
   },
   {
+    module: 'channels',
+    path: '/canales',
+    permission: 'channels.view',
+    Screen: ChannelsScreen,
+    icon: '💬',
+    label: 'WhatsApp',
+  },
+  {
     module: 'core',
     path: '/tasa',
     permission: 'settings.manage',
@@ -68,6 +77,5 @@ export const MODULE_UI: ModuleUi[] = [
     primary: 3,
   },
 
-  // Fase 6: portal · Fase 7: canales
   // Fase 8: equipo y configuración
 ]

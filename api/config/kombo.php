@@ -41,4 +41,15 @@ return [
      */
     'tenant_cache_ttl' => (int) env('KOMBO_TENANT_CACHE_TTL', 3600),
 
+    /*
+     * La dirección pública del portal de un negocio, con `{slug}` donde va el
+     * suyo.
+     *
+     * Hace falta porque los enlaces que manda el bot se arman FUERA de una
+     * petición HTTP: un aviso de «tu pedido está listo» sale de la cola, donde
+     * no hay `Host` del que deducir nada. Poner ahí `url()` daría la dirección
+     * del último trabajo que corrió, que puede ser de otro negocio.
+     */
+    'public_url' => env('KOMBO_PUBLIC_URL', 'http://{slug}.localhost:8010'),
+
 ];

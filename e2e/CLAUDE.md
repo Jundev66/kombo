@@ -78,3 +78,17 @@ etiqueta de la imagen en `compose.yml`. Una diferencia se manifiesta como un
 fallo de protocolo a mitad de prueba, que parece intermitencia y no lo es.
 
 Trazas en `resultados/`, informe en `reportes/`.
+
+## Dos trampas que cuestan una tarde
+
+**No esperes a un estado que ya podía estar puesto.** La base NO se rehace entre
+corridas: si una prueba conecta un canal y espera a que diga «Conectado», y una
+corrida anterior ya lo dejó conectado, la aserción pasa al instante y lo que
+venga después corre contra datos viejos. Se espera a algo que **sólo puede pasar
+por lo que hizo esta prueba** — que el formulario se cierre, por ejemplo.
+
+**Lo que se procesa en la cola se espera con `expect.poll`, no con un sleep.** Y
+se espera al RESULTADO final, no a un paso intermedio: esperar a que exista la
+conversación y leer sus mensajes acto seguido deja unos milisegundos en los que
+la respuesta del bot todavía no está escrita. Es una prueba intermitente
+esperando a que alguien la maldiga.

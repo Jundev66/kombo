@@ -250,6 +250,24 @@ crea el horario junto con el negocio.
 servidor.** `Carbon::now($tenant->timezone)`. Un contenedor en UTC cierra la
 arepera de Caracas cuatro horas antes.
 
+**Entrar en un negocio son TRES cosas, no una**: el parámetro de PostgreSQL
+(para RLS), `TenantContext` (para el ámbito global de Eloquent) y olvidar las
+capacidades memorizadas. Con sólo la primera, el SQL crudo funciona y Eloquent
+devuelve cero filas. Fuera de una petición HTTP —colas, tareas, webhooks— se usa
+`TenantSession::within()`, que además **restaura** el negocio anterior en vez de
+limpiarlo: un oyente que entra a otro negocio en mitad de una petición dejaba a
+esa petición sin contexto, y el síntoma era un 404 sin relación aparente.
+
+**Cachear el «no lo conozco» tiene fecha de caducidad corta.** El resolutor de
+webhooks guarda la ausencia sólo diez segundos: si un negocio conecta su canal
+justo después de que alguien preguntara por ese número, una hora de caché
+negativa lo deja **una hora sin recibir un solo mensaje**, sin ningún error a la
+vista.
+
+**Las marcas de tiempo se guardan con precisión de SEGUNDOS.** Dos mensajes del
+mismo segundo —el bot contestando— empatan al ordenar por `created_at`. Se
+desempata por `id`, que es un uuid7 y lleva el tiempo dentro.
+
 ---
 
 ## 9. Convenciones

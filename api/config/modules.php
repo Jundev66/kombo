@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Modules\Catalog\CatalogModule;
+use Modules\Channels\ChannelsModule;
 use Modules\Core\CoreModule;
 use Modules\Counter\CounterModule;
 use Modules\Delivery\DeliveryModule;
@@ -37,8 +38,8 @@ return [
         CounterModule::class,
         DeliveryModule::class,
         PortalModule::class,
+        ChannelsModule::class,
 
-        // Fase 7: ChannelsModule
         // Fase 9: ReportsModule
     ],
 ];

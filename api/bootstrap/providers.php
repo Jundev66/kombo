@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Providers\AppServiceProvider;
 use Modules\Catalog\CatalogServiceProvider;
+use Modules\Channels\ChannelsServiceProvider;
 use Modules\Counter\CounterServiceProvider;
 use Modules\Delivery\DeliveryServiceProvider;
 use Modules\Documents\DocumentsServiceProvider;
@@ -32,6 +33,7 @@ return [
     CounterServiceProvider::class,
     DeliveryServiceProvider::class,
     PortalServiceProvider::class,
+    ChannelsServiceProvider::class,
 
     AppServiceProvider::class,
 ];

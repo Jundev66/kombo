@@ -11,6 +11,7 @@ use Modules\Catalog\Application\Contracts\ProductCatalog;
 use Modules\Orders\Application\Exceptions\OrderMovedByOther;
 use Modules\Orders\Application\Exceptions\OrderNotFound;
 use Modules\Orders\Domain\Events\ConfirmedOrderLine;
+use Modules\Orders\Domain\Events\OrderAdvanced;
 use Modules\Orders\Domain\Events\OrderConfirmed;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Platform\Audit\AuditLogger;
@@ -92,6 +93,21 @@ final class AdvanceOrder
         if ($next === OrderStatus::Confirmed) {
             $this->events->dispatch($this->confirmedEvent($model, $byName));
         }
+
+        /*
+         * Y el aviso delgado, para todo lo demás: el mensaje al cliente, y
+         * mañana los reportes de cuánto se tarda entre paso y paso.
+         *
+         * Delgado a propósito: cargar las líneas de un pedido cada vez que
+         * alguien toca «Entregado» sería trabajo para que no lo lea nadie.
+         */
+        $this->events->dispatch(new OrderAdvanced(
+            tenantId: $this->context->id(),
+            orderId: $orderId,
+            number: (int) $model->number,
+            status: $next->value,
+            previousStatus: $current->value,
+        ));
 
         return $model->refresh();
     }

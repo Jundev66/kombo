@@ -119,14 +119,17 @@ it('las etiquetas del menú salen del manifiesto, no de una lista en React', fun
         ->assertJsonPath('moduleNames.core', 'Configuración');
 });
 
-it('un módulo apagado no aparece en las capacidades', function (): void {
+it('los módulos de núcleo no se apagan, ni escribiendo en la tabla', function (): void {
     DB::table('tenant_modules')
         ->where('tenant_id', $this->tenant)
-        ->where('module_code', 'core')
         ->update(['enabled' => false]);
 
-    // El núcleo es la excepción: no depende del plan y no se apaga. Es lo
-    // mínimo sin lo cual el sistema no es un sistema.
-    $this->getJson(urlFor($this->slug, '/api/v1/me'))
-        ->assertJsonPath('modules', ['core']);
+    // El núcleo no depende del plan y no se apaga: es lo mínimo sin lo cual el
+    // sistema no es un sistema. Se comprueba por contenido y no por igualdad
+    // exacta para que añadir un módulo de núcleo en una fase futura no rompa
+    // esta prueba por una razón que no tiene nada que ver con lo que vigila.
+    $modules = $this->getJson(urlFor($this->slug, '/api/v1/me'))->json('modules');
+
+    expect($modules)->toContain('core')
+        ->and($modules)->toContain('catalog');
 });

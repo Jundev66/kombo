@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Providers\AppServiceProvider;
+use Modules\Catalog\CatalogServiceProvider;
 use Platform\PlatformServiceProvider;
 
 /*
@@ -19,6 +20,8 @@ use Platform\PlatformServiceProvider;
  */
 return [
     PlatformServiceProvider::class,
+
+    CatalogServiceProvider::class,
 
     AppServiceProvider::class,
 ];

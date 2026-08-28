@@ -35,6 +35,16 @@ final class CoreModule extends ModuleManifest
         return true;
     }
 
+    public function routes(): ?string
+    {
+        return __DIR__.'/Interfaces/Http/Routes/api.php';
+    }
+
+    public function migrations(): ?string
+    {
+        return __DIR__.'/Infrastructure/Migrations';
+    }
+
     /**
      * @return list<string>
      */

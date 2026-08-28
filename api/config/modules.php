@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Modules\Catalog\CatalogModule;
 use Modules\Core\CoreModule;
 
 return [
@@ -21,8 +22,8 @@ return [
     'manifests' => [
         // Núcleo. Siempre encendido, no depende del plan, no se apaga.
         CoreModule::class,
+        CatalogModule::class,
 
-        // Fase 2: CatalogModule
         // Fase 3: OrdersModule
         // Fase 4: KitchenModule
         // Fase 5: CounterModule, DocumentsModule

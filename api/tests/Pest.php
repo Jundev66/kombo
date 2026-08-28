@@ -8,8 +8,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Platform\Auth\RoleCatalog;
+use Platform\Capabilities\CurrentCapabilities;
 use Platform\Modules\ModuleRegistry;
 use Platform\Tenancy\Database\TenantSchema;
+use Platform\Tenancy\Tenant;
+use Platform\Tenancy\TenantContext;
+use Platform\Tenancy\TenantStatus;
 use Tests\TestCase;
 
 /*
@@ -47,16 +51,37 @@ pest()->group('isolation')->in('Isolation');
  * eso es correcto — no es un estorbo del helper.
  */
 
-/** Fija el negocio en curso para esta conexión. */
+/**
+ * Fija el negocio en curso, en las DOS capas.
+ *
+ * `ResolveTenant` hace exactamente esto en cada petición, y hacen falta las
+ * dos: PostgreSQL para que RLS filtre, y `TenantContext` para que el trait
+ * `BelongsToTenant` sepa qué `tenant_id` poner al crear. Fijar sólo una deja
+ * un entorno que no se parece a ninguna petición real.
+ */
 function actingForTenant(string $tenantId): void
 {
     DB::statement('select set_config(?, ?, false)', [TenantSchema::GUC, $tenantId]);
+
+    app(TenantContext::class)->set(new Tenant(
+        id: $tenantId,
+        slug: 'pruebas',
+        name: 'Pruebas',
+        planCode: 'negocio',
+        status: TenantStatus::Active,
+    ));
+
+    // Las capacidades se memorizan por petición; en una prueba que cambia de
+    // negocio a media función, esa memoria sería del negocio anterior.
+    app(CurrentCapabilities::class)->reset();
 }
 
 /** Deja la conexión SIN negocio, como quedaría al devolverla al pool. */
 function withoutTenant(): void
 {
     DB::statement('select set_config(?, ?, false)', [TenantSchema::GUC, '']);
+    app(TenantContext::class)->forget();
+    app(CurrentCapabilities::class)->reset();
 }
 
 /**

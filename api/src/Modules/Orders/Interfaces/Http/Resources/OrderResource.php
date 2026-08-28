@@ -107,7 +107,21 @@ final class OrderResource
             'method' => $payment->method,
             'amountCents' => $payment->amount_cents,
             'reference' => $payment->reference,
-            'receiptUrl' => $payment->receipt_url,
+
+            /*
+             * La RUTA del archivo no sale de aquí.
+             *
+             * Lo que viaja es si hay comprobante y por dónde pedirlo: una
+             * dirección de la API que comprueba permiso y negocio antes de
+             * servir la foto. Mandar la ruta del disco sería invitar a que
+             * alguien construya con ella una URL directa el día que a alguien
+             * se le ocurra publicar la carpeta.
+             */
+            'hasReceipt' => $payment->receipt_url !== null,
+            'receiptUrl' => $payment->receipt_url === null
+                ? null
+                : "/api/v1/orders/{$payment->order_id}/payments/{$payment->id}/receipt",
+
             'status' => $payment->status,
             'confirmedAt' => $payment->confirmed_at?->toAtomString(),
         ];

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Kombo">
+  <!--
+    Un icono genérico y neutro: el que se instala de verdad lo pone el negocio
+    con su logo. Este es el que se ve mientras no lo haya, y por eso no dice
+    «Kombo» en la pantalla de inicio de nadie: quien instala esto está
+    instalando la arepera de su barrio, no nuestra plataforma.
+  -->
+  <rect width="512" height="512" rx="112" fill="#1f6f4a" />
+  <path
+    d="M150 200h212a16 16 0 0 1 16 18l-16 132a40 40 0 0 1-40 34H190a40 40 0 0 1-40-34l-16-132a16 16 0 0 1 16-18Z"
+    fill="#ffffff"
+  />
+  <path
+    d="M200 200c0-31 25-56 56-56s56 25 56 56"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="26"
+    stroke-linecap="round"
+  />
+</svg>

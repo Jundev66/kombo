@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Modules\Orders\Interfaces\Http\Controllers\OrderController;
+use Modules\Orders\Interfaces\Http\Controllers\ReceiptViewController;
 
 Route::prefix('api/v1')
     ->middleware(['api', 'auth:sanctum', 'module:orders'])
@@ -38,5 +39,13 @@ Route::prefix('api/v1')
         // Dar por bueno un pago móvil mirando el comprobante. Es una decisión
         // sobre dinero, así que va con su propio permiso.
         Route::post('/orders/{id}/payments/{paymentId}/confirm', [OrderController::class, 'confirmPayment'])
+            ->middleware('permission:payments.confirm');
+
+        /*
+         * La foto del comprobante, servida por el controlador y no como
+         * archivo suelto: lleva el nombre de quien pagó, su cédula y el saldo
+         * de su cuenta, así que verla exige el mismo permiso que confirmarla.
+         */
+        Route::get('/orders/{id}/payments/{paymentId}/receipt', ReceiptViewController::class)
             ->middleware('permission:payments.confirm');
     });

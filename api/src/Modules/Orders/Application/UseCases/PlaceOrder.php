@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Orders\Application\UseCases;
 
 use App\Models\Orders\OrderModel;
+use DateTimeImmutable;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Support\Str;
 use Modules\Catalog\Application\Contracts\ModifierCatalog;
@@ -52,6 +53,9 @@ final class PlaceOrder
         int $deliveryFeeCents = 0,
         ?string $notes = null,
         bool $awaitingPayment = false,
+        ?string $deliveryZoneId = null,
+        ?string $deliveryZoneName = null,
+        ?DateTimeImmutable $expiresAt = null,
     ): OrderModel {
         $lines = $this->resolveLines($items);
 
@@ -69,7 +73,8 @@ final class PlaceOrder
         $rate = $this->currentRate();
 
         return $this->db->transaction(function () use (
-            $order, $channel, $customerName, $customerPhone, $deliveryAddress, $rate
+            $order, $channel, $customerName, $customerPhone, $deliveryAddress, $rate,
+            $deliveryZoneId, $deliveryZoneName, $expiresAt
         ): OrderModel {
             $model = new OrderModel;
             $model->id = $order->id;
@@ -83,6 +88,10 @@ final class PlaceOrder
                 'customer_name' => $customerName,
                 'customer_phone' => $customerPhone,
                 'delivery_address' => $deliveryAddress,
+                'delivery_zone_id' => $deliveryZoneId,
+                // COPIADO: un pedido de hace dos meses tiene que decir a qué
+                // barrio fue aunque la zona ya no exista.
+                'delivery_zone_name' => $deliveryZoneName,
                 'subtotal_cents' => $order->subtotal()->cents,
                 'delivery_fee_cents' => $order->deliveryFee()->cents,
                 'total_cents' => $order->total()->cents,
@@ -92,6 +101,9 @@ final class PlaceOrder
                 'exchange_rate' => $rate,
                 'notes' => $order->notes(),
                 'placed_at' => $order->stampedAt('placed_at'),
+                // Sólo lo llevan los que esperan un pago. Un pedido ya pagado
+                // no caduca.
+                'expires_at' => $expiresAt,
                 'created_by' => auth()->id(),
             ]);
             $model->save();
@@ -127,7 +139,10 @@ final class PlaceOrder
                 after: ['number' => $model->number, 'total_cents' => $order->total()->cents],
             );
 
-            return $model;
+            // Se relee: columnas como `payment_status` las pone la base con su
+            // valor por defecto, y un modelo a medio llenar obliga a quien lo
+            // recibe a adivinar cuáles faltan.
+            return $model->refresh();
         });
     }
 

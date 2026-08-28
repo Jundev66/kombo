@@ -21,6 +21,13 @@ export interface OrderPayment {
   method: string
   amountCents: number
   reference: string | null
+  /** Si el cliente mandó la foto de su pago móvil. */
+  hasReceipt: boolean
+  /**
+   * Dónde pedirla. No es la ruta del archivo: es una dirección de la API que
+   * comprueba permiso y negocio antes de servir la imagen.
+   */
+  receiptUrl: string | null
   status: 'pending_review' | 'confirmed' | 'rejected'
   confirmedAt: string | null
 }

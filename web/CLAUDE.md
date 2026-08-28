@@ -19,6 +19,11 @@ puede leer lo que guardó la de otro sin que nadie escriba una línea.
 Builds separados por rol y no una sola aplicación con rutas: el cocinero no
 tiene por qué descargar el panel de reportes para ver tres comandas.
 
+**El portal es el único que se usa sin sesión**, y el único instalable: manifest,
+service worker propio de cuarenta líneas, y una regla que no se negocia —**la API
+nunca se cachea**—. Una carta guardada de ayer vende a precios de ayer, y un
+pedido «en camino» que llegó hace media hora es peor que no decir nada.
+
 **La caja y la cocina comparten puerta**: `TerminalGate` en `@kombo/shell`, con
 sus dos pasos —alta del aparato con correo y contraseña, y PIN de la persona—.
 Es una sola implementación a propósito: dos copias de una puerta acaban

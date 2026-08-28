@@ -5,8 +5,10 @@ declare(strict_types=1);
 use App\Providers\AppServiceProvider;
 use Modules\Catalog\CatalogServiceProvider;
 use Modules\Counter\CounterServiceProvider;
+use Modules\Delivery\DeliveryServiceProvider;
 use Modules\Documents\DocumentsServiceProvider;
 use Modules\Kitchen\KitchenServiceProvider;
+use Modules\Portal\PortalServiceProvider;
 use Platform\PlatformServiceProvider;
 
 /*
@@ -28,6 +30,8 @@ return [
     KitchenServiceProvider::class,
     DocumentsServiceProvider::class,
     CounterServiceProvider::class,
+    DeliveryServiceProvider::class,
+    PortalServiceProvider::class,
 
     AppServiceProvider::class,
 ];

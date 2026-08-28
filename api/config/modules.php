@@ -5,9 +5,11 @@ declare(strict_types=1);
 use Modules\Catalog\CatalogModule;
 use Modules\Core\CoreModule;
 use Modules\Counter\CounterModule;
+use Modules\Delivery\DeliveryModule;
 use Modules\Documents\DocumentsModule;
 use Modules\Kitchen\KitchenModule;
 use Modules\Orders\OrdersModule;
+use Modules\Portal\PortalModule;
 
 return [
     /*
@@ -33,8 +35,9 @@ return [
         KitchenModule::class,
         DocumentsModule::class,
         CounterModule::class,
+        DeliveryModule::class,
+        PortalModule::class,
 
-        // Fase 6: DeliveryModule
         // Fase 7: ChannelsModule
         // Fase 9: ReportsModule
     ],

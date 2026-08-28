@@ -1,7 +1,6 @@
-import { Button, formatUsd } from '@kombo/ui'
+import { Button, Sheet, formatUsd } from '@kombo/ui'
 import { useState } from 'react'
 import type { Modifier, ModifierGroup, Product } from './api'
-import { Sheet } from './Sheet'
 
 /**
  * Los agregados de un producto.

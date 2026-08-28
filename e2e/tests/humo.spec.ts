@@ -16,9 +16,13 @@ import { apiStatus } from '../support/api'
 test('el subdominio de un negocio sirve su portal', async ({ page }) => {
   await page.goto(portalOf(TENANTS.arepera))
 
+  // El portal se presenta con el nombre del NEGOCIO, no con el de la
+  // plataforma: quien llega por un enlace de WhatsApp tiene que reconocer al
+  // sitio donde come, no enterarse de qué software usan.
+  //
   // Por rol y por texto visible, nunca por clase ni por data-testid: si un
   // control no se alcanza así, el arreglo está en el componente.
-  await expect(page.getByRole('heading', { name: 'Pedir' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Arepera El Sazón' })).toBeVisible()
 })
 
 /*
@@ -57,7 +61,9 @@ test('otro negocio entra por su propio subdominio, sin parámetros', async ({ pa
   // que dar de alta un cliente cuesta una fila en `tenants`.
   await page.goto(portalOf(TENANTS.pizzeria))
 
-  await expect(page.getByRole('heading', { name: 'Pedir' })).toBeVisible()
+  // Y sirve LA SUYA: el mismo código, otro negocio, sin un parámetro de por
+  // medio.
+  await expect(page.getByRole('heading', { name: 'Pizzería La Esquina' })).toBeVisible()
 })
 
 test('la API responde por el mismo origen que el portal', async ({ page }) => {

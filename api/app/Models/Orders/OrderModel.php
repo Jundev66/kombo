@@ -20,6 +20,7 @@ use Platform\Tenancy\Concerns\UsesUuidV7;
 #[Fillable([
     'number', 'public_token', 'status', 'service_type', 'channel',
     'customer_name', 'customer_phone', 'delivery_address',
+    'delivery_zone_id', 'delivery_zone_name', 'expires_at',
     'subtotal_cents', 'delivery_fee_cents', 'total_cents', 'currency', 'exchange_rate',
     'paid_cents', 'payment_status', 'notes', 'cancellation_reason',
     'placed_at', 'confirmed_at', 'preparing_at', 'ready_at',
@@ -49,6 +50,7 @@ class OrderModel extends Model
             'out_for_delivery_at' => 'immutable_datetime',
             'delivered_at' => 'immutable_datetime',
             'cancelled_at' => 'immutable_datetime',
+            'expires_at' => 'immutable_datetime',
         ];
     }
 

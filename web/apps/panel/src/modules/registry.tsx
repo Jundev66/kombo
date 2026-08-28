@@ -4,6 +4,7 @@ import { ModifiersScreen } from '../screens/ModifiersScreen'
 import { OrdersScreen } from '../screens/OrdersScreen'
 import { ProductsScreen } from '../screens/ProductsScreen'
 import { RateScreen } from '../screens/RateScreen'
+import { ZonesScreen } from '../screens/ZonesScreen'
 
 /**
  * Cómo se dibuja cada módulo en el panel. **No cuáles existen.**
@@ -50,6 +51,14 @@ export const MODULE_UI: ModuleUi[] = [
     label: 'Agregados',
   },
   {
+    module: 'delivery',
+    path: '/zonas',
+    permission: 'delivery.manage',
+    Screen: ZonesScreen,
+    icon: '🛵',
+    label: 'Zonas',
+  },
+  {
     module: 'core',
     path: '/tasa',
     permission: 'settings.manage',
@@ -59,6 +68,6 @@ export const MODULE_UI: ModuleUi[] = [
     primary: 3,
   },
 
-  // Fase 4: cocina · Fase 5: caja y notas
+  // Fase 6: portal · Fase 7: canales
   // Fase 8: equipo y configuración
 ]

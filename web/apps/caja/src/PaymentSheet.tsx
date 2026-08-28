@@ -1,8 +1,7 @@
 import { ApiError } from '@kombo/api-client'
-import { Button, Field, Input, Money, formatUsd, parseAmount, toAmountInput } from '@kombo/ui'
+import { Button, Field, Input, Money, Sheet, formatUsd, parseAmount, toAmountInput } from '@kombo/ui'
 import { useState } from 'react'
 import { NEEDS_REFERENCE, PAYMENT_METHODS, paymentLabel, type SalePayment } from './api'
-import { Sheet } from './Sheet'
 
 /**
  * Cobrar.

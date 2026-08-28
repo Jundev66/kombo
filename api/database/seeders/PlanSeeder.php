@@ -35,7 +35,10 @@ class PlanSeeder extends Seeder
                 'max_products' => 60,
                 'max_orders_month' => 300,
                 'trial_days' => null,
-                'modules' => ['catalog', 'orders', 'kitchen'],
+                // El portal va también en el plan gratis: es cómo un negocio
+                // pequeño empieza a recibir pedidos, y cobrarlo aparte sería
+                // cobrar por lo básico.
+                'modules' => ['catalog', 'orders', 'kitchen', 'portal'],
             ],
             [
                 'code' => 'negocio',
@@ -47,7 +50,7 @@ class PlanSeeder extends Seeder
                 'max_products' => null,
                 'max_orders_month' => null,
                 'trial_days' => 30,
-                'modules' => ['catalog', 'orders', 'kitchen', 'counter', 'documents', 'delivery', 'channels', 'reports'],
+                'modules' => ['catalog', 'orders', 'kitchen', 'portal', 'counter', 'documents', 'delivery', 'channels', 'reports'],
             ],
             [
                 'code' => 'completo',
@@ -59,7 +62,7 @@ class PlanSeeder extends Seeder
                 'max_products' => null,
                 'max_orders_month' => null,
                 'trial_days' => 30,
-                'modules' => ['catalog', 'orders', 'kitchen', 'counter', 'documents', 'delivery', 'channels', 'reports', 'customers'],
+                'modules' => ['catalog', 'orders', 'kitchen', 'portal', 'counter', 'documents', 'delivery', 'channels', 'reports', 'customers'],
             ],
         ];
 

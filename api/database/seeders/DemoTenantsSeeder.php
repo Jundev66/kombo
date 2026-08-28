@@ -78,6 +78,12 @@ class DemoTenantsSeeder extends Seeder
         $guard->apply($tenantId);
 
         $this->modulos($tenantId, $plan);
+        $this->horario($tenantId);
+        $this->ajustesDelPortal($tenantId);
+
+        if ($slug === 'elsazon') {
+            $this->zonas($tenantId);
+        }
 
         $rolesUsados = array_unique(array_column($equipo, 2));
         $roles = [];
@@ -141,6 +147,68 @@ class DemoTenantsSeeder extends Seeder
                 'module_code' => $module,
                 'enabled' => true,
                 'enabled_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    }
+
+    /**
+     * El horario, sin el cual el portal no acepta ni un pedido.
+     *
+     * Un día sin fila configurada está CERRADO —es el fallo seguro—, así que un
+     * negocio de demostración sin horario parecería roto: la carta se ve, y
+     * pedir contesta que está cerrado a cualquier hora.
+     */
+    private function horario(string $tenantId): void
+    {
+        for ($weekday = 0; $weekday <= 6; $weekday++) {
+            DB::table('business_hours')->insertOrIgnore([
+                'id' => (string) Str::uuid7(),
+                'tenant_id' => $tenantId,
+                'weekday' => $weekday,
+                'opens_at' => '08:00',
+                // Hasta la una de la madrugada: además de ser el horario de
+                // media comida rápida, deja probado el turno que cruza la
+                // medianoche.
+                'closes_at' => '01:00',
+                'is_closed' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    }
+
+    /** Sin estos datos el portal no ofrece pago móvil, y hace bien. */
+    private function ajustesDelPortal(string $tenantId): void
+    {
+        DB::table('tenant_settings')->insertOrIgnore([
+            'id' => (string) Str::uuid7(),
+            'tenant_id' => $tenantId,
+            'key' => 'portal.pago_movil_details',
+            'value' => 'Banco de Venezuela · 0102 · C.I. V-12.345.678 · 0414-1234567',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function zonas(string $tenantId): void
+    {
+        $zonas = [
+            ['El Centro', 100, 20],
+            ['Los Palos Grandes', 200, 30],
+            ['La Urbina', 300, 45],
+        ];
+
+        foreach ($zonas as $orden => [$nombre, $tarifa, $minutos]) {
+            DB::table('delivery_zones')->insertOrIgnore([
+                'id' => (string) Str::uuid7(),
+                'tenant_id' => $tenantId,
+                'name' => $nombre,
+                'fee_cents' => $tarifa,
+                'estimated_minutes' => $minutos,
+                'is_active' => true,
+                'sort_order' => $orden,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);

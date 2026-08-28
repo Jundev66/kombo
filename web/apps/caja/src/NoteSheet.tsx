@@ -1,9 +1,8 @@
 import { ApiError } from '@kombo/api-client'
 import type { Staff } from '@kombo/shell'
-import { Button, Field, Input, Select, formatBs, formatUsd } from '@kombo/ui'
+import { Button, Field, Input, Select, Sheet, formatBs, formatUsd } from '@kombo/ui'
 import { useEffect, useState } from 'react'
 import { counter, paymentLabel, type DeliveryNote } from './api'
-import { Sheet } from './Sheet'
 
 /**
  * La nota de entrega, tal como se le entrega al cliente.

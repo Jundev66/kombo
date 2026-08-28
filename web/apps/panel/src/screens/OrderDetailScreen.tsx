@@ -202,6 +202,21 @@ export function OrderDetailScreen() {
                     {pago.reference != null && (
                       <p className="text-xs text-[var(--text-muted)]">Ref. {pago.reference}</p>
                     )}
+
+                    {/* La foto que mandó el cliente. Se abre aparte, y detrás
+                        hay una ruta de la API que comprueba permiso y negocio
+                        antes de servirla: un comprobante lleva la cédula y el
+                        saldo de quien pagó. */}
+                    {pago.hasReceipt && pago.receiptUrl != null && (
+                      <a
+                        href={pago.receiptUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-medium text-accent-600 underline-offset-2 hover:underline"
+                      >
+                        Ver el comprobante
+                      </a>
+                    )}
                   </div>
 
                   {pago.status === 'confirmed' ? (

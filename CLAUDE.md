@@ -237,7 +237,18 @@ fallo aparece en el peor sitio: con un cliente delante.
 **La carta viene paginada** (`catalog.page_size`, 50 por defecto). Cualquier
 pantalla que necesite la carta ENTERA —la caja— tiene que seguir las páginas.
 Un producto que no está en la cuadrícula es un producto que no se puede vender,
-y el cajero no tiene forma de saber que le falta.
+y el cajero no tiene forma de saber que le falta. (El portal no: su `/portal/menu`
+devuelve la carta completa, porque el cliente hace scroll, no pasa páginas.)
+
+**Sin `business_hours`, el portal no acepta NI UN pedido.** Un día sin fila
+configurada está cerrado, y es el fallo seguro: un pedido de un día que nadie
+configuró llega a una cocina apagada. El síntoma engaña —la carta se ve, y pedir
+contesta «está cerrado» a cualquier hora—, así que la siembra de demostración
+crea el horario junto con el negocio.
+
+**Un estado que depende del negocio se resuelve con SU hora, no con la del
+servidor.** `Carbon::now($tenant->timezone)`. Un contenedor en UTC cierra la
+arepera de Caracas cuatro horas antes.
 
 ---
 

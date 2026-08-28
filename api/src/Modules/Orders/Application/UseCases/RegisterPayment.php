@@ -33,17 +33,30 @@ final class RegisterPayment
         private readonly AuditLogger $audit,
     ) {}
 
+    /**
+     * @param  bool  $verifiedInPerson  Lo da por bueno quien está cobrando.
+     *                                  En el mostrador el cajero mira la
+     *                                  notificación en su teléfono ANTES de
+     *                                  entregar la comida: ese acto es la
+     *                                  confirmación, y dejar el pago esperando
+     *                                  revisión imprimiría una nota que dice
+     *                                  que el cliente todavía debe. En el
+     *                                  portal es al revés —el comprobante lo
+     *                                  sube el cliente— y por eso el valor por
+     *                                  defecto es que no.
+     */
     public function execute(
         string $orderId,
         string $method,
         int $amountCents,
         ?string $reference = null,
         ?string $receiptUrl = null,
+        bool $verifiedInPerson = false,
     ): OrderModel {
         $order = OrderModel::find($orderId) ?? throw new OrderNotFound;
 
-        return $this->db->transaction(function () use ($order, $method, $amountCents, $reference, $receiptUrl): OrderModel {
-            $confirmedNow = in_array($method, self::IMMEDIATE, true);
+        return $this->db->transaction(function () use ($order, $method, $amountCents, $reference, $receiptUrl, $verifiedInPerson): OrderModel {
+            $confirmedNow = $verifiedInPerson || in_array($method, self::IMMEDIATE, true);
 
             $order->payments()->create([
                 'method' => $method,

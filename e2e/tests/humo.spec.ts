@@ -13,21 +13,35 @@ import { apiStatus } from '../support/api'
  * tendrá su propio spec recorriéndola de verdad.
  */
 
-const pantallas = [
-  { nombre: 'portal del cliente', url: portalOf(TENANTS.arepera), titulo: 'Pedir' },
-  { nombre: 'caja', url: cajaOf(TENANTS.arepera), titulo: 'Caja' },
-  { nombre: 'pantalla de cocina', url: cocinaOf(TENANTS.arepera), titulo: 'Cocina' },
+test('el subdominio de un negocio sirve su portal', async ({ page }) => {
+  await page.goto(portalOf(TENANTS.arepera))
+
+  // Por rol y por texto visible, nunca por clase ni por data-testid: si un
+  // control no se alcanza así, el arreglo está en el componente.
+  await expect(page.getByRole('heading', { name: 'Pedir' })).toBeVisible()
+})
+
+/*
+ * La caja y la cocina se sirven detrás de su puerta, así que lo que hay que
+ * comprobar aquí es que cada dirección sirve LA SUYA.
+ *
+ * Se mira el nombre por defecto del aparato y no un encabezado: el encabezado
+ * de la puerta es el nombre del NEGOCIO —quien enciende la máquina tiene que
+ * saber que está en el local correcto— y es el mismo en las dos.
+ */
+const pantallasDelLocal = [
+  { nombre: 'caja', url: cajaOf(TENANTS.arepera), aparato: 'Caja' },
+  { nombre: 'pantalla de cocina', url: cocinaOf(TENANTS.arepera), aparato: 'Cocina' },
   // El panel no está aquí: ya pide entrar, así que su recorrido vive en
   // `entrar.spec.ts` con su login de verdad.
 ]
 
-for (const pantalla of pantallas) {
+for (const pantalla of pantallasDelLocal) {
   test(`el subdominio de un negocio sirve su ${pantalla.nombre}`, async ({ page }) => {
     await page.goto(pantalla.url)
 
-    // Por rol y por texto visible, nunca por clase ni por data-testid: si un
-    // control no se alcanza así, el arreglo está en el componente.
-    await expect(page.getByRole('heading', { name: pantalla.titulo })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Arepera El Sazón' })).toBeVisible()
+    await expect(page.getByLabel('Nombre de la pantalla')).toHaveValue(pantalla.aparato)
   })
 }
 

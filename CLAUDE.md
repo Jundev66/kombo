@@ -48,6 +48,10 @@ de ventas y no numera con rangos de la autoridad. Hay un puerto
 homologa; mientras no exista ese adaptador, **no hay opción escondida que
 convierta una nota en factura**.
 
+Una nota por pedido, y no se reemite: por eso **anular el papel es anular la
+venta entera** (`counter.void`), y no hay un `notes.void` aparte. Anular no
+libera el número — un correlativo que se reutiliza deja de identificar nada.
+
 ---
 
 ## 3. Los invariantes, y quién vigila cada uno
@@ -216,6 +220,24 @@ contenedor arranca, imprime un error largo y se para.
 nombres con Node, no con Chromium, así que dentro del contenedor
 `elsazon.localhost` no existe. Las llamadas a la API desde una prueba van con
 `apiFetch()`, que hace `fetch` dentro de la página.
+
+**Sanctum prefiere la sesión de navegador al token**, no al revés. La caja y la
+cocina entran con un token de estación, pero si en ese mismo origen quedó una
+cookie de sesión del panel, esa cookie gana y todo se ejecuta con **el usuario
+del panel**. En las pruebas se nota como un permiso que debería faltar y no
+falta: por eso `signOut(page)` antes de `enterRegister()` / `enterKitchen()`
+cuando la prueba sembró algo con el dueño.
+
+**Encender un módulo tiene que dar sus permisos a los roles base.** La siembra
+es aditiva, así que un rol que ya existe no se vuelve a crear — pero sus
+permisos **sí se reconcilian** en cada pasada (`insertOrIgnore` sobre el único
+`(rol, permiso)`). Sin eso, el mostrador estrena la caja sin poder cobrar y el
+fallo aparece en el peor sitio: con un cliente delante.
+
+**La carta viene paginada** (`catalog.page_size`, 50 por defecto). Cualquier
+pantalla que necesite la carta ENTERA —la caja— tiene que seguir las páginas.
+Un producto que no está en la cuadrícula es un producto que no se puede vender,
+y el cajero no tiene forma de saber que le falta.
 
 ---
 

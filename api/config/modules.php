@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Modules\Catalog\CatalogModule;
 use Modules\Core\CoreModule;
+use Modules\Counter\CounterModule;
+use Modules\Documents\DocumentsModule;
 use Modules\Kitchen\KitchenModule;
 use Modules\Orders\OrdersModule;
 
@@ -29,8 +31,9 @@ return [
 
         // Opcionales: se encienden si el negocio los necesita.
         KitchenModule::class,
+        DocumentsModule::class,
+        CounterModule::class,
 
-        // Fase 5: CounterModule, DocumentsModule
         // Fase 6: DeliveryModule
         // Fase 7: ChannelsModule
         // Fase 9: ReportsModule

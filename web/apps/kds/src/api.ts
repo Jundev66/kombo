@@ -1,5 +1,5 @@
 import { api, useBearerToken } from '@kombo/api-client'
-import { terminal } from './terminal'
+import { terminal } from '@kombo/shell'
 
 // El token cambia dentro de la misma sesión de la pantalla: primero es el de
 // la tablet, y al poner el PIN pasa a ser el del cocinero. Por eso se pasa una
@@ -33,12 +33,6 @@ export interface Ticket {
   items: KitchenItem[]
 }
 
-export interface Staff {
-  id: string
-  name: string
-  roleName: string | null
-}
-
 export const kitchen = {
   tickets: () =>
     api.get<{ data: Ticket[]; meta: { staleMinutes: number } }>('/kitchen/tickets'),
@@ -46,26 +40,4 @@ export const kitchen = {
   advance: (id: string, status: string) =>
     api.post<{ data: Ticket }>(`/kitchen/tickets/${id}/advance`, { status }),
 
-  /** El nombre del negocio, para la puerta. `/me` responde sin sesión. */
-  businessName: async (): Promise<string> => {
-    try {
-      const caps = await api.capabilities()
-
-      return caps.tenant?.name ?? 'Cocina'
-    } catch {
-      return 'Cocina'
-    }
-  },
-
-  provision: (email: string, password: string, device: string) =>
-    api.post<{ token: string }>('/auth/device', { email, password, device }),
-
-  staff: () => api.get<{ staff: Staff[] }>('/auth/staff'),
-
-  pin: (userId: string, pin: string, device: string) =>
-    api.post<{ token: string; user: { name: string } }>('/auth/pin', {
-      user_id: userId,
-      pin,
-      device,
-    }),
 }

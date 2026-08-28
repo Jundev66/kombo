@@ -1,25 +1,72 @@
+import { api } from '@kombo/api-client'
 import { Button, Field, Input } from '@kombo/ui'
 import { useEffect, useState, type FormEvent } from 'react'
-import { kitchen, type Staff } from './api'
 import { terminal } from './terminal'
 
 /**
- * Cómo se entra a la cocina. **Dos puertas, no una.**
- *
- * La tablet de la cocina es otra máquina: con una sesión de navegador esto
- * sólo funcionaría donde alguien abrió el panel. Por eso hay un alta —una vez
- * en la vida del aparato, con correo y contraseña— y después un PIN de cuatro
- * dígitos, que es lo único que se puede teclear con las manos ocupadas.
+ * Quién puede entrar en esta pantalla. Lo responde el servidor con el token
+ * del aparato, que no sirve para nada más.
  */
-export function KitchenGate({ onReady }: { onReady: () => void }) {
-  const [businessName, setBusinessName] = useState('Cocina')
+export interface Staff {
+  id: string
+  name: string
+  roleName: string | null
+}
+
+const doorway = {
+  /** El nombre del NEGOCIO. `/me` responde sin sesión, justo para esto. */
+  businessName: async (fallback: string): Promise<string> => {
+    try {
+      const caps = await api.capabilities()
+
+      return caps.tenant?.name ?? fallback
+    } catch {
+      return fallback
+    }
+  },
+
+  provision: (email: string, password: string, device: string) =>
+    api.post<{ token: string }>('/auth/device', { email, password, device }),
+
+  staff: () => api.get<{ staff: Staff[] }>('/auth/staff'),
+
+  pin: (userId: string, pin: string, device: string) =>
+    api.post<{ token: string; user: { name: string } }>('/auth/pin', {
+      user_id: userId,
+      pin,
+      device,
+    }),
+}
+
+interface TerminalGateProps {
+  onReady: () => void
+  /** El nombre por defecto del aparato: «Cocina», «Caja 1». */
+  deviceName: string
+  /** «¿Quién está en la cocina?», «¿Quién está en la caja?» */
+  question: string
+}
+
+/**
+ * Cómo se entra a una pantalla del local. **Dos puertas, no una.**
+ *
+ * La tablet de la cocina y la máquina del mostrador son otras máquinas: con
+ * una sesión de navegador esto sólo funcionaría donde alguien abrió el panel.
+ * Por eso hay un alta —una vez en la vida del aparato, con correo y
+ * contraseña— y después un PIN de cuatro dígitos, que es lo único que se puede
+ * teclear con las manos ocupadas o con un cliente esperando.
+ *
+ * Lo usan la cocina y la caja, y es el MISMO portero a propósito: dos copias
+ * de una puerta acaban divergiendo justo en el detalle que las hacía seguras.
+ */
+export function TerminalGate({ onReady, deviceName, question }: TerminalGateProps) {
+  const [businessName, setBusinessName] = useState(deviceName)
   const [step, setStep] = useState<'device' | 'person'>(
     terminal.deviceToken() === null ? 'device' : 'person',
   )
 
   useEffect(() => {
-    void kitchen.businessName().then(setBusinessName)
-  }, [])
+    void doorway.businessName(deviceName).then(setBusinessName)
+  }, [deviceName])
 
   return (
     <main className="grid min-h-dvh place-items-center bg-[var(--surface-sunken)] p-4">
@@ -31,9 +78,9 @@ export function KitchenGate({ onReady }: { onReady: () => void }) {
         </h1>
 
         {step === 'device' ? (
-          <DeviceStep onDone={() => setStep('person')} />
+          <DeviceStep defaultName={deviceName} onDone={() => setStep('person')} />
         ) : (
-          <PersonStep onReady={onReady} onForget={() => setStep('device')} />
+          <PersonStep question={question} onReady={onReady} onForget={() => setStep('device')} />
         )}
       </div>
     </main>
@@ -44,8 +91,8 @@ export function KitchenGate({ onReady }: { onReady: () => void }) {
  * Alta de la pantalla. La hace una vez alguien con contraseña —el dueño, el
  * encargado— cuando se pone la tablet.
  */
-function DeviceStep({ onDone }: { onDone: () => void }) {
-  const [name, setName] = useState('Cocina')
+function DeviceStep({ defaultName, onDone }: { defaultName: string; onDone: () => void }) {
+  const [name, setName] = useState(defaultName)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -57,7 +104,7 @@ function DeviceStep({ onDone }: { onDone: () => void }) {
     setError(null)
 
     try {
-      const { token } = await kitchen.provision(email, password, name)
+      const { token } = await doorway.provision(email, password, name)
       terminal.provision(token, name)
       onDone()
     } catch {
@@ -102,19 +149,27 @@ function DeviceStep({ onDone }: { onDone: () => void }) {
 }
 
 /**
- * Quién está en la cocina ahora mismo.
+ * Quién está en la máquina ahora mismo.
  *
  * Nombres para tocar, no un campo de correo: nadie escribe
  * `carlos@elsazon.test` con las manos ocupadas.
  */
-function PersonStep({ onReady, onForget }: { onReady: () => void; onForget: () => void }) {
+function PersonStep({
+  question,
+  onReady,
+  onForget,
+}: {
+  question: string
+  onReady: () => void
+  onForget: () => void
+}) {
   const [staff, setStaff] = useState<Staff[]>([])
   const [chosen, setChosen] = useState<Staff | null>(null)
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    kitchen
+    doorway
       .staff()
       .then((r) => setStaff(r.staff))
       .catch(() => {
@@ -128,7 +183,7 @@ function PersonStep({ onReady, onForget }: { onReady: () => void; onForget: () =
     if (chosen === null) return
 
     try {
-      const { token } = await kitchen.pin(chosen.id, value, terminal.name())
+      const { token } = await doorway.pin(chosen.id, value, terminal.name())
       terminal.startShift(token)
       onReady()
     } catch {
@@ -140,7 +195,7 @@ function PersonStep({ onReady, onForget }: { onReady: () => void; onForget: () =
   if (chosen === null) {
     return (
       <div className="flex flex-col gap-2">
-        <h2 className="mb-2 text-center text-[var(--text-default)]">¿Quién está en la cocina?</h2>
+        <h2 className="mb-2 text-center text-[var(--text-default)]">{question}</h2>
 
         {staff.map((person) => (
           <button

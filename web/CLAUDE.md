@@ -19,6 +19,14 @@ puede leer lo que guardó la de otro sin que nadie escriba una línea.
 Builds separados por rol y no una sola aplicación con rutas: el cocinero no
 tiene por qué descargar el panel de reportes para ver tres comandas.
 
+**La caja y la cocina comparten puerta**: `TerminalGate` en `@kombo/shell`, con
+sus dos pasos —alta del aparato con correo y contraseña, y PIN de la persona—.
+Es una sola implementación a propósito: dos copias de una puerta acaban
+divergiendo justo en el detalle que las hacía seguras. Y comparten origen, así
+que comparten también el `localStorage` donde vive el token: entrar a la caja
+deja abierta la cocina, lo cual en el local da igual —es el mismo negocio— pero
+hay que tenerlo presente al escribir pruebas.
+
 ## El frontend no decide nada
 
 Menú, rutas y botones salen de `GET /api/v1/me`, que combina plan × módulos ×

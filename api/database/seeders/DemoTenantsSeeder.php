@@ -149,33 +149,27 @@ class DemoTenantsSeeder extends Seeder
 
     private function rol(string $tenantId, string $code): string
     {
-        $existing = DB::table('roles')
+        $catalogo = RoleCatalog::get($code);
+
+        $roleId = (string) (DB::table('roles')
             ->where('tenant_id', $tenantId)   // a mano: aquí RLS no filtra
             ->where('code', $code)
-            ->value('id');
-
-        if ($existing !== null) {
-            return (string) $existing;
-        }
-
-        $catalogo = RoleCatalog::get($code);
-        $roleId = (string) Str::uuid7();
-
-        DB::table('roles')->insert([
-            'id' => $roleId,
-            'tenant_id' => $tenantId,
-            'code' => $code,
-            'name' => $catalogo['name'],
-            'is_system' => true,
-            'is_owner' => $catalogo['is_owner'],
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+            ->value('id') ?? $this->crearRol($tenantId, $code, $catalogo));
 
         // El dueño no lleva filas de permisos: se resuelve como `['*']`.
         if ($catalogo['is_owner']) {
             return $roleId;
         }
+
+        /*
+         * Los permisos se reconcilian SIEMPRE, también si el rol ya existía.
+         *
+         * Encender un módulo nuevo tiene que dar sus permisos a los roles base
+         * del negocio: si no, el mostrador estrena la caja sin poder cobrar y
+         * el fallo aparece en el peor sitio —con un cliente delante— y no dice
+         * lo que pasa. Es `insertOrIgnore` sobre el único `(rol, permiso)`, así
+         * que no duplica ni pisa lo que el dueño haya cambiado a mano.
+         */
 
         // Sólo se conceden los permisos de módulos que este negocio TIENE. Un
         // permiso de un módulo apagado no existiría de todas formas.
@@ -202,6 +196,27 @@ class DemoTenantsSeeder extends Seeder
                 'updated_at' => now(),
             ]);
         }
+
+        return $roleId;
+    }
+
+    /**
+     * @param  array{name: string, is_owner: bool, permissions: array<string, bool>}  $catalogo
+     */
+    private function crearRol(string $tenantId, string $code, array $catalogo): string
+    {
+        $roleId = (string) Str::uuid7();
+
+        DB::table('roles')->insert([
+            'id' => $roleId,
+            'tenant_id' => $tenantId,
+            'code' => $code,
+            'name' => $catalogo['name'],
+            'is_system' => true,
+            'is_owner' => $catalogo['is_owner'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         return $roleId;
     }

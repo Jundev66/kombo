@@ -6,7 +6,9 @@ namespace Modules\Kitchen;
 
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Modules\Kitchen\Application\Listeners\CancelKitchenTicket;
 use Modules\Kitchen\Application\Listeners\SendOrderToKitchen;
+use Modules\Orders\Domain\Events\OrderCancelled;
 use Modules\Orders\Domain\Events\OrderConfirmed;
 
 /**
@@ -22,5 +24,6 @@ final class KitchenServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Event::listen(OrderConfirmed::class, SendOrderToKitchen::class);
+        Event::listen(OrderCancelled::class, CancelKitchenTicket::class);
     }
 }

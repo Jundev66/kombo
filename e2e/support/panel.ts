@@ -25,3 +25,17 @@ export async function signIn(
   // pantalla concreta: cada rol podría aterrizar en un sitio distinto.
   await expect(page.getByRole('button', { name: 'Salir' })).toBeVisible()
 }
+
+/**
+ * Salir del panel.
+ *
+ * Hace falta más de lo que parece: la cocina y la caja entran con un token,
+ * pero **Sanctum prefiere la sesión de navegador al token** cuando hay las
+ * dos. Una prueba que siembra el catálogo con el dueño y entra después a la
+ * caja con el PIN del mostrador estaría operando como el dueño sin saberlo, y
+ * pasaría en verde justo donde tenía que atrapar un permiso de menos.
+ */
+export async function signOut(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Salir' }).click()
+  await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible()
+}

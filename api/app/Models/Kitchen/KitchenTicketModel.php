@@ -17,7 +17,7 @@ use Platform\Tenancy\Concerns\UsesUuidV7;
 #[Fillable([
     'order_id', 'number', 'status', 'service_type', 'station',
     'taken_by_name', 'notes', 'prep_minutes',
-    'placed_at', 'started_at', 'ready_at', 'served_at',
+    'placed_at', 'started_at', 'ready_at', 'served_at', 'cancelled_at',
 ])]
 class KitchenTicketModel extends Model
 {
@@ -35,6 +35,7 @@ class KitchenTicketModel extends Model
             'started_at' => 'immutable_datetime',
             'ready_at' => 'immutable_datetime',
             'served_at' => 'immutable_datetime',
+            'cancelled_at' => 'immutable_datetime',
         ];
     }
 

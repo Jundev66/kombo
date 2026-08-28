@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Modules\Orders\Application\UseCases;
 
 use App\Models\Orders\OrderModel;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\DatabaseManager;
 use Modules\Orders\Application\Exceptions\OrderMovedByOther;
 use Modules\Orders\Application\Exceptions\OrderNotFound;
+use Modules\Orders\Domain\Events\OrderCancelled;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Platform\Audit\AuditLogger;
 use Platform\Audit\AuthorizedBy;
@@ -25,6 +27,7 @@ final class CancelOrder
     public function __construct(
         private readonly DatabaseManager $db,
         private readonly AuditLogger $audit,
+        private readonly Dispatcher $events,
         private readonly TenantContext $context,
     ) {}
 
@@ -69,6 +72,20 @@ final class CancelOrder
             // toda la razón de que el mostrador sólo pueda SOLICITARLO.
             authorizedBy: $authorizedBy,
         );
+
+        /*
+         * Que alguien deje de cocinar esto.
+         *
+         * Por evento, como la confirmación y por la misma razón: `Orders` no
+         * conoce a `Kitchen`. Si el módulo de cocina no existe, no lo escucha
+         * nadie y no pasa nada.
+         */
+        $this->events->dispatch(new OrderCancelled(
+            tenantId: $this->context->id(),
+            orderId: $orderId,
+            number: (int) $model->number,
+            reason: $reason,
+        ));
 
         return $model->refresh();
     }

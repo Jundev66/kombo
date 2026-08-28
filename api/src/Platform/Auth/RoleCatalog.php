@@ -53,7 +53,6 @@ final class RoleCatalog
                     'counter.void' => self::SI,
                     'notes.issue' => self::SI,
                     'notes.reprint' => self::SI,
-                    'notes.void' => self::SI,
                     'catalog.view' => self::SI,
                     'catalog.manage' => self::SI,
                     'catalog.change_price' => self::SI,
@@ -74,6 +73,7 @@ final class RoleCatalog
                 'permissions' => [
                     'counter.sell' => self::SI,
                     'notes.issue' => self::SI,
+                    'notes.reprint' => self::SI,
                     'orders.view' => self::SI,
                     'orders.create' => self::SI,
                     'payments.confirm' => self::SI,
@@ -85,7 +85,6 @@ final class RoleCatalog
                     // caja, así que se inician pero no se ejecutan solas.
                     'counter.void_request' => self::SOLICITA,
                     'counter.discount_request' => self::SOLICITA,
-                    'notes.void_request' => self::SOLICITA,
                 ],
             ],
 

@@ -22,6 +22,14 @@ enum TicketStatus: string
     /** Salió de la cocina. Ya no es asunto de esta pantalla. */
     case Served = 'served';
 
+    /**
+     * Ya no hay que hacerla: se anuló la venta o el cliente se arrepintió.
+     *
+     * No se llega aquí desde la pantalla de cocina —el cocinero no cancela
+     * nada—, sino desde fuera, cuando se cancela el pedido.
+     */
+    case Cancelled = 'cancelled';
+
     /** El siguiente paso, o null si ya no hay. */
     public function next(): ?self
     {
@@ -29,7 +37,7 @@ enum TicketStatus: string
             self::Pending => self::Preparing,
             self::Preparing => self::Ready,
             self::Ready => self::Served,
-            self::Served => null,
+            self::Served, self::Cancelled => null,
         };
     }
 
@@ -40,7 +48,7 @@ enum TicketStatus: string
             self::Pending => 'Empezar',
             self::Preparing => 'Listo',
             self::Ready => 'Entregado',
-            self::Served => null,
+            self::Served, self::Cancelled => null,
         };
     }
 
@@ -52,12 +60,19 @@ enum TicketStatus: string
             self::Preparing => 'En la plancha',
             self::Ready => 'Para entregar',
             self::Served => 'Servido',
+            self::Cancelled => 'Anulado',
         };
     }
 
-    /** Las que se ven en la pantalla. Las servidas no llegan al cliente. */
+    /**
+     * Las que se ven en la pantalla.
+     *
+     * Ni las servidas ni las anuladas: unas ya salieron y las otras no hay que
+     * hacerlas. Las anuladas desaparecen del tablero en el siguiente sondeo,
+     * que es justo lo que hace falta para que nadie siga con ellas.
+     */
     public function isOnScreen(): bool
     {
-        return $this !== self::Served;
+        return $this !== self::Served && $this !== self::Cancelled;
     }
 }

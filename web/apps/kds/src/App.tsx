@@ -1,6 +1,5 @@
+import { TerminalGate, terminal } from '@kombo/shell'
 import { useState } from 'react'
-import { KitchenGate } from './KitchenGate'
-import { terminal } from './terminal'
 import { formatWait, useKitchen } from './useKitchen'
 import type { Ticket } from './api'
 
@@ -15,7 +14,13 @@ export function App() {
   const [inside, setInside] = useState(terminal.stationToken() !== null)
 
   if (!inside) {
-    return <KitchenGate onReady={() => setInside(true)} />
+    return (
+      <TerminalGate
+        deviceName="Cocina"
+        question="¿Quién está en la cocina?"
+        onReady={() => setInside(true)}
+      />
+    )
   }
 
   return <Board onLeave={() => { terminal.endShift(); setInside(false) }} />

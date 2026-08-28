@@ -29,8 +29,15 @@ test('la dueña añade un producto a la carta', async ({ page }) => {
   await page.getByRole('button', { name: 'Guardar' }).click()
 
   // Vuelve a la carta y el producto está ahí, con su precio.
-  await expect(page.getByText(nombre)).toBeVisible()
-  await expect(page.getByText('$3,50').first()).toBeVisible()
+  //
+  // Se BUSCA en vez de mirar la lista entera: la carta viene paginada, y una
+  // prueba que espera encontrar lo suyo en la primera página deja de pasar el
+  // día en que el negocio tenga más de cincuenta productos.
+  await page.getByRole('searchbox', { name: 'Buscar en la carta' }).fill(nombre)
+
+  const encontrado = page.getByRole('listitem').filter({ hasText: nombre })
+  await expect(encontrado).toBeVisible()
+  await expect(encontrado).toContainText('$3,50')
 })
 
 test('el precio se guarda en centavos, no en coma flotante', async ({ page }) => {
@@ -43,7 +50,9 @@ test('el precio se guarda en centavos, no en coma flotante', async ({ page }) =>
   await page.getByLabel('Nombre').fill(nombre)
   await page.getByLabel('Precio en dólares').fill('3,50')
   await page.getByRole('button', { name: 'Guardar' }).click()
-  await expect(page.getByText(nombre)).toBeVisible()
+
+  await page.getByRole('searchbox', { name: 'Buscar en la carta' }).fill(nombre)
+  await expect(page.getByRole('listitem').filter({ hasText: nombre })).toBeVisible()
 
   const { data } = await apiFetch<{ data: Array<{ name: string; priceCents: number }> }>(
     page,

@@ -1,6 +1,7 @@
 import type { ModuleUi } from '@kombo/shell'
 import { CategoriesScreen } from '../screens/CategoriesScreen'
 import { ModifiersScreen } from '../screens/ModifiersScreen'
+import { OrdersScreen } from '../screens/OrdersScreen'
 import { ProductsScreen } from '../screens/ProductsScreen'
 import { RateScreen } from '../screens/RateScreen'
 
@@ -13,13 +14,24 @@ import { RateScreen } from '../screens/RateScreen'
  */
 export const MODULE_UI: ModuleUi[] = [
   {
+    // Primero, y con el sitio 1: es la pantalla donde se trabaja. La carta se
+    // carga una vez y se toca poco; los pedidos se miran todo el día.
+    module: 'orders',
+    path: '/pedidos',
+    permission: 'orders.view',
+    Screen: OrdersScreen,
+    icon: '🧾',
+    label: 'Pedidos',
+    primary: 1,
+  },
+  {
     module: 'catalog',
     path: '/carta',
     permission: 'catalog.view',
     Screen: ProductsScreen,
     icon: '🍽️',
     label: 'Carta',
-    primary: 1,
+    primary: 2,
   },
   {
     module: 'catalog',
@@ -44,9 +56,9 @@ export const MODULE_UI: ModuleUi[] = [
     Screen: RateScreen,
     icon: '💵',
     label: 'Tasa',
-    primary: 2,
+    primary: 3,
   },
 
-  // Fase 3: pedidos · Fase 4: cocina · Fase 5: caja y notas
+  // Fase 4: cocina · Fase 5: caja y notas
   // Fase 8: equipo y configuración
 ]

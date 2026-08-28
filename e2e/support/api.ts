@@ -45,3 +45,38 @@ export async function apiStatus(page: Page, path: string): Promise<number> {
         return response.status
     }, path)
 }
+
+/**
+ * Un POST desde dentro de la página, con la cookie de CSRF que Laravel exige.
+ *
+ * Sirve para SEMBRAR lo que la prueba necesita —un pedido que todavía no se
+ * puede crear desde ninguna pantalla— sin salirse del navegador y sin perder
+ * la sesión del negocio.
+ */
+export async function apiPost<T>(page: Page, path: string, body: unknown): Promise<T> {
+    return page.evaluate(
+        async ({ p, b }: { p: string; b: unknown }) => {
+            const xsrf = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/)?.[1]
+
+            const response = await fetch(p, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    ...(xsrf ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrf) } : {}),
+                },
+                body: JSON.stringify(b),
+            })
+
+            const text = await response.text()
+
+            if (!response.ok) {
+                throw new Error(`${p} respondió ${response.status}: ${text}`)
+            }
+
+            return JSON.parse(text) as unknown
+        },
+        { p: path, b: body },
+    ) as Promise<T>
+}

@@ -2,6 +2,7 @@ import { AppShell, Boot, useSession } from '@kombo/shell'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { MODULE_UI } from './modules/registry'
+import { OrderDetailScreen } from './screens/OrderDetailScreen'
 import { ProductFormScreen } from './screens/ProductFormScreen'
 import { buildMenu } from '@kombo/shell'
 
@@ -64,9 +65,10 @@ function PanelRoutes() {
         <Route key={entry.path} path={entry.path} element={<entry.Screen />} />
       ))}
 
-      {/* El formulario no está en el menú: se llega desde la carta. */}
+      {/* Los detalles no están en el menú: se llega desde su lista. */}
       <Route path="/carta/nuevo" element={<ProductFormScreen />} />
       <Route path="/carta/:id" element={<ProductFormScreen />} />
+      <Route path="/pedidos/:id" element={<OrderDetailScreen />} />
 
       <Route path="/" element={<Navigate to={home} replace />} />
       <Route

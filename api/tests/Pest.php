@@ -232,3 +232,19 @@ function urlFor(string $slug, string $path): string
 {
     return "http://{$slug}.localhost{$path}";
 }
+
+/**
+ * Entra al panel de un negocio con correo y contraseña.
+ *
+ * Deja la cookie de sesión puesta en el cliente de pruebas, así que las
+ * llamadas siguientes van autenticadas. Vive aquí y no dentro de un fichero de
+ * pruebas porque lo necesitan varias suites — y una función declarada en un
+ * fichero de test sólo existe cuando ESE fichero se carga, que es un fallo
+ * desconcertante cuando se corre una suite sola.
+ */
+function entrarComo(string $slug, string $email, string $password = 'demo1234'): void
+{
+    test()->withHeaders(browsingAs($slug))
+        ->postJson(urlFor($slug, '/api/v1/auth/login'), ['email' => $email, 'password' => $password])
+        ->assertOk();
+}

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Modules\Catalog\CatalogModule;
 use Modules\Core\CoreModule;
+use Modules\Orders\OrdersModule;
 
 return [
     /*
@@ -23,8 +24,8 @@ return [
         // Núcleo. Siempre encendido, no depende del plan, no se apaga.
         CoreModule::class,
         CatalogModule::class,
+        OrdersModule::class,
 
-        // Fase 3: OrdersModule
         // Fase 4: KitchenModule
         // Fase 5: CounterModule, DocumentsModule
         // Fase 6: DeliveryModule

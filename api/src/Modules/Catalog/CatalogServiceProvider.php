@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Modules\Catalog;
 
 use Illuminate\Support\ServiceProvider;
+use Modules\Catalog\Application\Contracts\ModifierCatalog;
 use Modules\Catalog\Application\Contracts\ProductCatalog;
+use Modules\Catalog\Infrastructure\Services\EloquentModifierCatalog;
 use Modules\Catalog\Infrastructure\Services\EloquentProductCatalog;
 
 /**
@@ -20,5 +22,6 @@ final class CatalogServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(ProductCatalog::class, EloquentProductCatalog::class);
+        $this->app->bind(ModifierCatalog::class, EloquentModifierCatalog::class);
     }
 }

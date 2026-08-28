@@ -27,13 +27,6 @@ beforeEach(function (): void {
     giveRole($this->tenant, $this->carlos, 'kitchen');
 });
 
-function entrarComo(string $slug, string $email): void
-{
-    test()->withHeaders(browsingAs($slug))
-        ->postJson(urlFor($slug, '/api/v1/auth/login'), ['email' => $email, 'password' => 'demo1234'])
-        ->assertOk();
-}
-
 it('el dueño añade un producto a la carta', function (): void {
     entrarComo($this->slug, 'maria@ejemplo.com');
 

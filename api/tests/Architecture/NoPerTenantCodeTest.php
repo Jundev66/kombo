@@ -67,6 +67,27 @@ it('ningún modelo deja tenant_id asignable en masa', function (): void {
         $contents = (string) file_get_contents($file);
         $name = SourceScanner::relative($file);
 
+        /*
+         * Los modelos de PLATAFORMA quedan fuera, y no es un agujero.
+         *
+         * La regla existe para los modelos de negocio: ahí `tenant_id` lo pone
+         * `BelongsToTenant` desde el contexto, y dejarlo asignable sería que
+         * una petición HTTP escribiera a nombre de otro negocio.
+         *
+         * `subscriptions` y `subscription_payments` son otra cosa: son tablas
+         * globales, sin RLS, y quien decide de qué negocio es una suscripción
+         * es la plataforma — no hay contexto del que sacarlo. Prohibirlo aquí
+         * obligaría a escribir la columna a mano después de crear la fila, que
+         * es más código para el mismo resultado y una fila menos válida por el
+         * camino.
+         *
+         * Se distingue por el trait, no por una lista de nombres: un modelo de
+         * negocio nuevo entra en la regla sin que nadie se acuerde de añadirlo.
+         */
+        if (! str_contains($contents, 'BelongsToTenant')) {
+            continue;
+        }
+
         $declaresProperty = (bool) preg_match('/\$fillable\s*=\s*\[/', $contents);
         $declaresAttribute = (bool) preg_match('/#\[Fillable\(/', $contents);
 

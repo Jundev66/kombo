@@ -18,6 +18,12 @@ final class KitchenController
 {
     public function __construct(private readonly CurrentCapabilities $capabilities) {}
 
+    /** Cuántas comandas caben en la pantalla antes de tener que avisar. */
+    private const TOPE = 120;
+
+    /** @var list<string> */
+    private const EN_PANTALLA = ['pending', 'preparing', 'ready'];
+
     public function index(): JsonResponse
     {
         $tickets = KitchenTicketModel::query()
@@ -25,21 +31,32 @@ final class KitchenController
             // Las servidas NO se mandan: el histórico es cosa de reportes, y
             // una pantalla de cocina con lo de ayer es una pantalla que nadie
             // mira.
-            ->whereIn('status', [
-                TicketStatus::Pending->value,
-                TicketStatus::Preparing->value,
-                TicketStatus::Ready->value,
-            ])
+            ->whereIn('status', self::EN_PANTALLA)
             // La más vieja primero: es el orden en el que hay que hacerlas.
             ->orderBy('placed_at')
-            // Un tope por si algo se descontrola. Ciento veinte comandas vivas
-            // ya es un problema de otra clase, y no lo arregla la pantalla.
-            ->limit(120)
+            // Un tope por si algo se descontrola.
+            ->limit(self::TOPE)
             ->get();
+
+        /*
+         * Si hay más de las que caben, **se dice**.
+         *
+         * Antes se cortaba en silencio, y ése es el peor fallo posible en esta
+         * pantalla: como el orden es de la más vieja a la más nueva, lo que se
+         * queda fuera son las comandas RECIÉN entradas. Una cocina que nunca
+         * marca nada como servido pasa el tope, y a partir de ahí los pedidos
+         * nuevos sencillamente no aparecen — sin ningún aviso, y con el cliente
+         * esperando comida que nadie está haciendo.
+         */
+        $vivas = $tickets->count() < self::TOPE
+            ? $tickets->count()
+            : KitchenTicketModel::query()->whereIn('status', self::EN_PANTALLA)->count();
 
         return response()->json([
             'data' => $tickets->map($this->present(...))->all(),
             'meta' => [
+                'total' => $vivas,
+                'hidden' => max(0, $vivas - $tickets->count()),
                 // Viaja en la respuesta y no fijo en la pantalla: cada negocio
                 // tiene su idea de «va tarde».
                 'staleMinutes' => (int) $this->capabilities->get()->setting('kitchen.stale_minutes', 15),

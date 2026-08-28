@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { cocinaOf, panelOf, PASSWORD, TENANTS } from '../support/addresses'
 import { apiFetch, apiPost } from '../support/api'
-import { comanda, enterKitchen } from '../support/cocina'
+import { clearBoard, comanda, enterKitchen } from '../support/cocina'
 import { signIn } from '../support/panel'
 
 /*
@@ -45,6 +45,7 @@ async function unPedidoConfirmado(
 
 test('confirmar en el panel hace aparecer la comanda en la cocina', async ({ page }) => {
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
+  await clearBoard(page)
   const numero = await unPedidoConfirmado(page, `[e2e] Arepa cocina ${RUN}`)
 
   // Otra pantalla, otra sesión: se entra con el PIN del cocinero.
@@ -59,6 +60,7 @@ test('confirmar en el panel hace aparecer la comanda en la cocina', async ({ pag
 
 test('la comanda avanza de un toque y al final sale de la pantalla', async ({ page }) => {
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
+  await clearBoard(page)
   const numero = await unPedidoConfirmado(page, `[e2e] Arepa avanza ${RUN}`)
 
   await enterKitchen(page, TENANTS.arepera, 'Carlos', '4567')
@@ -81,6 +83,7 @@ test('la comanda avanza de un toque y al final sale de la pantalla', async ({ pa
 
 test('los agregados se leen en la comanda, no hay que ir a buscarlos', async ({ page }) => {
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
+  await clearBoard(page)
 
   await apiPost(page, '/api/v1/catalog/modifier-groups', {
     name: `[e2e] Extras cocina ${RUN}`,

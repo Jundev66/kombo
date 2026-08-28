@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\Platform\PlatformUser;
 use App\Models\User;
 
 return [
@@ -44,6 +45,24 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        /*
+         * La super administración entra por su propia puerta.
+         *
+         * Guard aparte y no una bandera sobre `users`: un administrador de
+         * plataforma y el empleado de un negocio no son la misma cosa con un
+         * permiso más. Entran por sitios distintos —`admin.dominio` contra el
+         * subdominio del negocio—, viven en tablas distintas, y confundirlos es
+         * cómo se acaba dando acceso a la facturación de todos los clientes al
+         * empleado de uno.
+         *
+         * Su cookie de sesión es la misma de Laravel, pero el guard es otro:
+         * estar dentro de un negocio no deja entrar aquí, ni al revés.
+         */
+        'platform' => [
+            'driver' => 'session',
+            'provider' => 'platform_users',
+        ],
     ],
 
     /*
@@ -67,6 +86,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'platform_users' => [
+            'driver' => 'eloquent',
+            'model' => PlatformUser::class,
         ],
 
         // 'users' => [

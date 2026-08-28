@@ -92,3 +92,14 @@ se espera al RESULTADO final, no a un paso intermedio: esperar a que exista la
 conversación y leer sus mensajes acto seguido deja unos milisegundos en los que
 la respuesta del bot todavía no está escrita. Es una prueba intermitente
 esperando a que alguien la maldiga.
+
+**Si un elemento sólo se puede señalar por texto pegado, el arreglo está en el
+componente.** El número de una comanda y su cronómetro van juntos —`#13165:00`—
+así que buscar «#131» encuentra también a «#1310». La solución no es un regex
+más listo: es que la tarjeta tenga nombre (`aria-label="Comanda #131"`), que
+además la hace legible para un lector de pantalla.
+
+**Lo que una prueba acumula, alguna prueba lo tiene que limpiar.** Las comandas
+no se sirven solas: tras muchas corridas pasan el tope de la pantalla de cocina
+y las nuevas dejan de caber. `clearBoard()` deja el tablero vacío antes de
+mirar lo que esta prueba creó.

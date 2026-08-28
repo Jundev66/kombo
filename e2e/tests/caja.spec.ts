@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { TENANTS } from '../support/addresses'
 import { apiFetch, apiPost } from '../support/api'
 import { enterRegister, seedProduct, ticket } from '../support/caja'
-import { comanda, enterKitchen } from '../support/cocina'
+import { clearBoard, comanda, enterKitchen } from '../support/cocina'
 import { signIn, signOut } from '../support/panel'
 
 /*
@@ -22,6 +22,10 @@ test('cobrar en el mostrador entrega la nota y manda la comanda a la cocina', as
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
   const nombre = `[e2e] Arepa caja ${RUN}`
   await seedProduct(page, nombre, 300)
+
+  // El tablero de cocina se limpia antes: las comandas de corridas anteriores
+  // se acumulan, y pasado el tope de la pantalla la nueva no cabría.
+  await clearBoard(page)
 
   await signOut(page)
 

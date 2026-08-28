@@ -27,6 +27,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
             PlanSeeder::class,
             DemoTenantsSeeder::class,
+            // Después de los negocios: le da suscripción a los que no la tengan.
+            PlatformSeeder::class,
         ]);
     }
 }

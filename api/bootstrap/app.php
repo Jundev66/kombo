@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Platform\Auth\Middleware\RequireAnyPermission;
 use Platform\Auth\Middleware\RequirePermission;
 use Platform\Modules\Middleware\RequireModule;
+use Platform\Subscription\Http\EnsureTenantCanWrite;
 use Platform\Tenancy\Middleware\ResolveTenant;
 use Shared\Domain\Exceptions\UserError;
 
@@ -32,6 +33,17 @@ return Application::configure(basePath: dirname(__DIR__))
         // negocios entra al que corresponde al subdominio, sin preguntar.
         $middleware->prependToGroup('web', ResolveTenant::class);
         $middleware->prependToGroup('api', ResolveTenant::class);
+
+        /*
+         * La suspensión, en UN sitio.
+         *
+         * Va en el grupo entero y no como un `if` en cada controlador, que es
+         * exactamente donde falló el proyecto anterior: la comprobación estaba
+         * puesta en 2 de unos 20 controladores, así que un negocio suspendido
+         * seguía trabajando con normalidad por las otras 18 puertas. Aquí, un
+         * módulo nuevo no puede olvidarse de ella porque nadie la escribe.
+         */
+        $middleware->appendToGroup('api', EnsureTenantCanWrite::class);
 
         $middleware->alias([
             'module' => RequireModule::class,

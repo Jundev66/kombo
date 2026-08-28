@@ -35,7 +35,16 @@ export interface Ticket {
 
 export const kitchen = {
   tickets: () =>
-    api.get<{ data: Ticket[]; meta: { staleMinutes: number } }>('/kitchen/tickets'),
+    api.get<{
+      data: Ticket[]
+      meta: {
+        staleMinutes: number
+        /** Cuántas comandas vivas hay en total. */
+        total: number
+        /** Cuántas no caben en la pantalla. Si no es cero, hay que decirlo. */
+        hidden: number
+      }
+    }>('/kitchen/tickets'),
 
   advance: (id: string, status: string) =>
     api.post<{ data: Ticket }>(`/kitchen/tickets/${id}/advance`, { status }),

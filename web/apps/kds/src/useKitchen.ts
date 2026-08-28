@@ -13,6 +13,8 @@ import { kitchen, type Ticket } from './api'
 export function useKitchen() {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [staleMinutes, setStaleMinutes] = useState(15)
+  // Cuántas comandas vivas no caben en la pantalla. Si no es cero, se dice.
+  const [hidden, setHidden] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -27,6 +29,7 @@ export function useKitchen() {
 
       setTickets(data)
       setStaleMinutes(meta.staleMinutes)
+      setHidden(meta.hidden)
       setError(null)
       fetchedAt.current = Date.now()
     } catch {
@@ -104,7 +107,7 @@ export function useKitchen() {
     [staleMinutes, waitedSeconds],
   )
 
-  return { tickets, loading, error, advance, waitedSeconds, isLate }
+  return { tickets, hidden, loading, error, advance, waitedSeconds, isLate }
 }
 
 /** «4:32» — minutos y segundos, que es como se cuenta en una cocina. */

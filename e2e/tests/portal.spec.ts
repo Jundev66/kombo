@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { TENANTS } from '../support/addresses'
 import { apiPost } from '../support/api'
-import { comanda, enterKitchen } from '../support/cocina'
+import { clearBoard, comanda, enterKitchen } from '../support/cocina'
 import { signIn, signOut } from '../support/panel'
 import { addToCart, cartBar, openMenu, trackAddress } from '../support/portal'
 
@@ -28,6 +28,11 @@ test('un pedido desde el teléfono llega a la cocina, sin cuenta', async ({ page
     price_cents: 350,
     prep_minutes: 8,
   })
+
+  // Se limpia el tablero: las comandas de corridas anteriores se acumulan y
+  // pasado el tope de la pantalla la nueva no cabría.
+  await clearBoard(page)
+
   await signOut(page)
 
   // A partir de aquí, nadie ha entrado a nada.
@@ -63,8 +68,11 @@ test('un pedido desde el teléfono llega a la cocina, sin cuenta', async ({ page
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
   await page.goto(`http://${TENANTS.arepera}.localhost:8010/panel/pedidos`)
 
-  const fila = page.getByRole('listitem').filter({ hasText: `#${numero![1]}` })
-  await expect(fila).toContainText(`Cliente ${RUN}`)
+  // Por el nombre del cliente, que es único en esta corrida: el número queda
+  // pegado a la hora en el texto de la fila, así que `#131` encontraría también
+  // a `#1310`.
+  const fila = page.getByRole('listitem').filter({ hasText: `Cliente ${RUN}` })
+  await expect(fila).toContainText(`#${numero![1]}`)
 
   await fila.getByRole('button', { name: 'Confirmar' }).click()
   await signOut(page)

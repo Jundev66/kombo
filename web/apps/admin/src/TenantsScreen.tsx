@@ -1,0 +1,325 @@
+import { ApiError } from '@kombo/api-client'
+import { Badge, Button, Card, EmptyState, Field, Input, Select, Spinner, formatUsd } from '@kombo/ui'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { PAYMENT_METHODS, platform, type TenantRow } from './api'
+
+/**
+ * Los negocios, y lo único que importa de cada uno de un vistazo: **cuántos
+ * días le quedan**.
+ *
+ * En negativo, cuántos lleva vencido. Es la cifra que contesta «¿a quién hay
+ * que llamar hoy?» sin abrir nada.
+ */
+export function TenantsScreen({ onOpen }: { onOpen: (id: string) => void }) {
+  const [buscar, setBuscar] = useState('')
+  const [estado, setEstado] = useState('')
+  const [creando, setCreando] = useState(false)
+
+  const tenants = useQuery({
+    queryKey: ['tenants', buscar, estado],
+    queryFn: () => platform.tenants({ buscar, estado }),
+  })
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <h1 className="flex-1 text-xl font-bold text-[var(--text-strong)]">Negocios</h1>
+
+        <Button onClick={() => setCreando(true)}>Dar de alta</Button>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <div className="min-w-48 flex-1">
+          <Field label="Buscar">
+            {({ id }) => (
+              <Input
+                id={id}
+                type="search"
+                value={buscar}
+                placeholder="Nombre o dirección"
+                onChange={(e) => setBuscar(e.target.value)}
+              />
+            )}
+          </Field>
+        </div>
+
+        <div className="w-48">
+          <Field label="Estado">
+            {({ id }) => (
+              <Select id={id} value={estado} onChange={(e) => setEstado(e.target.value)}>
+                <option value="">Todos</option>
+                <option value="trial">En prueba</option>
+                <option value="active">Al día</option>
+                <option value="past_due">Vencidos</option>
+                <option value="suspended">Suspendidos</option>
+              </Select>
+            )}
+          </Field>
+        </div>
+      </div>
+
+      {creando && <NewTenantForm onDone={() => setCreando(false)} />}
+
+      {tenants.isLoading && <Spinner />}
+
+      {tenants.data?.length === 0 && (
+        <EmptyState title="No hay negocios con ese filtro" description="Prueba con otro estado." />
+      )}
+
+      <ul className="flex flex-col gap-2">
+        {tenants.data?.map((tenant) => (
+          <li key={tenant.id}>
+            <Card className="flex flex-wrap items-center gap-3 p-4">
+              <button
+                type="button"
+                onClick={() => onOpen(tenant.id)}
+                className="min-w-0 flex-1 text-left"
+              >
+                <p className="font-medium text-[var(--text-strong)]">{tenant.name}</p>
+                <p className="text-sm text-[var(--text-muted)]">
+                  {tenant.slug} · {tenant.planCode}
+                </p>
+              </button>
+
+              <Expiry tenant={tenant} />
+
+              <StatusBadge status={tenant.status} label={tenant.statusLabel} />
+            </Card>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/**
+ * Cuántos días quedan, dicho como se dice.
+ *
+ * «Vence en 3 días» y «vencido hace 12» no son la misma información con signo
+ * distinto: la primera es un recordatorio y la segunda una llamada pendiente.
+ */
+function Expiry({ tenant }: { tenant: TenantRow }) {
+  if (tenant.daysLeft === null) return null
+
+  const dias = tenant.daysLeft
+
+  return (
+    <span
+      className={`tabular text-sm ${
+        dias < 0 ? 'font-medium text-bad-500' : dias <= 7 ? 'text-warn-700' : 'text-[var(--text-muted)]'
+      }`}
+    >
+      {dias < 0 ? `vencido hace ${Math.abs(dias)} d` : `vence en ${dias} d`}
+    </span>
+  )
+}
+
+export function StatusBadge({ status, label }: { status: string; label: string }) {
+  const tone = status === 'suspended' || status === 'closed' ? 'bad' : status === 'past_due' ? 'warn' : 'ok'
+
+  return <Badge tone={tone}>{label}</Badge>
+}
+
+function NewTenantForm({ onDone }: { onDone: () => void }) {
+  const queryClient = useQueryClient()
+
+  const [name, setName] = useState('')
+  const [slug, setSlug] = useState('')
+  const [planCode, setPlanCode] = useState('negocio')
+  const [ownerName, setOwnerName] = useState('')
+  const [ownerEmail, setOwnerEmail] = useState('')
+  const [ownerPassword, setOwnerPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const planes = useQuery({ queryKey: ['plans'], queryFn: () => platform.plans() })
+
+  const crear = useMutation({
+    mutationFn: () =>
+      platform.createTenant({
+        name,
+        slug,
+        plan_code: planCode,
+        owner_name: ownerName,
+        owner_email: ownerEmail,
+        owner_password: ownerPassword,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['tenants'] })
+      onDone()
+    },
+    onError: (failure: unknown) =>
+      setError(failure instanceof ApiError ? failure.message : 'No se pudo dar de alta.'),
+  })
+
+  return (
+    <Card className="flex flex-col gap-3 p-4">
+      <h2 className="font-semibold text-[var(--text-strong)]">Un negocio nuevo</h2>
+
+      <p className="text-sm text-[var(--text-muted)]">
+        Queda listo para trabajar: su dueño, sus roles, los módulos del plan y un horario de
+        partida. Todo o nada — un negocio a medio crear no se puede arreglar desde dentro.
+      </p>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Nombre" required>
+          {({ id }) => (
+            <Input
+              id={id}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value)
+                // La dirección se propone sola desde el nombre: escribirla dos
+                // veces es una oportunidad de escribirla mal.
+                if (slug === '') return
+              }}
+            />
+          )}
+        </Field>
+
+        <Field label="Dirección" hint="Será {dirección}.kombo.app" required>
+          {({ id }) => (
+            <Input
+              id={id}
+              value={slug}
+              placeholder="elsazon"
+              onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+            />
+          )}
+        </Field>
+
+        <Field label="Plan" required>
+          {({ id }) => (
+            <Select id={id} value={planCode} onChange={(e) => setPlanCode(e.target.value)}>
+              {planes.data?.data.map((plan) => (
+                <option key={plan.code} value={plan.code}>
+                  {plan.name} · {formatUsd(plan.priceCents)}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+
+        <Field label="Nombre del dueño" required>
+          {({ id }) => (
+            <Input id={id} value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
+          )}
+        </Field>
+
+        <Field label="Correo del dueño" required>
+          {({ id }) => (
+            <Input
+              id={id}
+              type="email"
+              value={ownerEmail}
+              onChange={(e) => setOwnerEmail(e.target.value)}
+            />
+          )}
+        </Field>
+
+        <Field label="Contraseña" hint="Mínimo 8 caracteres." required error={error ?? undefined}>
+          {({ id, invalid }) => (
+            <Input
+              id={id}
+              value={ownerPassword}
+              invalid={invalid}
+              onChange={(e) => setOwnerPassword(e.target.value)}
+            />
+          )}
+        </Field>
+      </div>
+
+      <div className="flex gap-2">
+        <Button variant="ghost" onClick={onDone}>
+          Mejor no
+        </Button>
+
+        <Button disabled={crear.isPending} onClick={() => crear.mutate()}>
+          {crear.isPending ? 'Dando de alta…' : 'Dar de alta'}
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
+/** Registrar un pago: lo que extiende el período. */
+export function PaymentForm({ tenantId, onDone }: { tenantId: string; onDone: () => void }) {
+  const queryClient = useQueryClient()
+
+  const [amount, setAmount] = useState('')
+  const [method, setMethod] = useState<string>('pago_movil')
+  const [months, setMonths] = useState('1')
+  const [reference, setReference] = useState('')
+
+  const registrar = useMutation({
+    mutationFn: () =>
+      platform.registerPayment(tenantId, {
+        amount_cents: Math.round(Number(amount.replace(',', '.')) * 100),
+        method,
+        months: Number(months),
+        reference: reference.trim() || null,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['tenant', tenantId] })
+      void queryClient.invalidateQueries({ queryKey: ['tenants'] })
+      onDone()
+    },
+  })
+
+  return (
+    <div className="flex flex-col gap-3 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] p-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Cuánto entró" required>
+          {({ id }) => (
+            <Input
+              id={id}
+              inputMode="decimal"
+              value={amount}
+              placeholder="25,00"
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          )}
+        </Field>
+
+        <Field label="Cómo" required>
+          {({ id }) => (
+            <Select id={id} value={method} onChange={(e) => setMethod(e.target.value)}>
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+
+        <Field label="Meses" hint="Cuánto período cubre.">
+          {({ id }) => (
+            <Input
+              id={id}
+              inputMode="numeric"
+              value={months}
+              onChange={(e) => setMonths(e.target.value)}
+            />
+          )}
+        </Field>
+
+        <Field label="Referencia">
+          {({ id }) => (
+            <Input id={id} value={reference} onChange={(e) => setReference(e.target.value)} />
+          )}
+        </Field>
+      </div>
+
+      <div className="flex gap-2">
+        <Button variant="ghost" onClick={onDone}>
+          Mejor no
+        </Button>
+
+        <Button disabled={registrar.isPending || amount === ''} onClick={() => registrar.mutate()}>
+          {registrar.isPending ? 'Anotando…' : 'Anotar el pago'}
+        </Button>
+      </div>
+    </div>
+  )
+}

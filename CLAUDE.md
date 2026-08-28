@@ -68,6 +68,7 @@ falla, la respuesta casi nunca es cambiar la prueba.**
 | 5 | El frontend no decide nada: menú, rutas y botones salen de `GET /api/v1/me` | `tests/Feature/CapabilitiesTest.php` |
 | 6 | Presupuesto de arranque en gzip: portal y caja ≤180 KB, panel y admin ≤220 KB, cocina ≤120 KB | `web/scripts/check-bundle-size.mjs` (rompe el build) |
 | 7 | `audit_log` es de sólo inserción | `tests/Isolation/AuditLogImmutabilityTest.php` |
+| 8 | Un negocio suspendido lee y exporta, pero no escribe — y eso se aplica en **un** middleware global, no en cada controlador | `tests/Feature/PlatformTest.php` |
 
 ---
 
@@ -267,6 +268,21 @@ vista.
 **Las marcas de tiempo se guardan con precisión de SEGUNDOS.** Dos mensajes del
 mismo segundo —el bot contestando— empatan al ordenar por `created_at`. Se
 desempata por `id`, que es un uuid7 y lleva el tiempo dentro.
+
+**La super administración entra por otro guard** (`platform`), con su propia
+tabla de usuarios y sólo en `admin.dominio`. Estar dentro de un negocio no la
+abre, ni al revés: confundirlos es cómo se acaba dando acceso a la facturación
+de todos los clientes al empleado de uno.
+
+**`current_period_end` es el único campo que decide** si un negocio está al
+día. No hay banderas que alguien tenga que acordarse de mover: hay una fecha y
+un trabajo diario que la mira. Ése fue justo el hueco del proyecto anterior —
+existía un `plan_expires_at` que no leía nadie.
+
+**Cortar en silencio es el peor fallo de una pantalla.** La cocina tiene un tope
+de comandas y ordena de la más vieja a la más nueva, así que pasarse el tope
+esconde las RECIÉN entradas. La respuesta trae `meta.hidden` y la pantalla lo
+grita. Cualquier lista con tope debe hacer lo mismo.
 
 ---
 

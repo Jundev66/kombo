@@ -11,6 +11,7 @@ use Modules\Documents\DocumentsServiceProvider;
 use Modules\Kitchen\KitchenServiceProvider;
 use Modules\Portal\PortalServiceProvider;
 use Platform\PlatformServiceProvider;
+use Platform\Subscription\SubscriptionServiceProvider;
 
 /*
  * El orden importa.
@@ -26,6 +27,7 @@ use Platform\PlatformServiceProvider;
  */
 return [
     PlatformServiceProvider::class,
+    SubscriptionServiceProvider::class,
 
     CatalogServiceProvider::class,
     KitchenServiceProvider::class,

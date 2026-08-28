@@ -33,7 +33,7 @@ const COLUMNS = [
 ] as const
 
 function Board({ onLeave }: { onLeave: () => void }) {
-  const { tickets, loading, error, advance, waitedSeconds, isLate } = useKitchen()
+  const { tickets, hidden, loading, error, advance, waitedSeconds, isLate } = useKitchen()
 
   return (
     <div className="flex h-dvh flex-col bg-[var(--surface-sunken)]">
@@ -47,6 +47,16 @@ function Board({ onLeave }: { onLeave: () => void }) {
         {error != null && (
           <span role="alert" className="rounded-full bg-warn-500 px-2 py-0.5 text-xs text-ink-900">
             {error}
+          </span>
+        )}
+
+        {/* Si hay comandas que no caben, SE DICE. Cortarlas en silencio es el
+            peor fallo posible aquí: como el orden es de la más vieja a la más
+            nueva, lo que se queda fuera son las recién entradas — y el cliente
+            espera comida que nadie está haciendo. */}
+        {hidden > 0 && (
+          <span role="alert" className="rounded-full bg-bad-500 px-2 py-0.5 text-xs font-medium text-white">
+            {hidden} sin caber · marca las que ya salieron
           </span>
         )}
 
@@ -107,6 +117,15 @@ function OrderCard({
 }) {
   return (
     <article
+      /*
+       * Con nombre: «Comanda #131».
+       *
+       * Un lector de pantalla anuncia de qué comanda habla antes de leer lo
+       * que lleva, y quien escribe una prueba puede señalar UNA sin depender
+       * de cómo queda pegado el texto —el número y el cronómetro van juntos,
+       * así que «#131» y «#1310» se confunden.
+       */
+      aria-label={`Comanda #${ticket.number}`}
       /*
        * Trancada ⇒ el BORDE ENTERO en rojo, no un iconito.
        *

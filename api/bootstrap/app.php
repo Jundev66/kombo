@@ -6,6 +6,10 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Platform\Auth\Middleware\RequireAnyPermission;
+use Platform\Auth\Middleware\RequirePermission;
+use Platform\Modules\Middleware\RequireModule;
+use Platform\Tenancy\Middleware\ResolveTenant;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -21,10 +25,17 @@ return Application::configure(basePath: dirname(__DIR__))
         // falta pasear tokens por el panel ni por el portal.
         $middleware->statefulApi();
 
-        // Fase 1: ResolveTenant se antepone a los grupos `web` y `api`, y va
-        // ANTES de la autenticación a propósito — el usuario se busca dentro
-        // del negocio ya resuelto, así el mismo correo en dos negocios entra al
-        // que corresponde al subdominio sin un campo extra en el formulario.
+        // ANTEPUESTO, y antes de la autenticación a propósito: el usuario se
+        // busca DENTRO del negocio ya resuelto. Así el mismo correo en dos
+        // negocios entra al que corresponde al subdominio, sin preguntar.
+        $middleware->prependToGroup('web', ResolveTenant::class);
+        $middleware->prependToGroup('api', ResolveTenant::class);
+
+        $middleware->alias([
+            'module' => RequireModule::class,
+            'permission' => RequirePermission::class,
+            'permission.any' => RequireAnyPermission::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

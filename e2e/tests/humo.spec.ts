@@ -16,8 +16,9 @@ import { apiStatus } from '../support/api'
 const pantallas = [
   { nombre: 'portal del cliente', url: portalOf(TENANTS.arepera), titulo: 'Pedir' },
   { nombre: 'caja', url: cajaOf(TENANTS.arepera), titulo: 'Caja' },
-  { nombre: 'panel del dueño', url: panelOf(TENANTS.arepera), titulo: 'Panel' },
   { nombre: 'pantalla de cocina', url: cocinaOf(TENANTS.arepera), titulo: 'Cocina' },
+  // El panel no está aquí: ya pide entrar, así que su recorrido vive en
+  // `entrar.spec.ts` con su login de verdad.
 ]
 
 for (const pantalla of pantallas) {

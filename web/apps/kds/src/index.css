@@ -1,3 +1,4 @@
 @import "@kombo/ui/theme.css";
 @source "./";
 @source "../../../packages/ui/src";
+@source "../../../packages/shell/src";

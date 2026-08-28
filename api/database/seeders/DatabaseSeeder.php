@@ -26,8 +26,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             PlanSeeder::class,
-            // Fase 1: DemoTenantsSeeder — los negocios de demostración con su
-            // dueño, su equipo y un catálogo de verdad.
+            DemoTenantsSeeder::class,
         ]);
     }
 }

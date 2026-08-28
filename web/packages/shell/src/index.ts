@@ -1,3 +1,6 @@
-// Armazón por capacidades: sesión, menú, rutas y login.
+// Armazón por capacidades: sesión, arranque y login.
 
-export const PACKAGE_NAME = '@kombo/shell'
+export { Boot } from './Boot'
+export { LoginScreen } from './LoginScreen'
+export { boot, login, logout, useSession } from './session'
+export type { SessionStatus } from './session'

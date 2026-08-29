@@ -303,6 +303,22 @@ falta por cobrar, y es de las primeras cosas que un dueño mira.
 producto, que el sistema no tiene. Enseñar una «ganancia» calculada sobre la
 nada sería peor que no enseñarla: alguien tomaría decisiones con ella.
 
+**Un rango calculado en la hora del negocio hay que mandarlo en UTC.** El
+constructor de consultas serializa una fecha como `Y-m-d H:i:s` y **tira el
+huso**; PostgreSQL lo lee en el huso de la sesión. Un «hoy» de Caracas enviado
+sin convertir se corre cuatro horas, así que las ventas de después de las ocho
+de la noche dejan de contar como de hoy — y a las once de la mañana todo parece
+correcto, que es lo que lo hace difícil de ver.
+
+**Lo que devuelve un endpoint tiene que ser lo que ese endpoint acepta.** Los
+horarios volvían como `08:00:00` y el `PUT` exigía `H:i`: el formulario no podía
+guardar lo que acababa de leer.
+
+**El catálogo de roles sólo reparte permisos que EXISTEN.** Uno de un módulo que
+no se ha construido se filtra al aplicarlo, y ése es el problema: el catálogo
+dice que el encargado puede algo, no puede, y nadie se entera hasta que lo
+intenta.
+
 ---
 
 ## 9. Convenciones

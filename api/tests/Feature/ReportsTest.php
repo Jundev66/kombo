@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 use App\Models\Catalog\ProductModel;
 use App\Models\Orders\OrderModel;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
@@ -46,7 +47,7 @@ beforeEach(function (): void {
  * `insert` a mano: una prueba que siembra filas a mano puede pasar en verde
  * con el flujo real roto.
  */
-function vender(string $productId, int $quantity = 1, ?string $method = null, ?string $cuando = null): OrderModel
+function vender(string $productId, int $quantity = 1, ?string $method = null, ?Carbon $cuando = null): OrderModel
 {
     $order = app(PlaceOrder::class)->execute(
         items: [['product_id' => $productId, 'quantity' => $quantity]],
@@ -66,8 +67,13 @@ function vender(string $productId, int $quantity = 1, ?string $method = null, ?s
 
     if ($cuando !== null) {
         // Se mueven las dos fechas: el reporte agrupa por `confirmed_at` y la
-        // hora del día sale de `placed_at`.
-        OrderModel::where('id', $order->id)->update(['confirmed_at' => $cuando, 'placed_at' => $cuando]);
+        // hora del día sale de `placed_at`. En UTC, que es lo que guarda la
+        // columna: una cadena sin huso es justo el fallo que estas pruebas
+        // vienen a fijar.
+        OrderModel::where('id', $order->id)->update([
+            'confirmed_at' => $cuando->copy()->utc(),
+            'placed_at' => $cuando->copy()->utc(),
+        ]);
     }
 
     return $order->refresh();
@@ -188,17 +194,30 @@ it('la hora es la del NEGOCIO, no la del servidor', function (): void {
     /*
      * Es el fallo que pone el pico del almuerzo a las cuatro de la tarde: el
      * contenedor corre en UTC y Caracas está cuatro horas atrás.
+     *
+     * Con el reloj FIJADO: si dependiera de a qué hora corra la suite, pasaría
+     * por la mañana y fallaría de madrugada, que es la peor clase de prueba.
      */
+    test()->travelTo(Carbon::parse('2026-03-10 15:00', 'America/Caracas'));
+
     entrarComo($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    // Mediodía en Caracas son las 16:00 UTC.
-    vender($this->arepa->id, 1, method: 'cash_usd', cuando: now()->startOfDay()->addHours(16)->toDateTimeString());
+    vender(
+        $this->arepa->id,
+        1,
+        method: 'cash_usd',
+        cuando: Carbon::parse('2026-03-10 12:00', 'America/Caracas'),
+    );
 
     $horas = reporte($this->slug)->json('data.byHour');
 
     expect($horas[12]['orders'])->toBe(1)
+        // Las 16:00 UTC son el mediodía de Caracas. Si el reporte agrupara por
+        // la hora del servidor, el pico aparecería aquí.
         ->and($horas[16]['orders'])->toBe(0);
+
+    test()->travelBack();
 });
 
 it('dice cómo pagan, y sólo cuenta lo confirmado', function (): void {
@@ -241,32 +260,48 @@ it('dice por dónde entró cada pedido', function (): void {
         ->and($canales['portal']['orders'])->toBe(1);
 });
 
-it('«ayer» es ayer, y no arrastra lo de hoy', function (): void {
+it('«ayer» es ayer en la hora del negocio, y no arrastra lo de hoy', function (): void {
+    test()->travelTo(Carbon::parse('2026-03-10 15:00', 'America/Caracas'));
+
     entrarComo($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
     vender($this->arepa->id, 1, method: 'cash_usd');
-    vender($this->jugo->id, 1, method: 'cash_usd', cuando: now()->subDay()->setTime(12, 0)->toDateTimeString());
+    vender(
+        $this->jugo->id,
+        1,
+        method: 'cash_usd',
+        cuando: Carbon::parse('2026-03-09 12:00', 'America/Caracas'),
+    );
 
     expect(reporte($this->slug, 'hoy')->json('data.summary.orders'))->toBe(1)
         ->and(reporte($this->slug, 'ayer')->json('data.summary.orders'))->toBe(1)
         ->and(reporte($this->slug, 'ayer')->json('data.summary.soldCents'))->toBe(100);
+
+    test()->travelBack();
 });
 
 it('el mes incluye lo de hoy y lo de ayer', function (): void {
+    // Con el reloj fijado a mitad de mes: así no hay que preguntarse qué pasa
+    // cuando la suite corre un día 1, que es la clase de rama que nadie prueba.
+    test()->travelTo(Carbon::parse('2026-03-10 15:00', 'America/Caracas'));
+
     entrarComo($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
     vender($this->arepa->id, 1, method: 'cash_usd');
+    vender(
+        $this->jugo->id,
+        1,
+        method: 'cash_usd',
+        cuando: Carbon::parse('2026-03-09 12:00', 'America/Caracas'),
+    );
 
-    // Sólo si ayer cae dentro de este mes; si hoy es día 1, se prueba con hoy.
-    if (now()->day > 1) {
-        vender($this->jugo->id, 1, method: 'cash_usd', cuando: now()->subDay()->setTime(12, 0)->toDateTimeString());
+    expect(reporte($this->slug, 'mes')->json('data.summary.orders'))->toBe(2)
+        // Y no arrastra lo del mes pasado.
+        ->and(reporte($this->slug, 'mes')->json('data.summary.soldCents'))->toBe(400);
 
-        expect(reporte($this->slug, 'mes')->json('data.summary.orders'))->toBe(2);
-    } else {
-        expect(reporte($this->slug, 'mes')->json('data.summary.orders'))->toBe(1);
-    }
+    test()->travelBack();
 });
 
 it('quien no puede ver las ventas, no las ve', function (): void {
@@ -352,4 +387,31 @@ it('el reporte no consulta la base una vez por producto', function (): void {
     // Cinco bloques de reporte más lo que cuesta resolver la sesión y las
     // capacidades. Lo que importa es que no dependa de cuántos pedidos hay.
     expect($consultas)->toBeLessThan(20);
+});
+
+it('una venta de las nueve de la noche cuenta como de HOY', function (): void {
+    /*
+     * El fallo que esta prueba fija: el rango se calcula en la hora del negocio
+     * pero viaja a la base como texto SIN huso, y PostgreSQL lo lee en UTC. Con
+     * Caracas cuatro horas atrás, las ventas de después de las ocho de la noche
+     * caían fuera de «hoy» — y a las once de la mañana todo parecía correcto,
+     * que es lo que lo hace difícil de ver.
+     */
+    $tenant = $this->tenant;
+    $slug = $this->slug;
+    $arepa = $this->arepa;
+
+    // Las nueve de la noche en Caracas: la una de la madrugada del día
+    // siguiente en UTC.
+    test()->travelTo(Carbon::parse('2026-03-10 21:00', 'America/Caracas'));
+
+    entrarComo($slug, 'maria@ejemplo.com');
+    actingForTenant($tenant);
+
+    vender($arepa->id, 1, method: 'cash_usd');
+
+    expect(reporte($slug, 'hoy')->json('data.summary.orders'))->toBe(1)
+        ->and(reporte($slug, 'ayer')->json('data.summary.orders'))->toBe(0);
+
+    test()->travelBack();
 });

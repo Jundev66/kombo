@@ -8,6 +8,7 @@ use Platform\Auth\Http\LoginController;
 use Platform\Auth\Http\LogoutController;
 use Platform\Auth\Http\PinLoginController;
 use Platform\Auth\Http\StaffController;
+use Platform\Auth\Http\TeamController;
 use Platform\Capabilities\Http\MeController;
 use Platform\Subscription\Http\MetricsController;
 use Platform\Subscription\Http\PlanAdminController;
@@ -86,3 +87,33 @@ Route::domain((string) config('kombo.admin_host'))->group(function (): void {
         Route::patch('/platform/plans/{code}', [PlanAdminController::class, 'update']);
     });
 });
+
+/*
+ * ── El equipo del negocio ────────────────────────────────────────────────
+ *
+ * Va en `routes/api.php` y no en un módulo porque los usuarios y los roles son
+ * de la PLATAFORMA: existen antes que cualquier módulo y no se pueden apagar.
+ * Un negocio sin equipo no es un negocio con una función menos, es un negocio
+ * al que nadie puede entrar.
+ */
+/*
+ * Sin `prefix('api/v1')`: este fichero YA se carga con ese prefijo. Los de los
+ * módulos lo declaran porque `loadRoutesFrom` no aplica el grupo, y ésa es la
+ * asimetría que hace escribir `api/v1/api/v1/team` sin darse cuenta.
+ */
+Route::middleware(['api', 'auth:sanctum'])
+    ->group(function (): void {
+        Route::get('/team', [TeamController::class, 'index'])
+            ->middleware('permission:users.manage');
+
+        Route::post('/team', [TeamController::class, 'store'])
+            ->middleware('permission:users.manage');
+
+        Route::patch('/team/{id}', [TeamController::class, 'update'])
+            ->middleware('permission:users.manage');
+
+        // Da de baja: desactiva, no borra. Un usuario borrado se lleva por
+        // delante quién confirmó aquel pedido.
+        Route::delete('/team/{id}', [TeamController::class, 'destroy'])
+            ->middleware('permission:users.manage');
+    });

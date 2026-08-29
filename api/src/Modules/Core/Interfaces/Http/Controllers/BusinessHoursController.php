@@ -36,8 +36,11 @@ final class BusinessHoursController
             $data[] = [
                 'weekday' => $weekday,
                 'label' => self::DIAS[$weekday],
-                'opensAt' => $row?->opens_at,
-                'closesAt' => $row?->closes_at,
+                // Recortado a `H:i`, que es lo que acepta el PUT de abajo:
+                // PostgreSQL devuelve «08:00:00» y el formulario no podría
+                // guardar lo que acaba de leer.
+                'opensAt' => $row?->opens_at === null ? null : substr((string) $row->opens_at, 0, 5),
+                'closesAt' => $row?->closes_at === null ? null : substr((string) $row->closes_at, 0, 5),
                 // Sin fila configurada, se asume CERRADO. Es el fallo seguro:
                 // aceptar pedidos de un día que nadie configuró es peor que no
                 // aceptarlos.

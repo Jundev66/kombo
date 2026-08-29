@@ -4,7 +4,9 @@ import { ChannelsScreen } from '../screens/ChannelsScreen'
 import { ModifiersScreen } from '../screens/ModifiersScreen'
 import { OrdersScreen } from '../screens/OrdersScreen'
 import { ProductsScreen } from '../screens/ProductsScreen'
+import { HoursScreen } from '../screens/HoursScreen'
 import { ReportsScreen } from '../screens/ReportsScreen'
+import { TeamScreen } from '../screens/TeamScreen'
 import { RateScreen } from '../screens/RateScreen'
 import { ZonesScreen } from '../screens/ZonesScreen'
 
@@ -80,6 +82,24 @@ export const MODULE_UI: ModuleUi[] = [
     label: 'WhatsApp',
   },
   {
+    // El horario vive en `core` porque no es opcional: sin él, el portal no
+    // acepta un solo pedido.
+    module: 'core',
+    path: '/horario',
+    permission: 'settings.manage',
+    Screen: HoursScreen,
+    icon: '🕘',
+    label: 'Horario',
+  },
+  {
+    module: 'core',
+    path: '/equipo',
+    permission: 'users.manage',
+    Screen: TeamScreen,
+    icon: '👥',
+    label: 'Equipo',
+  },
+  {
     module: 'core',
     path: '/tasa',
     permission: 'settings.manage',
@@ -88,5 +108,4 @@ export const MODULE_UI: ModuleUi[] = [
     label: 'Tasa',
   },
 
-  // Fase 8: equipo y configuración
 ]

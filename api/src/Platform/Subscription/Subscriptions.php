@@ -22,6 +22,16 @@ use Platform\Tenancy\TenantStatus;
  */
 final class Subscriptions
 {
+    /**
+     * A cuántos días de vencer se avisa.
+     *
+     * Dos veces y no cinco: un aviso que llega todos los días deja de leerse, y
+     * el que importa —el de mañana— se pierde entre los otros.
+     *
+     * @var list<int>
+     */
+    private const AVISOS = [7, 3];
+
     public function __construct(
         private readonly PlatformAudit $audit,
         private readonly TenantResolver $tenants,
@@ -100,6 +110,68 @@ final class Subscriptions
 
             return $payment;
         });
+    }
+
+    /**
+     * Los que están a punto de vencer, para avisarles.
+     *
+     * Se marca en la bitácora que ya se avisó, y por eso es **idempotente**:
+     * correr la escoba dos veces el mismo día no manda el aviso dos veces.
+     *
+     * Aquí sólo se DECIDE a quién avisar. Mandarlo es cosa del canal —correo,
+     * WhatsApp— y no de esto: si mañana el aviso sale por otro sitio, esta
+     * lógica no se toca.
+     *
+     * @return list<array{tenant_id: string, days_left: int, ends_at: string}>
+     */
+    public function dueForWarning(): array
+    {
+        $avisos = [];
+
+        foreach (self::AVISOS as $dias) {
+            $limite = now()->addDays($dias);
+
+            $subscriptions = SubscriptionModel::query()
+                ->whereNull('cancelled_at')
+                ->whereBetween('current_period_end', [$limite->copy()->startOfDay(), $limite->copy()->endOfDay()])
+                ->get();
+
+            foreach ($subscriptions as $subscription) {
+                if ($this->alreadyWarned($subscription->tenant_id, $dias)) {
+                    continue;
+                }
+
+                $this->audit->record('subscription.warned', $subscription->tenant_id, [
+                    'dias' => $dias,
+                    'vence' => $subscription->current_period_end->toDateString(),
+                ]);
+
+                $avisos[] = [
+                    'tenant_id' => (string) $subscription->tenant_id,
+                    'days_left' => $dias,
+                    'ends_at' => $subscription->current_period_end->toDateString(),
+                ];
+            }
+        }
+
+        return $avisos;
+    }
+
+    /**
+     * ¿Ya se avisó de este vencimiento?
+     *
+     * Se mira la bitácora en vez de guardar una columna `warned_at`: la
+     * columna habría que limpiarla al renovar, y el día que se olvide, el
+     * cliente deja de recibir avisos para siempre sin que nadie lo note.
+     */
+    private function alreadyWarned(string $tenantId, int $dias): bool
+    {
+        return DB::table('platform_audit_log')
+            ->where('tenant_id', $tenantId)
+            ->where('action', 'subscription.warned')
+            ->where('created_at', '>=', now()->subHours(20))
+            ->whereRaw("details->>'dias' = ?", [(string) $dias])
+            ->exists();
     }
 
     /**

@@ -12,6 +12,11 @@ namespace Platform\Auth;
  * permiso de un módulo apagado no existe en el sistema. Así el catálogo se
  * escribe una vez y sirve tanto al puesto que sólo vende por el portal como al
  * local con caja, cocina y delivery.
+ *
+ * Lo que SÍ importa es que el permiso exista en algún manifiesto. Repartir uno
+ * de un módulo que no se ha construido no rompe nada —se filtra igual— y es
+ * exactamente el problema: el catálogo dice que el encargado puede algo, no
+ * puede, y nadie se entera hasta que lo intenta.
  */
 final class RoleCatalog
 {
@@ -57,13 +62,9 @@ final class RoleCatalog
                     'catalog.manage' => self::SI,
                     'catalog.change_price' => self::SI,
                     'delivery.manage' => self::SI,
-                    'customers.view' => self::SI,
-                    'customers.manage' => self::SI,
                     'reports.view_sales' => self::SI,
-                    // NO lleva `reports.view_profit`: el encargado no ve
-                    // márgenes. Es lo que pide todo dueño en cuanto entiende
-                    // que puede pedirlo, y la razón de que sea un permiso
-                    // aparte y no parte de ver las ventas.
+                    // NO lleva `users.manage`: quien puede crear usuarios puede
+                    // crearse una cuenta de dueño. El equipo lo maneja el dueño.
                 ],
             ],
 
@@ -78,7 +79,6 @@ final class RoleCatalog
                     'orders.create' => self::SI,
                     'payments.confirm' => self::SI,
                     'catalog.view' => self::SI,
-                    'customers.view' => self::SI,
                     'kitchen.view' => self::SI,
 
                     // Éstas son las vías naturales para sacar dinero de la

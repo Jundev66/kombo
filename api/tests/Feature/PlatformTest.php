@@ -465,3 +465,34 @@ it('el alta con el mismo correo del dueño en otro negocio SÍ vale', function (
         entrarComo($negocio['slug'], $correo, 'clave-larga-123');
     }
 });
+
+it('se avisa antes de cortar, y sólo una vez por vencimiento', function (): void {
+    /*
+     * Cortarle a alguien sin haberle avisado es la forma más rápida de perder
+     * un cliente que sí iba a pagar. Y avisar todos los días es cómo se
+     * consigue que dejen de leerse los avisos.
+     */
+    $tenantId = makeTenant('avisa-'.Str::lower(Str::random(6)));
+    $subscription = app(Subscriptions::class)->start($tenantId, 'negocio');
+
+    $subscription->update(['current_period_end' => now()->addDays(7)->setTime(12, 0)]);
+
+    $primera = app(Subscriptions::class)->dueForWarning();
+
+    expect(collect($primera)->pluck('tenant_id'))->toContain($tenantId);
+
+    // La segunda pasada del mismo día no vuelve a avisar.
+    $segunda = app(Subscriptions::class)->dueForWarning();
+
+    expect(collect($segunda)->pluck('tenant_id'))->not->toContain($tenantId);
+});
+
+it('a quien le quedan diez días todavía no se le avisa', function (): void {
+    $tenantId = makeTenant('lejos-'.Str::lower(Str::random(6)));
+    $subscription = app(Subscriptions::class)->start($tenantId, 'negocio');
+
+    $subscription->update(['current_period_end' => now()->addDays(10)]);
+
+    expect(collect(app(Subscriptions::class)->dueForWarning())->pluck('tenant_id'))
+        ->not->toContain($tenantId);
+});

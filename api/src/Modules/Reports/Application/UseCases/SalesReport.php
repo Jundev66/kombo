@@ -233,6 +233,14 @@ final class SalesReport
      * teléfono usaría el huso del teléfono — y «hoy» para alguien de viaje
      * sería otro día.
      *
+     * **Y se devuelven en UTC**, que es lo que costó encontrar: el constructor
+     * de consultas serializa una fecha como `Y-m-d H:i:s` y **tira el huso por
+     * el camino**. Al comparar contra una columna `timestamptz`, PostgreSQL
+     * interpreta ese texto en el huso de la sesión —UTC— así que un «hoy»
+     * calculado en Caracas y enviado sin convertir se corría cuatro horas: las
+     * ventas de después de las ocho de la noche dejaban de contar como de hoy,
+     * y a las once de la mañana el reporte parecía correcto.
+     *
      * @return array{0: DateTimeImmutable, 1: DateTimeImmutable}
      */
     public function range(string $preset): array
@@ -240,23 +248,17 @@ final class SalesReport
         $tz = $this->context->current()->timezone;
         $ahora = Carbon::now($tz);
 
-        return match ($preset) {
+        [$desde, $hasta] = match ($preset) {
             'ayer' => [
-                $ahora->copy()->subDay()->startOfDay()->toDateTimeImmutable(),
-                $ahora->copy()->subDay()->endOfDay()->toDateTimeImmutable(),
+                $ahora->copy()->subDay()->startOfDay(),
+                $ahora->copy()->subDay()->endOfDay(),
             ],
-            'semana' => [
-                $ahora->copy()->startOfWeek()->toDateTimeImmutable(),
-                $ahora->copy()->endOfDay()->toDateTimeImmutable(),
-            ],
-            'mes' => [
-                $ahora->copy()->startOfMonth()->toDateTimeImmutable(),
-                $ahora->copy()->endOfDay()->toDateTimeImmutable(),
-            ],
-            default => [
-                $ahora->copy()->startOfDay()->toDateTimeImmutable(),
-                $ahora->copy()->endOfDay()->toDateTimeImmutable(),
-            ],
+            'semana' => [$ahora->copy()->startOfWeek(), $ahora->copy()->endOfDay()],
+            'mes' => [$ahora->copy()->startOfMonth(), $ahora->copy()->endOfDay()],
+            default => [$ahora->copy()->startOfDay(), $ahora->copy()->endOfDay()],
         };
+
+        // El día del NEGOCIO, expresado en el instante que entiende la base.
+        return [$desde->utc()->toDateTimeImmutable(), $hasta->utc()->toDateTimeImmutable()];
     }
 }

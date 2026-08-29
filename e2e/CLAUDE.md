@@ -52,6 +52,26 @@ salen tres reglas:
 3. **Los ayudantes se autocorrigen**: `cerrarTurno()` no hace nada si no hay
    turno abierto.
 
+La marca `[e2e]` no es sólo para leer los datos: `demo:limpiar` —que `run.sh`
+corre antes de cada vuelta— **da de baja a la gente marcada así**. Sin eso, cada
+corrida deja una cuenta activa más, y como las plazas del plan tienen techo
+llega el día en que «Sumar a alguien» aparece deshabilitado. La prueba falla
+entonces por el techo del plan, que está haciendo su trabajo, y no por lo que
+venía a comprobar.
+
+## El recorrido de un negocio nuevo
+
+`recorrido.spec.ts` es el único que **no** usa los negocios sembrados: da de
+alta uno desde la super administración y lo lleva hasta cobrar por las dos
+puertas. Va en `serial` porque cada prueba es un paso del primer día.
+
+Atrapa lo que ninguna otra puede: los fallos que sólo aparecen **sin datos de
+antes**. Una carta vacía, un negocio sin zonas, un equipo de una sola persona,
+el correlativo de notas arrancando en `A-000001`.
+
+Deja un negocio nuevo por corrida y nadie los borra. No estorban —no hay techo
+de negocios— pero se acumulan en la lista de la super administración.
+
 Hay un tercer estado que no vive ni en la base sembrada ni en el navegador: el
 **turno de caja abierto**, que vive en el servidor. Es la fuente clásica de una
 suite que pasa la primera vez y falla la segunda.

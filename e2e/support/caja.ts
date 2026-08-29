@@ -15,12 +15,13 @@ export async function enterRegister(
   cajero: string,
   pin: string,
   altaCon = 'maria@elsazon.test',
+  claveDeAlta = PASSWORD,
 ): Promise<void> {
   await page.goto(cajaOf(tenant))
 
   if (await page.getByRole('button', { name: 'Dar de alta' }).isVisible()) {
     await page.getByLabel('Correo').fill(altaCon)
-    await page.getByLabel('Contraseña').fill(PASSWORD)
+    await page.getByLabel('Contraseña').fill(claveDeAlta)
     await page.getByRole('button', { name: 'Dar de alta' }).click()
   }
 

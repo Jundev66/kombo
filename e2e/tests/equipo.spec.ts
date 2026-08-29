@@ -22,7 +22,7 @@ test('la dueña suma a alguien al equipo, y esa persona entra', async ({ page })
 
   await page.getByRole('button', { name: 'Sumar a alguien' }).click()
 
-  await page.getByRole('textbox', { name: 'Nombre', exact: true }).fill(`Nuevo ${RUN}`)
+  await page.getByRole('textbox', { name: 'Nombre', exact: true }).fill(`[e2e] Nuevo ${RUN}`)
   await page.getByLabel('Correo').fill(correo)
   await page.getByLabel('Rol').selectOption({ label: 'Encargado' })
   await page.getByRole('textbox', { name: 'Contraseña', exact: true }).fill('clave-larga-123')
@@ -32,7 +32,7 @@ test('la dueña suma a alguien al equipo, y esa persona entra', async ({ page })
 
   // Aparece en la lista, con su rol y con su PIN puesto — sin PIN no entraría
   // a la caja ni a la cocina, y eso hay que verlo de un vistazo.
-  const ficha = page.getByRole('listitem').filter({ hasText: `Nuevo ${RUN}` })
+  const ficha = page.getByRole('listitem').filter({ hasText: `[e2e] Nuevo ${RUN}` })
   await expect(ficha).toContainText('Encargado')
   await expect(ficha).toContainText('Con PIN')
 
@@ -52,15 +52,15 @@ test('dar de baja quita el acceso, y se puede reactivar', async ({ page }) => {
   const correo = `baja-${RUN.toLowerCase()}@elsazon.test`
 
   await page.getByRole('button', { name: 'Sumar a alguien' }).click()
-  await page.getByRole('textbox', { name: 'Nombre', exact: true }).fill(`Baja ${RUN}`)
+  await page.getByRole('textbox', { name: 'Nombre', exact: true }).fill(`[e2e] Baja ${RUN}`)
   await page.getByLabel('Correo').fill(correo)
   await page.getByRole('textbox', { name: 'Contraseña', exact: true }).fill('clave-larga-123')
   await page.getByRole('button', { name: 'Guardar' }).click()
 
-  const ficha = page.getByRole('listitem').filter({ hasText: `Baja ${RUN}` })
+  const ficha = page.getByRole('listitem').filter({ hasText: `[e2e] Baja ${RUN}` })
   await expect(ficha).toBeVisible()
 
-  await ficha.getByRole('button', { name: `Dar de baja a Baja ${RUN}` }).click()
+  await ficha.getByRole('button', { name: `Dar de baja a [e2e] Baja ${RUN}` }).click()
 
   // No se borra: se desactiva. Lo que hizo sigue diciendo su nombre.
   await expect(ficha).toContainText('de baja')

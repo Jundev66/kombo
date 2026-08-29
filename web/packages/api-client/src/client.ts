@@ -42,7 +42,38 @@ function xsrfToken(): string | null {
   return match?.[1] ? decodeURIComponent(match[1]) : null
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+/**
+ * Todo lo que hay en vuelo ahora mismo, para poder cortarlo de golpe.
+ *
+ * Existe por el cierre de sesión, y el motivo es más sutil de lo que parece.
+ *
+ * Cada respuesta de Laravel trae su `Set-Cookie` de sesión. Una lectura que
+ * SALIÓ antes de cerrar sesión pero LLEGA después trae la cookie de la sesión
+ * anterior —la cargó antes de que se destruyera— y el navegador la aplica tal
+ * cual: deshace el cierre de sesión. La pantalla se queda dentro, con el
+ * nombre de la persona anterior arriba.
+ *
+ * En una máquina de mostrador, que se pasan tres personas en un turno, eso no
+ * es un detalle. Y es intermitente —hace falta que la lectura y el cierre se
+ * solapen de verdad— que es la peor forma de tenerlo.
+ *
+ * Cortarlas antes de cerrar significa que sus respuestas no llegan, y una
+ * respuesta que no llega no trae cookie que aplicar.
+ */
+let enVuelo = new AbortController()
+
+export function abortarPeticionesEnVuelo(): void {
+  enVuelo.abort()
+  enVuelo = new AbortController()
+}
+
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  /** Fuera del corte de arriba: el propio cierre de sesión no se autocancela. */
+  aparte = false,
+): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' }
 
   if (body !== undefined) {
@@ -63,6 +94,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   // pasar `body: undefined` no es lo mismo que no pasar `body` — y aquí la
   // diferencia importa: un GET con cuerpo es una petición inválida.
   const init: RequestInit = { method, headers, credentials: 'same-origin' }
+
+  if (!aparte) {
+    init.signal = enVuelo.signal
+  }
 
   if (body !== undefined) {
     init.body = JSON.stringify(body)
@@ -112,5 +147,14 @@ export const api = {
     await request<{ ok: boolean }>('POST', '/auth/login', { email, password })
   },
 
-  logout: () => request<{ ok: boolean }>('POST', '/auth/logout'),
+  /**
+   * Cerrar sesión: primero se corta lo que quedó en vuelo, y después se cierra.
+   *
+   * El orden es la parte que importa. Ver `abortarPeticionesEnVuelo`.
+   */
+  async logout(): Promise<void> {
+    abortarPeticionesEnVuelo()
+
+    await request<{ ok: boolean }>('POST', '/auth/logout', undefined, true)
+  },
 }

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { panelOf, TENANTS } from '../support/addresses'
-import { apiFetch } from '../support/api'
+import { apiFetch, apiPost } from '../support/api'
 import { signIn } from '../support/panel'
 
 /*
@@ -86,6 +86,45 @@ test('salir deja la sesión cerrada de verdad', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible()
 
   // Y el servidor tampoco cree que haya alguien dentro.
+  const capacidades = await apiFetch<{ user: unknown }>(page, '/api/v1/me')
+  expect(capacidades.user).toBeNull()
+})
+
+test('salir justo después de tocar algo NO deja la sesión abierta', async ({ page }) => {
+  /*
+   * El caso raro, y el que muerde en el mostrador.
+   *
+   * Cada respuesta de Laravel trae su cookie de sesión. Una lectura que salió
+   * ANTES de cerrar sesión pero llega DESPUÉS trae la cookie de la sesión
+   * anterior, el navegador la aplica, y el cierre queda deshecho: la pantalla
+   * sigue dentro con el nombre de quien acaba de irse. En una máquina que se
+   * pasan tres personas por turno, eso es la sesión de otra persona.
+   *
+   * Se provoca como pasa de verdad: confirmar un pedido deja el tablero
+   * refrescándose —varias lecturas a la vez— y encima cae el «Salir». Nadie
+   * hace esto a propósito; se hace sin querer, con prisa, al terminar el turno.
+   */
+  await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
+
+  const { data: producto } = await apiPost<{ data: { id: string } }>(
+    page,
+    '/api/v1/catalog/products',
+    { name: `[e2e] Salida ${Date.now().toString(36)}`, price_cents: 300 },
+  )
+
+  await apiPost(page, '/api/v1/orders', { items: [{ product_id: producto.id, quantity: 1 }] })
+
+  await page.goto(panelOf(TENANTS.arepera) + 'pedidos')
+
+  // Confirmar dispara la revalidación del tablero; el clic de salir le cae
+  // encima sin esperar a que termine.
+  await page.getByRole('button', { name: 'Confirmar' }).first().click()
+  await page.getByRole('button', { name: 'Salir' }).click()
+
+  await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible()
+
+  // Y el servidor tampoco cree que haya alguien dentro. Si alguna de aquellas
+  // lecturas hubiera devuelto la cookie vieja, aquí saldría María.
   const capacidades = await apiFetch<{ user: unknown }>(page, '/api/v1/me')
   expect(capacidades.user).toBeNull()
 })

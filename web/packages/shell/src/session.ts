@@ -58,7 +58,33 @@ export async function login(email: string, password: string): Promise<void> {
   await boot()
 }
 
+/**
+ * Cerrar sesión, y comprobar que quedó cerrada.
+ *
+ * La comprobación no sobra, y el motivo es de los que no se adivinan leyendo
+ * el código.
+ *
+ * Cada respuesta de Laravel trae su cookie de sesión. Una lectura que SALIÓ
+ * antes del cierre pero LLEGA después trae la cookie de la sesión anterior —la
+ * cargó antes de que se destruyera— y el navegador la aplica tal cual: la
+ * sesión vuelve a estar abierta. La pantalla se queda dentro, con el nombre de
+ * quien acaba de irse arriba.
+ *
+ * `api.logout()` ya corta lo que está en vuelo, así que esto casi nunca hace
+ * falta. Casi: nada impide que otra parte de la pantalla haya lanzado un
+ * `fetch` por su cuenta. Y en una máquina de mostrador, que se pasan tres
+ * personas por turno, «casi nunca» no es suficiente — lo que queda abierto es
+ * la sesión de otra persona.
+ *
+ * Así que si después de cerrar sigue habiendo alguien dentro, se cierra otra
+ * vez. Para entonces las lecturas rezagadas ya llegaron y no hay nada que
+ * pueda devolver la cookie vieja.
+ */
 export async function logout(): Promise<void> {
-  await api.logout()
-  await boot()
+  for (let intento = 0; intento < 3; intento++) {
+    await api.logout()
+    await boot()
+
+    if (state.capabilities?.user == null) return
+  }
 }

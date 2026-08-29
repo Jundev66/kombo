@@ -39,9 +39,10 @@ final class CleanDemoDataCommand extends Command
 
         $limite = now()->subHours((int) $this->option('horas'));
         $total = 0;
+        $personas = 0;
 
         foreach (DB::table('tenants')->whereNull('deleted_at')->pluck('id') as $tenantId) {
-            $total += $session->within((string) $tenantId, function () use ($limite): int {
+            [$cerrados, $dadosDeBaja] = $session->within((string) $tenantId, function () use ($limite): array {
                 $pedidos = DB::table('orders')
                     ->whereNotIn('status', ['delivered', 'cancelled'])
                     ->where('placed_at', '<', $limite)
@@ -52,11 +53,36 @@ final class CleanDemoDataCommand extends Command
                     ->where('placed_at', '<', $limite)
                     ->update(['status' => 'served', 'served_at' => now(), 'updated_at' => now()]);
 
-                return $pedidos;
+                /*
+                 * La gente que suman las pruebas de usuario.
+                 *
+                 * Ocupa PLAZA del plan, y las plazas tienen techo. Sin esto,
+                 * cada corrida deja una cuenta activa más y llega el día en que
+                 * el botón «Sumar a alguien» aparece deshabilitado: la prueba
+                 * falla por el techo del plan —que está haciendo su trabajo— y
+                 * no por lo que venía a comprobar. Se pierde media mañana
+                 * buscándolo en el sitio equivocado.
+                 *
+                 * Por el prefijo `[e2e]`, que es la marca que las pruebas
+                 * ponen a todo lo que crean. Nadie de un negocio de verdad se
+                 * llama así.
+                 *
+                 * Se DESACTIVA, no se borra: sus pedidos y sus notas siguen
+                 * diciendo quién los hizo.
+                 */
+                $baja = DB::table('users')
+                    ->where('name', 'like', '[e2e]%')
+                    ->where('is_active', true)
+                    ->update(['is_active' => false, 'updated_at' => now()]);
+
+                return [$pedidos, $baja];
             });
+
+            $total += $cerrados;
+            $personas += $dadosDeBaja;
         }
 
-        $this->info("Pedidos cerrados: {$total}");
+        $this->info("Pedidos cerrados: {$total} · Cuentas de prueba dadas de baja: {$personas}");
 
         return self::SUCCESS;
     }

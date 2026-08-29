@@ -52,4 +52,19 @@ return [
      */
     'public_url' => env('KOMBO_PUBLIC_URL', 'http://{slug}.localhost:8010'),
 
+    /*
+     * Dónde se dejan los respaldos dentro del servidor.
+     *
+     * Fuera de `storage/app` a propósito: `storage/app` es lo que el propio
+     * respaldo empaqueta, así que guardarlos ahí haría que cada copia
+     * contuviera a la anterior. En pocas semanas el respaldo pesaría más que
+     * todos los datos juntos.
+     *
+     * En producción es un volumen aparte (ver `compose.prod.yml`), para poder
+     * bajarlo con `docker cp` sin tocar nada más.
+     */
+    'backups' => [
+        'path' => env('KOMBO_BACKUP_PATH', storage_path('respaldos')),
+    ],
+
 ];

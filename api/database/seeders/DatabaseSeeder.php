@@ -24,11 +24,24 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        $this->call([
-            PlanSeeder::class,
-            DemoTenantsSeeder::class,
-            // Después de los negocios: le da suscripción a los que no la tengan.
-            PlatformSeeder::class,
-        ]);
+        // Los planes SIEMPRE: sin ellos no hay techos que aplicar ni módulos
+        // que encender, y un negocio nuevo se da de alta contra un plan que no
+        // existe.
+        $this->call(PlanSeeder::class);
+
+        /*
+         * Los negocios de demostración sólo donde toca.
+         *
+         * En producción `db:seed` se corre sin pensar —para rellenar los
+         * planes después de una actualización— y sin esta condición aparecería
+         * «El Sazón» en la lista de clientes de verdad, con su dueño de mentira
+         * y una contraseña publicada en este repositorio.
+         */
+        if (config('kombo.demo_tools') === true) {
+            $this->call(DemoTenantsSeeder::class);
+        }
+
+        // Después de los negocios: le da suscripción a los que no la tengan.
+        $this->call(PlatformSeeder::class);
     }
 }

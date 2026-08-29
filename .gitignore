@@ -2,6 +2,11 @@ node_modules/
 dist/
 .DS_Store
 
+# Producción: el .env del servidor y el certificado de origen de Cloudflare.
+# Ninguno de los dos entra nunca en el repositorio.
+/.env
+/certs/
+
 # Backend
 /api/vendor/
 /api/.env
@@ -20,3 +25,4 @@ dist/
 
 .idea/
 .vscode/
+/api/storage/respaldos/

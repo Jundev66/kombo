@@ -496,3 +496,30 @@ it('a quien le quedan diez días todavía no se le avisa', function (): void {
     expect(collect(app(Subscriptions::class)->dueForWarning())->pluck('tenant_id'))
         ->not->toContain($tenantId);
 });
+
+it('dos clientes detrás del proxy no comparten el cubo de intentos', function (): void {
+    /*
+     * El fallo que esto fija: detrás de Cloudflare, sin confiar en el proxy,
+     * Laravel ve la IP del proxy en TODAS las peticiones. Los limitadores
+     * cuentan por IP, así que el primer cliente que se equivoque de contraseña
+     * deja fuera a los demás — una denegación de servicio hecha por accidente,
+     * entre clientes que no se conocen.
+     */
+    $intentar = fn (string $ip): TestResponse => test()->withHeaders([
+        'Accept' => 'application/json',
+        'X-Forwarded-For' => $ip,
+    ])->postJson(ADMIN_HOST.'/api/v1/platform/auth/login', [
+        'email' => $this->admin->email,
+        'password' => 'la-que-no-es',
+    ]);
+
+    // Cinco fallos desde una IP la dejan fuera.
+    foreach (range(1, 5) as $intento) {
+        $intentar('203.0.113.10')->assertStatus(422);
+    }
+
+    expect($intentar('203.0.113.10')->json('errors.email.0'))->toContain('Demasiados intentos');
+
+    // Y otro cliente, desde otra IP, entra sin problema.
+    expect($intentar('198.51.100.20')->json('errors.email.0'))->toContain('no entran');
+});

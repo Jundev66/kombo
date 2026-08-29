@@ -1,0 +1,62 @@
+# Lo que NO entra en el contexto de construcción.
+#
+# Las dos imágenes de producción —la de la API y la de las aplicaciones—
+# comparten este contexto, así que aquí sólo se excluye lo que no hace falta a
+# ninguna de las dos.
+#
+# Hay dos líneas que no son optimización sino seguridad, y están marcadas.
+
+.git/
+.github/
+.gitignore
+
+# Nada de esto se despliega.
+docs/
+e2e/
+compose.yml
+Makefile
+README.md
+
+# ── SEGURIDAD ───────────────────────────────────────────────────────────────
+# El `.env` de desarrollo lleva contraseñas —`secret`— y `KOMBO_DEMO_TOOLS=true`,
+# que en un servidor deja suelto el comando que cancela pedidos. En producción
+# la configuración llega por entorno; dentro de la imagen no hay ningún `.env`.
+**/.env
+**/.env.*
+!**/.env.production.example
+
+# El certificado de origen. Se monta desde el servidor, jamás se hornea.
+certs/
+
+# ── Dependencias instaladas en el host ──────────────────────────────────────
+# `api/vendor` del host trae Pest, Pint y todo lo de desarrollo, y sobrescribiría
+# el `composer install --no-dev` de la etapa anterior. Lo mismo con node_modules:
+# Rollup y esbuild traen binarios por plataforma, y unos instalados en macOS no
+# arrancan dentro de un contenedor Linux.
+**/node_modules/
+api/vendor/
+
+# Salidas de construcciones anteriores: se rehacen dentro.
+**/dist/
+
+# Estado de ejecución local.
+api/storage/logs/
+api/storage/framework/cache/
+api/storage/framework/sessions/
+api/storage/framework/views/
+# Los archivos de prueba de la máquina de desarrollo sí sobran; las CARPETAS no.
+# El volumen de producción se inicializa con lo que haya en la imagen: sin
+# `public/` y `private/`, arranca sin la estructura que la aplicación espera.
+api/storage/app/public/*
+!api/storage/app/public/.gitignore
+api/storage/app/private/*
+!api/storage/app/private/.gitignore
+api/public/storage
+api/bootstrap/cache/*.php
+**/.phpunit.result.cache
+**/.phpunit.cache/
+
+.DS_Store
+.idea/
+.vscode/
+api/storage/respaldos/

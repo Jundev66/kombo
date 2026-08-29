@@ -23,17 +23,27 @@ class PlatformSeeder extends Seeder
 {
     public function run(): void
     {
-        PlatformUser::firstOrCreate(
-            ['email' => 'admin@kombo.test'],
-            [
-                'name' => 'Administración',
-                // Es una demostración, y la contraseña es la misma que la de
-                // los negocios de prueba a propósito: en producción esta cuenta
-                // se crea a mano y con otra.
-                'password' => 'demo1234',
-                'is_active' => true,
-            ],
-        );
+        /*
+         * La cuenta de demostración, y SÓLO donde las herramientas de
+         * demostración están encendidas.
+         *
+         * Su contraseña está escrita aquí, o sea publicada en el repositorio.
+         * Sin esta condición, sembrar en un servidor —algo que se hace sin
+         * pensar, para rellenar los planes— dejaría abierta una cuenta que ve
+         * los datos de todos los clientes.
+         *
+         * En producción el administrador se crea con `plataforma:admin`.
+         */
+        if (config('kombo.demo_tools') === true) {
+            PlatformUser::firstOrCreate(
+                ['email' => 'admin@kombo.test'],
+                [
+                    'name' => 'Administración',
+                    'password' => 'demo1234',
+                    'is_active' => true,
+                ],
+            );
+        }
 
         $tenants = DB::table('tenants')->whereNull('deleted_at')->get(['id', 'plan_code']);
 

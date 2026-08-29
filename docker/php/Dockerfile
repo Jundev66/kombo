@@ -29,13 +29,25 @@ RUN install-php-extensions \
         opcache \
         zip \
         pcntl \
-    # Ojo: Debian trixie trae el cliente 17 y el servidor es 18. Para `psql`
-    # da igual, pero `pg_dump` se niega a volcar una base de versión superior.
-    # Cuando toque montar respaldos habrá que añadir el repositorio PGDG para
-    # tener el cliente 18; no antes, para no arrastrar un repo de terceros por
-    # algo que todavía no se usa.
     && apt-get update \
-    && apt-get install -y --no-install-recommends git postgresql-client \
+    && apt-get install -y --no-install-recommends git gnupg curl ca-certificates \
+    # ── El cliente de PostgreSQL 18, y por qué hace falta el repositorio ──
+    #
+    # Debian trixie trae el cliente 17 y el servidor es el 18. Para `psql` da
+    # igual, pero `pg_dump` **se niega a volcar una base de versión superior**:
+    # «server version 18 … pg_dump version 17». Sin cliente 18 no hay respaldos.
+    #
+    # Va también en desarrollo, y no sólo en producción, por una razón concreta:
+    # es donde se prueba `respaldos:hacer`. Un respaldo que sólo se puede probar
+    # en el servidor del cliente se prueba el día que hace falta restaurarlo.
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+        -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] \
+        https://apt.postgresql.org/pub/repos/apt trixie-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-18 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

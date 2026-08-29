@@ -35,6 +35,18 @@ make check   # arquitectura, aislamiento, suite, estilo, tipos y presupuesto
 make e2e     # pruebas de usuario por el navegador
 ```
 
+## Poner esto en un servidor
+
+- **[`docs/despliegue.md`](docs/despliegue.md)** — de un VPS vacío a un negocio
+  tomando pedidos: DNS comodín, Cloudflare, `compose.prod.yml`, y las cuatro
+  comprobaciones que se hacen al terminar.
+- **[`docs/canales.md`](docs/canales.md)** — conectar el WhatsApp y el Telegram
+  de cada negocio: de dónde sale cada credencial y qué hacer cuando el bot no
+  contesta.
+- **[`docs/respaldos.md`](docs/respaldos.md)** — qué se guarda, dónde, y sobre
+  todo **cómo se restaura**. Restaura uno el día del despliegue: un respaldo que
+  nadie ha restaurado nunca no es un respaldo.
+
 ## Para entender el sistema
 
 El punto de entrada es **[`CLAUDE.md`](CLAUDE.md)** — el mapa, los invariantes

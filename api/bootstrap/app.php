@@ -23,6 +23,31 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        /*
+         * Detrás hay un proxy, y hay que creerle.
+         *
+         * En producción, entre el cliente y esto hay Cloudflare y nginx. Sin
+         * esta línea Laravel ve la IP del proxy en TODAS las peticiones, y ahí
+         * empieza el problema de verdad: los limitadores de intentos —el login
+         * de la plataforma, el `throttle` del portal, el de los comprobantes—
+         * cuentan por IP. Con una sola IP para todo el mundo, el primer cliente
+         * que se equivoque de contraseña deja fuera a los demás. Un ataque de
+         * denegación de servicio hecho por accidente, entre clientes que no se
+         * conocen.
+         *
+         * Lo otro que arregla: sin esto Laravel cree que la petición llegó por
+         * `http` —el TLS lo termina el proxy— y genera enlaces y redirecciones
+         * a `http`, que con `SESSION_SECURE_COOKIE` activo dejan al navegador
+         * sin cookie.
+         *
+         * `at: '*'` y no una lista de rangos de Cloudflare: php-fpm sólo es
+         * alcanzable desde nginx, que es quien pone estas cabeceras, así que la
+         * lista no añadiría seguridad. Y mantener a mano unos rangos que
+         * Cloudflare cambia sin avisar es una tarea que nadie hace y que falla
+         * en silencio el día que cambian.
+         */
+        $middleware->trustProxies(at: '*');
+
         // La API se consume desde el mismo origen (el navegador ya está en
         // `elsazon.localhost`), así que la sesión por cookie vale y no hace
         // falta pasear tokens por el panel ni por el portal.

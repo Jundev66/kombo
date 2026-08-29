@@ -6,6 +6,7 @@ use Modules\Catalog\CatalogModule;
 use Modules\Channels\ChannelsModule;
 use Modules\Core\CoreModule;
 use Modules\Counter\CounterModule;
+use Modules\Customers\CustomersModule;
 use Modules\Delivery\DeliveryModule;
 use Modules\Documents\DocumentsModule;
 use Modules\Kitchen\KitchenModule;
@@ -41,6 +42,7 @@ return [
         PortalModule::class,
         ChannelsModule::class,
         ReportsModule::class,
+        CustomersModule::class,
 
     ],
 ];

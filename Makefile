@@ -11,6 +11,8 @@ up-lite:          ## Sólo lo imprescindible: API, base, panel y cocina (máquin
 setup:            ## Primera vez: .env, clave, migraciones y base de pruebas
 	docker compose exec api cp -n .env.example .env || true
 	docker compose exec api php artisan key:generate
+	@# Sin esto, las fotos de los productos se suben y no se ven.
+	docker compose exec api php artisan storage:link
 	docker compose exec api php artisan migrate --database=pgsql_owner --force
 	docker compose exec -e DB_DATABASE=kombo_test api \
 		php artisan migrate --database=pgsql_owner --force

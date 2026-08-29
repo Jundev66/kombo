@@ -21,6 +21,7 @@ use Platform\Tenancy\Concerns\UsesUuidV7;
     'number', 'public_token', 'status', 'service_type', 'channel',
     'customer_name', 'customer_phone', 'delivery_address',
     'delivery_zone_id', 'delivery_zone_name', 'expires_at',
+    'courier_id', 'courier_name',
     'subtotal_cents', 'delivery_fee_cents', 'total_cents', 'currency', 'exchange_rate',
     'paid_cents', 'payment_status', 'notes', 'cancellation_reason',
     'placed_at', 'confirmed_at', 'preparing_at', 'ready_at',

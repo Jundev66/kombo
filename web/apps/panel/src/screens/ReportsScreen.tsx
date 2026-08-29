@@ -1,4 +1,4 @@
-import { Card, EmptyState, Money, Spinner, formatUsd } from '@kombo/ui'
+import { Card, EmptyState, Money, Spinner, buttonClasses, formatUsd } from '@kombo/ui'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { paymentLabel } from '../api/orders'
@@ -24,7 +24,20 @@ export function ReportsScreen() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold text-[var(--text-strong)]">Ventas</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="flex-1 text-xl font-bold text-[var(--text-strong)]">Ventas</h1>
+
+        {/* Un enlace y no un botón: lleva a otro sitio —a un archivo— y meter
+            un `fetch` por medio sería bajarlo a memoria para volver a
+            ofrecerlo. */}
+        <a
+          href={reports.exportUrl(periodo)}
+          className={buttonClasses('secondary', 'md')}
+          download
+        >
+          Exportar
+        </a>
+      </div>
 
       <nav aria-label="Período" className="flex gap-2 overflow-x-auto">
         {PERIODS.map((opcion) => (

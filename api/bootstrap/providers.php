@@ -6,6 +6,7 @@ use App\Providers\AppServiceProvider;
 use Modules\Catalog\CatalogServiceProvider;
 use Modules\Channels\ChannelsServiceProvider;
 use Modules\Counter\CounterServiceProvider;
+use Modules\Customers\CustomersServiceProvider;
 use Modules\Delivery\DeliveryServiceProvider;
 use Modules\Documents\DocumentsServiceProvider;
 use Modules\Kitchen\KitchenServiceProvider;
@@ -38,6 +39,7 @@ return [
     PortalServiceProvider::class,
     ChannelsServiceProvider::class,
     ReportsServiceProvider::class,
+    CustomersServiceProvider::class,
 
     AppServiceProvider::class,
 ];

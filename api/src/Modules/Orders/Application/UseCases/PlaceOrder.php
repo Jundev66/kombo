@@ -6,12 +6,14 @@ namespace Modules\Orders\Application\UseCases;
 
 use App\Models\Orders\OrderModel;
 use DateTimeImmutable;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Support\Str;
 use Modules\Catalog\Application\Contracts\ModifierCatalog;
 use Modules\Catalog\Application\Contracts\ProductCatalog;
 use Modules\Orders\Application\Exceptions\ProductNotSellable;
 use Modules\Orders\Domain\Entities\Order;
+use Modules\Orders\Domain\Events\OrderPlaced;
 use Modules\Orders\Domain\ValueObjects\OrderLine;
 use Modules\Orders\Domain\ValueObjects\OrderLineModifier;
 use Modules\Orders\Domain\ValueObjects\ServiceType;
@@ -38,6 +40,7 @@ final class PlaceOrder
         private readonly DatabaseManager $db,
         private readonly TenantContext $context,
         private readonly AuditLogger $audit,
+        private readonly Dispatcher $events,
     ) {}
 
     /**
@@ -139,10 +142,29 @@ final class PlaceOrder
                 after: ['number' => $model->number, 'total_cents' => $order->total()->cents],
             );
 
-            // Se relee: columnas como `payment_status` las pone la base con su
-            // valor por defecto, y un modelo a medio llenar obliga a quien lo
-            // recibe a adivinar cuáles faltan.
-            return $model->refresh();
+            $model->refresh();
+
+            /*
+             * Entró un pedido.
+             *
+             * Por evento, como todo lo demás: `Orders` no sabe quién escucha.
+             * Hoy lo oye el módulo de clientes para llevar su cuenta; mañana
+             * podría oírlo otro sin tocar esto.
+             */
+            $this->events->dispatch(new OrderPlaced(
+                tenantId: $this->context->id(),
+                orderId: (string) $model->id,
+                number: (int) $model->number,
+                channel: $channel,
+                totalCents: (int) $model->total_cents,
+                customerName: $model->customer_name,
+                customerPhone: $model->customer_phone,
+            ));
+
+            // Se devuelve releído: columnas como `payment_status` las pone la
+            // base con su valor por defecto, y un modelo a medio llenar obliga
+            // a quien lo recibe a adivinar cuáles faltan.
+            return $model;
         });
     }
 

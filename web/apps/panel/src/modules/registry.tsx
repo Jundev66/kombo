@@ -1,5 +1,7 @@
 import type { ModuleUi } from '@kombo/shell'
 import { CategoriesScreen } from '../screens/CategoriesScreen'
+import { CustomersScreen } from '../screens/CustomersScreen'
+import { DeliveriesScreen } from '../screens/DeliveriesScreen'
 import { ChannelsScreen } from '../screens/ChannelsScreen'
 import { ModifiersScreen } from '../screens/ModifiersScreen'
 import { OrdersScreen } from '../screens/OrdersScreen'
@@ -55,11 +57,29 @@ export const MODULE_UI: ModuleUi[] = [
     label: 'Agregados',
   },
   {
+    // Primero que las zonas: el repartidor abre esto todo el día y el dueño
+    // toca las tarifas una vez al mes.
+    module: 'delivery',
+    path: '/entregas',
+    permission: 'delivery.view_own',
+    Screen: DeliveriesScreen,
+    icon: '🛵',
+    label: 'Entregas',
+  },
+  {
+    module: 'customers',
+    path: '/clientes',
+    permission: 'customers.view',
+    Screen: CustomersScreen,
+    icon: '🧑',
+    label: 'Clientes',
+  },
+  {
     module: 'delivery',
     path: '/zonas',
     permission: 'delivery.manage',
     Screen: ZonesScreen,
-    icon: '🛵',
+    icon: '📍',
     label: 'Zonas',
   },
   {

@@ -62,6 +62,8 @@ final class RoleCatalog
                     'catalog.manage' => self::SI,
                     'catalog.change_price' => self::SI,
                     'delivery.manage' => self::SI,
+                    'customers.view' => self::SI,
+                    'customers.manage' => self::SI,
                     'reports.view_sales' => self::SI,
                     // NO lleva `users.manage`: quien puede crear usuarios puede
                     // crearse una cuenta de dueño. El equipo lo maneja el dueño.
@@ -79,6 +81,7 @@ final class RoleCatalog
                     'orders.create' => self::SI,
                     'payments.confirm' => self::SI,
                     'catalog.view' => self::SI,
+                    'customers.view' => self::SI,
                     'kitchen.view' => self::SI,
 
                     // Éstas son las vías naturales para sacar dinero de la

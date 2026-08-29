@@ -21,6 +21,8 @@ use Modules\Orders\Application\UseCases\CancelOrder;
 use Modules\Orders\Application\UseCases\PlaceOrder;
 use Modules\Orders\Application\UseCases\RegisterPayment;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
+use Platform\Subscription\Subscriptions;
+use Platform\Tenancy\TenantStatus;
 
 beforeEach(function (): void {
     $sufijo = Str::lower(Str::random(6));
@@ -414,4 +416,58 @@ it('una venta de las nueve de la noche cuenta como de HOY', function (): void {
         ->and(reporte($slug, 'ayer')->json('data.summary.orders'))->toBe(0);
 
     test()->travelBack();
+});
+
+it('exportar da un archivo que se abre en una hoja de cálculo', function (): void {
+    /*
+     * Esto es lo que hace verdad la frase del middleware de suspensión: «lee y
+     * exporta». Sin un botón de exportar, esa promesa era una frase bonita en
+     * un comentario.
+     */
+    entrarComo($this->slug, 'maria@ejemplo.com');
+    actingForTenant($this->tenant);
+
+    vender($this->arepa->id, 2, method: 'cash_usd');
+
+    $respuesta = test()->withHeaders(browsingAs($this->slug))
+        ->get(urlFor($this->slug, '/api/v1/reports/export?periodo=mes'))
+        ->assertOk();
+
+    $csv = $respuesta->streamedContent();
+
+    // El BOM: sin él, Excel en Windows enseña «Reina Pepiáda».
+    expect($csv)->toStartWith("\xEF\xBB\xBF")
+        ->and($csv)->toContain('numero;fecha;estado')
+        ->and($csv)->toContain('2x Reina Pepiada')
+        // Coma decimal: una hoja en español lee «6.00» como seiscientos.
+        ->and($csv)->toContain('6,00');
+});
+
+it('un negocio suspendido sigue pudiendo exportar lo suyo', function (): void {
+    // Sus pedidos son suyos aunque nos deba tres meses. Lo que se corta es
+    // seguir operando gratis, no el acceso a sus datos.
+    entrarComo($this->slug, 'maria@ejemplo.com');
+    actingForTenant($this->tenant);
+
+    vender($this->arepa->id, 1, method: 'cash_usd');
+
+    app(Subscriptions::class)
+        ->setTenantStatus($this->tenant, TenantStatus::Suspended);
+
+    test()->withHeaders(browsingAs($this->slug))
+        ->get(urlFor($this->slug, '/api/v1/reports/export'))
+        ->assertOk();
+});
+
+it('quien no ve las ventas tampoco las exporta', function (): void {
+    actingForTenant($this->tenant);
+
+    $carlos = makeUser($this->tenant, 'carlos-export@ejemplo.com', 'Carlos');
+    giveRole($this->tenant, $carlos, 'kitchen');
+
+    entrarComo($this->slug, 'carlos-export@ejemplo.com');
+
+    test()->withHeaders(browsingAs($this->slug))
+        ->get(urlFor($this->slug, '/api/v1/reports/export'))
+        ->assertForbidden();
 });

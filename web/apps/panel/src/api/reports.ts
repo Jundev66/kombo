@@ -46,4 +46,14 @@ export const CHANNEL_LABELS: Record<string, string> = {
 export const reports = {
   sales: (periodo: Period) =>
     api.get<{ data: SalesReport }>(`/reports/sales?periodo=${periodo}`).then((r) => r.data),
+
+  /**
+   * La dirección del archivo.
+   *
+   * Se navega a ella en vez de descargarla con `fetch`: así el navegador la
+   * guarda como archivo con su nombre, y en un teléfono la abre con la
+   * aplicación de hojas de cálculo que tenga. Bajarla a memoria para volver a
+   * ofrecerla sería trabajo para el mismo resultado.
+   */
+  exportUrl: (periodo: Period) => `/api/v1/reports/export?periodo=${periodo}`,
 }

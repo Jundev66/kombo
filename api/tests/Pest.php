@@ -139,7 +139,13 @@ function makeUser(
 }
 
 /**
- * Crea un rol del catálogo base y se lo asigna a un usuario.
+ * Asigna un rol del catálogo base a un usuario, **creándolo si no existe**.
+ *
+ * Reutiliza el rol si ya está, igual que en producción: los roles se siembran
+ * una vez al dar de alta el negocio, y dos personas de cocina comparten el
+ * mismo. Crearlo siempre reventaba contra el único `(tenant_id, code)` en
+ * cuanto dos pruebas del mismo fichero repartían el mismo rol — un fallo que no
+ * dice nada sobre lo que se estaba probando.
  *
  * Concede sólo los permisos de módulos que el negocio tenga encendidos, igual
  * que hace la siembra real: un permiso de un módulo apagado no existe.
@@ -147,6 +153,25 @@ function makeUser(
 function giveRole(string $tenantId, string $userId, string $code): string
 {
     $catalogo = RoleCatalog::get($code);
+
+    $existente = DB::table('roles')
+        ->where('tenant_id', $tenantId)
+        ->where('code', $code)
+        ->value('id');
+
+    if ($existente !== null) {
+        DB::table('role_user')->insertOrIgnore([
+            'id' => (string) Str::uuid7(),
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'role_id' => $existente,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return (string) $existente;
+    }
+
     $roleId = (string) Str::uuid7();
 
     DB::table('roles')->insert([

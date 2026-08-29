@@ -50,7 +50,7 @@ class PlanSeeder extends Seeder
                 'max_products' => null,
                 'max_orders_month' => null,
                 'trial_days' => 30,
-                'modules' => ['catalog', 'orders', 'kitchen', 'portal', 'counter', 'documents', 'delivery', 'channels', 'reports'],
+                'modules' => ['catalog', 'orders', 'kitchen', 'portal', 'counter', 'documents', 'delivery', 'channels', 'reports', 'customers'],
             ],
             [
                 'code' => 'completo',

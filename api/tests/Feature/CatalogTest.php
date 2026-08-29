@@ -7,7 +7,10 @@ declare(strict_types=1);
  * un producto y cambiarle el precio.
  */
 
+use App\Models\Catalog\ProductModel;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 beforeEach(function (): void {
@@ -237,4 +240,80 @@ it('un módulo que este negocio no tiene responde 404, no 403', function (): voi
     $this->withHeaders(browsingAs($this->slug))
         ->getJson(urlFor($this->slug, '/api/v1/counter/anything'))
         ->assertNotFound();
+});
+
+it('la foto se sube, reemplaza a la anterior y se puede quitar', function (): void {
+    /*
+     * En el portal la foto es lo que vende. Antes había que pegar una
+     * dirección a mano, que en la práctica significaba que casi ninguna carta
+     * tenía fotos.
+     */
+    Storage::fake('public');
+
+    entrarComo($this->slug, 'maria@ejemplo.com');
+    actingForTenant($this->tenant);
+
+    $producto = ProductModel::create(['name' => 'Reina Pepiada', 'price_cents' => 300]);
+
+    $primera = test()->withHeaders(browsingAs($this->slug))
+        ->post(urlFor($this->slug, "/api/v1/catalog/products/{$producto->id}/photo"), [
+            'photo' => UploadedFile::fake()->create('arepa.jpg', 200, 'image/jpeg'),
+        ])->assertOk()->json('data.photoUrl');
+
+    // Ruta relativa: la sirve el mismo origen desde el que se abrió la página,
+    // que es el subdominio del negocio y no el dominio raíz.
+    expect($primera)->toStartWith("/storage/products/{$this->tenant}/");
+
+    Storage::disk('public')->assertExists(str_replace('/storage/', '', $primera));
+
+    $segunda = test()->withHeaders(browsingAs($this->slug))
+        ->post(urlFor($this->slug, "/api/v1/catalog/products/{$producto->id}/photo"), [
+            'photo' => UploadedFile::fake()->create('otra.jpg', 200, 'image/jpeg'),
+        ])->assertOk()->json('data.photoUrl');
+
+    // La anterior se borra: si no, cada cambio deja un archivo huérfano y el
+    // disco de un VPS pequeño no está para guardar seis arepas iguales.
+    expect($segunda)->not->toBe($primera);
+    Storage::disk('public')->assertMissing(str_replace('/storage/', '', $primera));
+
+    test()->withHeaders(browsingAs($this->slug))
+        ->deleteJson(urlFor($this->slug, "/api/v1/catalog/products/{$producto->id}/photo"))
+        ->assertStatus(204);
+
+    actingForTenant($this->tenant);
+
+    expect(ProductModel::find($producto->id)->photo_url)->toBeNull();
+    Storage::disk('public')->assertMissing(str_replace('/storage/', '', $segunda));
+});
+
+it('lo que no es una foto no se sube', function (): void {
+    Storage::fake('public');
+
+    entrarComo($this->slug, 'maria@ejemplo.com');
+    actingForTenant($this->tenant);
+
+    $producto = ProductModel::create(['name' => 'Reina Pepiada', 'price_cents' => 300]);
+
+    test()->withHeaders(browsingAs($this->slug))
+        ->post(urlFor($this->slug, "/api/v1/catalog/products/{$producto->id}/photo"), [
+            'photo' => UploadedFile::fake()->create('cualquier.jpg', 100, 'application/pdf'),
+        ])->assertStatus(422)->assertJsonValidationErrors('photo');
+});
+
+it('quien no maneja la carta no le cambia la foto a nada', function (): void {
+    Storage::fake('public');
+
+    actingForTenant($this->tenant);
+
+    $producto = ProductModel::create(['name' => 'Reina Pepiada', 'price_cents' => 300]);
+
+    $carlos = makeUser($this->tenant, 'carlos-foto@ejemplo.com', 'Carlos');
+    giveRole($this->tenant, $carlos, 'kitchen');
+
+    entrarComo($this->slug, 'carlos-foto@ejemplo.com');
+
+    test()->withHeaders(browsingAs($this->slug))
+        ->post(urlFor($this->slug, "/api/v1/catalog/products/{$producto->id}/photo"), [
+            'photo' => UploadedFile::fake()->create('arepa.jpg', 100, 'image/jpeg'),
+        ])->assertForbidden();
 });

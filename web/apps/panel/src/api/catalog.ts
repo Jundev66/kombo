@@ -92,6 +92,43 @@ export const catalog = {
   changePrice: (id: string, priceCents: number) =>
     api.post<Envelope<Product>>(`/catalog/products/${id}/price`, { price_cents: priceCents }).then((r) => r.data),
 
+  /**
+   * Sube la foto de un producto.
+   *
+   * Va como `FormData` y no como base64: una foto convertida a texto crece un
+   * tercio, y ese tercio lo paga la conexión del local.
+   */
+  uploadPhoto: async (id: string, file: File): Promise<string> => {
+    const form = new FormData()
+    form.append('photo', file)
+
+    const xsrf = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/)?.[1]
+
+    const response = await fetch(`/api/v1/catalog/products/${id}/photo`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json',
+        ...(xsrf ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrf) } : {}),
+      },
+      body: form,
+    })
+
+    const parsed: unknown = await response.json()
+
+    if (!response.ok) {
+      throw new Error(
+        typeof parsed === 'object' && parsed !== null && 'message' in parsed
+          ? String((parsed as { message: unknown }).message)
+          : 'No se pudo subir la foto.',
+      )
+    }
+
+    return (parsed as { data: { photoUrl: string } }).data.photoUrl
+  },
+
+  removePhoto: (id: string) => api.delete(`/catalog/products/${id}/photo`),
+
   categories: () => api.get<{ data: Category[] }>('/catalog/categories').then((r) => r.data),
 
   createCategory: (name: string) => api.post('/catalog/categories', { name }),

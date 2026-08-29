@@ -35,6 +35,8 @@ export function ProductFormScreen() {
   const [precio, setPrecio] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [fotoUrl, setFotoUrl] = useState('')
+  const [subiendo, setSubiendo] = useState(false)
+  const [errorFoto, setErrorFoto] = useState<string | null>(null)
   const [categoriaId, setCategoriaId] = useState('')
   const [minutos, setMinutos] = useState('')
   const [llevaCuenta, setLlevaCuenta] = useState(false)
@@ -107,6 +109,28 @@ export function ProductFormScreen() {
     },
   })
 
+  async function subirFoto(archivo: File): Promise<void> {
+    if (id === undefined) return
+
+    setSubiendo(true)
+    setErrorFoto(null)
+
+    try {
+      setFotoUrl(await catalog.uploadPhoto(id, archivo))
+    } catch (failure) {
+      setErrorFoto(failure instanceof Error ? failure.message : 'No se pudo subir la foto.')
+    } finally {
+      setSubiendo(false)
+    }
+  }
+
+  async function quitarFoto(): Promise<void> {
+    if (id === undefined) return
+
+    await catalog.removePhoto(id)
+    setFotoUrl('')
+  }
+
   function onSubmit(event: FormEvent): void {
     event.preventDefault()
     setError(null)
@@ -170,11 +194,55 @@ export function ProductFormScreen() {
         )}
       </Field>
 
-      <Field label="Foto" hint="La dirección de la imagen.">
-        {({ id: fieldId }) => (
-          <Input id={fieldId} value={fotoUrl} onChange={(e) => setFotoUrl(e.target.value)} />
-        )}
-      </Field>
+      {/* La foto es lo que vende en el portal, así que se sube desde aquí y no
+          se pega una dirección. Sólo al editar: hace falta que el producto
+          exista para colgarle un archivo. */}
+      {id !== undefined ? (
+        <Field
+          label="Foto"
+          hint="Se ve en el portal y en la caja. Cámbiala subiendo otra."
+          error={errorFoto ?? undefined}
+        >
+          {({ id: fieldId }) => (
+            <div className="flex items-center gap-3">
+              {fotoUrl !== '' && (
+                <img
+                  src={fotoUrl}
+                  alt=""
+                  className="size-20 rounded-[var(--radius-md)] object-cover"
+                />
+              )}
+
+              <input
+                id={fieldId}
+                type="file"
+                accept="image/*"
+                disabled={subiendo}
+                onChange={(e) => {
+                  const archivo = e.target.files?.[0]
+                  if (archivo !== undefined) void subirFoto(archivo)
+                }}
+                className="flex-1 text-sm file:mr-3 file:min-h-11 file:rounded-[var(--radius-md)] file:border-0 file:bg-[var(--surface-sunken)] file:px-4 file:font-medium"
+              />
+
+              {fotoUrl !== '' && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void quitarFoto()}
+                >
+                  Quitar
+                </Button>
+              )}
+            </div>
+          )}
+        </Field>
+      ) : (
+        <p className="text-sm text-[var(--text-muted)]">
+          La foto se sube al guardar el producto, en la pantalla de edición.
+        </p>
+      )}
 
       <Field
         label="Minutos que tarda"

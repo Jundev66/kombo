@@ -7,6 +7,7 @@ use Modules\Catalog\Interfaces\Http\Controllers\CategoryController;
 use Modules\Catalog\Interfaces\Http\Controllers\ChangePriceController;
 use Modules\Catalog\Interfaces\Http\Controllers\ModifierGroupController;
 use Modules\Catalog\Interfaces\Http\Controllers\ProductController;
+use Modules\Catalog\Interfaces\Http\Controllers\ProductPhotoController;
 
 /*
  * Las rutas de la carta.
@@ -39,6 +40,14 @@ Route::prefix('api/v1')
         // descripción.
         Route::post('/catalog/products/{id}/price', ChangePriceController::class)
             ->middleware('permission:catalog.change_price');
+
+        // La foto va con `catalog.manage`, no con `change_price`: cambiar la
+        // imagen de un plato no mueve dinero.
+        Route::post('/catalog/products/{id}/photo', [ProductPhotoController::class, 'store'])
+            ->middleware('permission:catalog.manage');
+
+        Route::delete('/catalog/products/{id}/photo', [ProductPhotoController::class, 'destroy'])
+            ->middleware('permission:catalog.manage');
 
         Route::get('/catalog/categories', [CategoryController::class, 'index'])
             ->middleware('permission:catalog.view');

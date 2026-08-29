@@ -80,6 +80,9 @@ api/                      Laravel 13 · PHP 8.5
     Tenancy/              Subdominio → negocio, contexto, RLS, TenantSchema
     Auth/  Capabilities/  Subscription/  Audit/  Modules/
   src/Modules/            Los módulos, cada uno en cuatro capas
+                          core · catalog · orders · kitchen · counter
+                          documents · delivery · portal · channels
+                          reports · customers
   src/Shared/             Money, ExchangeRate — value objects compartidos
   app/Models/             Eloquent (infraestructura, por módulo)
   tests/{Architecture,Isolation,Feature,Unit}
@@ -318,6 +321,19 @@ guardar lo que acababa de leer.
 no se ha construido se filtra al aplicarlo, y ése es el problema: el catálogo
 dice que el encargado puede algo, no puede, y nadie se entera hasta que lo
 intenta.
+
+**Las fotos de productos van a disco PÚBLICO; los comprobantes, a privado.** No
+es un descuido: la foto de una arepa está para que la vea cualquiera que abra el
+portal, y un comprobante lleva la cédula y el saldo de quien pagó. Distinta
+cosa, distinto sitio. Y las rutas se guardan RELATIVAS (`/storage/...`): una URL
+absoluta la armaría `APP_URL`, que es el dominio raíz, y estas imágenes se ven
+desde el subdominio de cada negocio.
+
+**Un cuerpo en streaming puede ejecutarse después de que el middleware haya
+soltado el negocio.** La exportación vuelve a entrar con `TenantSession::within`
+dentro del cierre: sin eso, RLS devuelve cero filas y el archivo sale con la
+cabecera y nada más — y un export vacío es peor que un error, porque el negocio
+se lo lleva creyendo que ahí están sus pedidos.
 
 ---
 

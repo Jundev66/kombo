@@ -41,11 +41,27 @@ final class CustomerController
                 },
             )
             ->orderByDesc('last_order_at')
-            ->limit(100)
-            ->get();
+            /*
+             * Paginado, no `limit(100)` a secas.
+             *
+             * Con el tope pelado la pantalla enseñaba cien clientes y no tenía
+             * forma de saber que había más — ni de llegar a ellos. Un negocio
+             * con cuatrocientos veía cien y ninguna señal, que es la peor
+             * manera de cortar una lista: quien la mira no sabe que le falta
+             * algo, así que ni siquiera busca.
+             *
+             * El mismo `meta` que ya devuelve el catálogo, para que las dos
+             * pantallas se pinten igual.
+             */
+            ->paginate(100);
 
         return response()->json([
-            'data' => $customers->map(self::asArray(...))->all(),
+            'data' => $customers->getCollection()->map(self::asArray(...))->all(),
+            'meta' => [
+                'page' => $customers->currentPage(),
+                'lastPage' => $customers->lastPage(),
+                'total' => $customers->total(),
+            ],
         ]);
     }
 

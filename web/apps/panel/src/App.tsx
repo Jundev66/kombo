@@ -1,5 +1,6 @@
-import { AppShell, Boot, useSession } from '@kombo/shell'
+import { AppShell, Boot, useSession, type MenuEntry } from '@kombo/shell'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ComponentType } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { MODULE_UI } from './modules/registry'
 import { OrderDetailScreen } from './screens/OrderDetailScreen'
@@ -51,7 +52,12 @@ function PanelRoutes() {
   // usuario puede ver. Quien escriba `/tasa` a mano sin permiso no llega a una
   // pantalla en gris: esa ruta no existe en su aplicación, igual que el
   // endpoint responde 404.
-  const entries = buildMenu(MODULE_UI, capabilities)
+  // Las entradas con `href` —la caja, la cocina— salen de esta aplicación, así
+  // que no tienen ruta que registrar aquí. Tampoco pueden ser el destino de
+  // «/»: mandar al dueño fuera del panel nada más entrar no es una portada.
+  const entries = buildMenu(MODULE_UI, capabilities).filter(
+    (entry): entry is MenuEntry & { Screen: ComponentType } => entry.Screen != null,
+  )
   const home = entries[0]?.path ?? '/sin-acceso'
 
   return (

@@ -1,7 +1,12 @@
-import { api, can, hasModule, type Capabilities } from '@kombo/api-client'
-import { TerminalGate, terminal } from '@kombo/shell'
+import { can, hasModule } from '@kombo/api-client'
+import {
+  backToPanel,
+  SupervisionBanner,
+  TerminalGate,
+  useDoorway,
+  useSession,
+} from '@kombo/shell'
 import { Spinner } from '@kombo/ui'
-import { useCallback, useEffect, useState } from 'react'
 import { Register } from './Register'
 
 /**
@@ -12,34 +17,39 @@ import { Register } from './Register'
  * el papel.
  *
  * Entra con PIN y no con sesión de navegador, porque es una máquina compartida
- * del local: el token de la máquina por sí solo no vende nada.
+ * del local: el token de la máquina por sí solo no vende nada. La excepción es
+ * quien ya tiene sesión —el dueño mirando desde su teléfono—, y va marcada con
+ * todas las letras; el porqué está en `useDoorway`.
  */
 export function App() {
-  const [inside, setInside] = useState(terminal.stationToken() !== null)
-  const [caps, setCaps] = useState<Capabilities | null>(null)
+  const { capabilities, status, error } = useSession()
+  const { mode, enter, endShift } = useDoorway()
 
-  const load = useCallback(() => {
-    void api
-      .capabilities()
-      .then(setCaps)
-      .catch(() => setCaps(null))
-  }, [])
+  if (status === 'loading') return <Spinner label="Abriendo la caja…" />
 
-  useEffect(() => {
-    if (inside) load()
-  }, [inside, load])
-
-  if (!inside) {
+  if (status === 'unavailable') {
     return (
-      <TerminalGate
-        deviceName="Caja"
-        question="¿Quién está en la caja?"
-        onReady={() => setInside(true)}
-      />
+      <main className="grid min-h-dvh place-items-center p-6 text-center">
+        <div>
+          <h1 className="text-lg font-bold text-[var(--text-strong)]">
+            No se pudo contactar al servidor
+          </h1>
+          <p className="mt-2 text-sm text-[var(--text-muted)]">
+            Revisa la conexión. Si el problema sigue, avísanos.
+          </p>
+          {error != null && (
+            <p className="mt-4 font-mono text-xs text-[var(--text-muted)]">{error}</p>
+          )}
+        </div>
+      </main>
     )
   }
 
-  if (caps === null) return <Spinner label="Abriendo la caja…" />
+  if (mode === 'gate') {
+    return <TerminalGate deviceName="Caja" question="¿Quién está en la caja?" onReady={enter} />
+  }
+
+  if (capabilities?.user == null) return <Spinner label="Abriendo la caja…" />
 
   /*
    * Hay negocios de comida sin mostrador —una cocina oculta, un
@@ -47,7 +57,7 @@ export function App() {
    * aquí, con todas las letras, en vez de dejar que el cajero arme un pedido
    * entero y descubra al cobrar que la ruta responde 404.
    */
-  if (!hasModule(caps, 'counter')) {
+  if (!hasModule(capabilities, 'counter')) {
     return (
       <main className="grid min-h-dvh place-items-center p-6 text-center">
         <div>
@@ -63,27 +73,36 @@ export function App() {
     )
   }
 
+  const supervising = mode === 'supervision'
+
   return (
-    <Register
-      /*
-       * ¿Puede anular por sí sola?
-       *
-       * Es la misma pregunta que se hace el servidor: quien no tiene
-       * `counter.void` necesita el PIN de alguien que sí. Se resuelve con
-       * `/me` ANTES de intentarlo, para abrir el teclado del PIN en el momento
-       * en que hace falta y no después de un rechazo con el cliente delante.
-       *
-       * No se mira `needsAuthorization`: ahí está `counter.void_request`, que
-       * es el permiso de PEDIRLO. Lo que decide es no poder ejecutarlo.
-       */
-      needsPin={!can(caps, 'counter.void')}
-      onLeave={() => {
-        // Se borra sólo el turno: la máquina sigue dada de alta, y el
-        // siguiente entra con su PIN sin volver a configurarla.
-        terminal.endShift()
-        setInside(false)
-        setCaps(null)
-      }}
-    />
+    // La altura la manda este contenedor y no `Register`: con la banda puesta,
+    // dos elementos reclamando la pantalla entera dejan el botón de cobrar
+    // fuera de ella.
+    <div className="flex h-dvh flex-col bg-[var(--surface-sunken)]">
+      {supervising && <SupervisionBanner user={capabilities.user} onLeave={backToPanel} />}
+
+      <Register
+        /*
+         * ¿Puede anular por sí sola?
+         *
+         * Es la misma pregunta que se hace el servidor: quien no tiene
+         * `counter.void` necesita el PIN de alguien que sí. Se resuelve con
+         * `/me` ANTES de intentarlo, para abrir el teclado del PIN en el momento
+         * en que hace falta y no después de un rechazo con el cliente delante.
+         *
+         * No se mira `needsAuthorization`: ahí está `counter.void_request`, que
+         * es el permiso de PEDIRLO. Lo que decide es no poder ejecutarlo.
+         */
+        needsPin={!can(capabilities, 'counter.void')}
+        // Quien opera según el SERVIDOR, no quien puso el PIN. Si en esta
+        // máquina hay una sesión abierta que gana al token, aquí se ve.
+        operator={capabilities.user.name}
+        // En supervisión la salida la lleva la banda: dos formas de irse, una
+        // que cierra turno y otra que no, es la manera de que alguien pulse la
+        // que no quería.
+        onLeave={supervising ? null : endShift}
+      />
+    </div>
   )
 }

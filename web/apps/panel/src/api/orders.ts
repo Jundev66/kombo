@@ -45,6 +45,8 @@ export interface Order {
   channel: string
   customerName: string | null
   customerPhone: string | null
+  deliveryAddress: string | null
+  deliveryZoneName: string | null
   subtotalCents: number
   deliveryFeeCents: number
   totalCents: number
@@ -144,4 +146,69 @@ export function waitedLabel(seconds: number): string {
 
   const hours = Math.floor(minutes / 60)
   return `hace ${hours} h`
+}
+
+/**
+ * De qué color va el estado de un pedido.
+ *
+ * Un pedido sin confirmar lleva ámbar: es el único estado en el que el sistema
+ * está esperando a una persona, y un pedido olvidado veinte minutos es un
+ * cliente perdido.
+ *
+ * Vive aquí y no en la pantalla que lo estrenó porque el tablero y el
+ * histórico de un cliente enseñan los MISMOS estados. Que «Confirmado» saliera
+ * gris en un sitio y verde en otro obligaría a leer la etiqueta dos veces para
+ * creerse el color.
+ */
+export function statusTone(status: string): 'neutral' | 'warn' | 'ok' | 'bad' {
+  if (status === 'cancelled') return 'bad'
+  if (status === 'placed' || status === 'pending_payment') return 'warn'
+  if (status === 'ready' || status === 'delivered') return 'ok'
+
+  return 'neutral'
+}
+
+/**
+ * La fecha de un pedido, en la hora DEL NEGOCIO.
+ *
+ * No en la del navegador: un dueño que abre el panel de viaje —o desde un
+ * contenedor en UTC— vería el pedido de anoche fechado hoy, y a media mañana
+ * todo parece correcto, que es lo que lo hace difícil de ver.
+ */
+export function orderDate(iso: string | null, timezone: string): string {
+  if (iso === null) return '—'
+
+  return new Intl.DateTimeFormat('es-VE', {
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: timezone,
+  }).format(new Date(iso))
+}
+
+/**
+ * Por dónde entró un pedido, en español.
+ *
+ * Las cuatro puertas: el portal del cliente, el mostrador, y los dos bots.
+ *
+ * Vive aquí y no en `reports`, que es donde estaba: el canal es una propiedad
+ * del PEDIDO, y el resumen de ventas es sólo uno de los sitios que lo enseña.
+ * Con la tabla en el módulo de reportes, el histórico de un cliente tendría que
+ * importarla desde ahí o escribir la suya — y dos tablas es como «Mostrador»
+ * acaba llamándose «Caja» en una pantalla y no en la otra.
+ *
+ * Con reserva por si aparece un canal que este frontend todavía no conoce: se
+ * enseña su código antes que un hueco. Un canal nuevo no puede dejar una fila
+ * sin nombre en el resumen de ventas.
+ */
+const ORDER_CHANNEL_LABELS: Record<string, string> = {
+  portal: 'Portal',
+  counter: 'Mostrador',
+  whatsapp: 'WhatsApp',
+  telegram: 'Telegram',
+}
+
+export function channelLabel(channel: string): string {
+  return ORDER_CHANNEL_LABELS[channel] ?? channel
 }

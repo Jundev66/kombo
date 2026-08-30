@@ -14,6 +14,7 @@ use Platform\Auth\RoleCatalog;
 use Platform\Capabilities\CurrentCapabilities;
 use Platform\Tenancy\TenantContext;
 use Shared\Domain\Exceptions\UserError;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -34,6 +35,12 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  *
  * **Nadie se desactiva a sí mismo.** Es el clic que deja a alguien fuera de su
  * propio negocio un viernes por la tarde.
+ *
+ * **El dueño lo nombra el dueño.** El encargado maneja al equipo —da de alta al
+ * cocinero nuevo, le pone un PIN, da de baja al que se fue—, pero no asciende a
+ * nadie a dueño ni toca la cuenta de uno. Sin la segunda mitad de esa frase la
+ * primera no vale nada: `update()` acepta `password`, así que poder editar a un
+ * dueño es poder quedarse con el negocio.
  */
 final class TeamController
 {
@@ -87,6 +94,7 @@ final class TeamController
 
         $this->assertRoomInPlan();
         $this->assertEmailIsFree($data['email']);
+        $this->assertCanAssignRole($data['role_code']);
 
         $role = $this->roleOrFail($data['role_code']);
 
@@ -136,6 +144,12 @@ final class TeamController
         ]);
 
         $user = User::with('roles')->find($id) ?? throw new NotFoundHttpException('Esa persona no está en tu equipo.');
+
+        $this->assertCanTouchOwner($user);
+
+        if (isset($data['role_code'])) {
+            $this->assertCanAssignRole($data['role_code']);
+        }
 
         if (array_key_exists('is_active', $data)) {
             $this->assertNotSelf($user, 'Nadie se desactiva a sí mismo.');
@@ -219,6 +233,7 @@ final class TeamController
     {
         $user = User::with('roles')->find($id) ?? throw new NotFoundHttpException('Esa persona no está en tu equipo.');
 
+        $this->assertCanTouchOwner($user);
         $this->assertNotSelf($user, 'No puedes darte de baja a ti mismo.');
         $this->assertNotLastOwner($user);
 
@@ -245,12 +260,67 @@ final class TeamController
     private function availableRoles(): array
     {
         $existentes = DB::table('roles')->pluck('code')->all();
+        $puedeNombrarDuenos = $this->actorIsOwner();
 
         return collect(RoleCatalog::all())
             ->filter(fn (array $_, string $code): bool => in_array($code, $existentes, true))
+            // Al encargado no se le ofrece «Dueño». Enseñar una opción que el
+            // servidor va a rechazar es peor que no enseñarla: se descubre
+            // después de rellenar el formulario entero.
+            ->filter(fn (array $rol): bool => $puedeNombrarDuenos || ! $rol['is_owner'])
             ->map(fn (array $rol, string $code): array => ['code' => $code, 'name' => $rol['name']])
             ->values()
             ->all();
+    }
+
+    /** Quien está haciendo la petición, ¿es dueño? */
+    private function actorIsOwner(): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof User && $actor->isOwner();
+    }
+
+    /**
+     * Sólo un dueño nombra a otro dueño.
+     *
+     * El encargado tiene `users.manage` para llevar al equipo, no para
+     * repartirse el negocio.
+     */
+    private function assertCanAssignRole(string $code): void
+    {
+        $catalogo = RoleCatalog::all()[$code] ?? null;
+
+        if ($catalogo === null || $catalogo['is_owner'] === false || $this->actorIsOwner()) {
+            return;
+        }
+
+        throw new class('Sólo el dueño puede nombrar a otro dueño.') extends UserError
+        {
+            public function field(): ?string
+            {
+                return 'role_code';
+            }
+        };
+    }
+
+    /**
+     * La cuenta de un dueño sólo la toca un dueño.
+     *
+     * Es la otra mitad de la regla de arriba, y sin ella la primera es
+     * decorativa: `update()` acepta `password`, así que un encargado que pueda
+     * editar al dueño le cambia la clave y entra como él. No hacía falta
+     * ascenderse a nada.
+     */
+    private function assertCanTouchOwner(User $user): void
+    {
+        if (! $user->isOwner() || $this->actorIsOwner()) {
+            return;
+        }
+
+        throw new AccessDeniedHttpException(
+            'La cuenta del dueño sólo la puede cambiar el dueño.'
+        );
     }
 
     private function roleOrFail(string $code): object

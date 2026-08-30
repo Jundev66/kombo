@@ -1,6 +1,6 @@
 import { ApiError, can } from '@kombo/api-client'
 import { useSession } from '@kombo/shell'
-import { Button, Field, Input, Select, Textarea, Toggle, parseAmount, toAmountInput } from '@kombo/ui'
+import { Button, Field, Input, Select, Textarea, Toggle, parseAmount, toAmountInput, Page} from '@kombo/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router'
@@ -138,178 +138,180 @@ export function ProductFormScreen() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold text-[var(--text-strong)]">
-        {esNuevo ? 'Nuevo producto' : name}
-      </h1>
+    <Page ancho="lectura">
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <h1 className="text-xl font-bold text-[var(--text-strong)]">
+          {esNuevo ? 'Nuevo producto' : name}
+        </h1>
 
-      <Field label="Nombre" required error={error ?? undefined}>
-        {({ id: fieldId, invalid }) => (
-          <Input
-            id={fieldId}
-            value={name}
-            invalid={invalid}
-            autoFocus={esNuevo}
-            onChange={(e) => setName(e.target.value)}
-          />
-        )}
-      </Field>
-
-      <Field
-        label="Precio en dólares"
-        required
-        hint={puedeCambiarPrecio ? 'Escríbelo como 3,50' : 'No tienes permiso para cambiar precios.'}
-      >
-        {({ id: fieldId }) => (
-          <Input
-            id={fieldId}
-            inputMode="decimal"
-            value={precio}
-            disabled={!esNuevo && !puedeCambiarPrecio}
-            onChange={(e) => setPrecio(e.target.value)}
-          />
-        )}
-      </Field>
-
-      <Field label="Categoría">
-        {({ id: fieldId }) => (
-          <Select id={fieldId} value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
-            <option value="">Sin categoría</option>
-            {categories.data?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        )}
-      </Field>
-
-      <Field label="Descripción" hint="Lo que verá el cliente en el portal.">
-        {({ id: fieldId }) => (
-          <Textarea
-            id={fieldId}
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-          />
-        )}
-      </Field>
-
-      {/* La foto es lo que vende en el portal, así que se sube desde aquí y no
-          se pega una dirección. Sólo al editar: hace falta que el producto
-          exista para colgarle un archivo. */}
-      {id !== undefined ? (
-        <Field
-          label="Foto"
-          hint="Se ve en el portal y en la caja. Cámbiala subiendo otra."
-          error={errorFoto ?? undefined}
-        >
-          {({ id: fieldId }) => (
-            <div className="flex items-center gap-3">
-              {fotoUrl !== '' && (
-                <img
-                  src={fotoUrl}
-                  alt=""
-                  className="size-20 rounded-[var(--radius-md)] object-cover"
-                />
-              )}
-
-              <input
-                id={fieldId}
-                type="file"
-                accept="image/*"
-                disabled={subiendo}
-                onChange={(e) => {
-                  const archivo = e.target.files?.[0]
-                  if (archivo !== undefined) void subirFoto(archivo)
-                }}
-                className="flex-1 text-sm file:mr-3 file:min-h-11 file:rounded-[var(--radius-md)] file:border-0 file:bg-[var(--surface-sunken)] file:px-4 file:font-medium"
-              />
-
-              {fotoUrl !== '' && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void quitarFoto()}
-                >
-                  Quitar
-                </Button>
-              )}
-            </div>
+        <Field label="Nombre" required error={error ?? undefined}>
+          {({ id: fieldId, invalid }) => (
+            <Input
+              id={fieldId}
+              value={name}
+              invalid={invalid}
+              autoFocus={esNuevo}
+              onChange={(e) => setName(e.target.value)}
+            />
           )}
         </Field>
-      ) : (
-        <p className="text-sm text-[var(--text-muted)]">
-          La foto se sube al guardar el producto, en la pantalla de edición.
-        </p>
-      )}
 
-      <Field
-        label="Minutos que tarda"
-        hint="De aquí sale el aviso de «va tarde» en la pantalla de cocina. Déjalo vacío si no se prepara."
-      >
-        {({ id: fieldId }) => (
-          <Input
-            id={fieldId}
-            inputMode="numeric"
-            value={minutos}
-            onChange={(e) => setMinutos(e.target.value)}
-          />
+        <Field
+          label="Precio en dólares"
+          required
+          hint={puedeCambiarPrecio ? 'Escríbelo como 3,50' : 'No tienes permiso para cambiar precios.'}
+        >
+          {({ id: fieldId }) => (
+            <Input
+              id={fieldId}
+              inputMode="decimal"
+              value={precio}
+              disabled={!esNuevo && !puedeCambiarPrecio}
+              onChange={(e) => setPrecio(e.target.value)}
+            />
+          )}
+        </Field>
+
+        <Field label="Categoría">
+          {({ id: fieldId }) => (
+            <Select id={fieldId} value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
+              <option value="">Sin categoría</option>
+              {categories.data?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+
+        <Field label="Descripción" hint="Lo que verá el cliente en el portal.">
+          {({ id: fieldId }) => (
+            <Textarea
+              id={fieldId}
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+            />
+          )}
+        </Field>
+
+        {/* La foto es lo que vende en el portal, así que se sube desde aquí y no
+            se pega una dirección. Sólo al editar: hace falta que el producto
+            exista para colgarle un archivo. */}
+        {id !== undefined ? (
+          <Field
+            label="Foto"
+            hint="Se ve en el portal y en la caja. Cámbiala subiendo otra."
+            error={errorFoto ?? undefined}
+          >
+            {({ id: fieldId }) => (
+              <div className="flex items-center gap-3">
+                {fotoUrl !== '' && (
+                  <img
+                    src={fotoUrl}
+                    alt=""
+                    className="size-20 rounded-[var(--radius-md)] object-cover"
+                  />
+                )}
+
+                <input
+                  id={fieldId}
+                  type="file"
+                  accept="image/*"
+                  disabled={subiendo}
+                  onChange={(e) => {
+                    const archivo = e.target.files?.[0]
+                    if (archivo !== undefined) void subirFoto(archivo)
+                  }}
+                  className="flex-1 text-sm file:mr-3 file:min-h-11 file:rounded-[var(--radius-md)] file:border-0 file:bg-[var(--surface-sunken)] file:px-4 file:font-medium"
+                />
+
+                {fotoUrl !== '' && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void quitarFoto()}
+                  >
+                    Quitar
+                  </Button>
+                )}
+              </div>
+            )}
+          </Field>
+        ) : (
+          <p className="text-sm text-[var(--text-muted)]">
+            La foto se sube al guardar el producto, en la pantalla de edición.
+          </p>
         )}
-      </Field>
 
-      <Toggle
-        checked={llevaCuenta}
-        onChange={setLlevaCuenta}
-        label="Llevar la cuenta de cuántos quedan"
-      />
-
-      {llevaCuenta && (
-        <Field label="Cuántos quedan">
+        <Field
+          label="Minutos que tarda"
+          hint="De aquí sale el aviso de «va tarde» en la pantalla de cocina. Déjalo vacío si no se prepara."
+        >
           {({ id: fieldId }) => (
             <Input
               id={fieldId}
               inputMode="numeric"
-              value={quedan}
-              onChange={(e) => setQuedan(e.target.value)}
+              value={minutos}
+              onChange={(e) => setMinutos(e.target.value)}
             />
           )}
         </Field>
-      )}
 
-      {!esNuevo && (
-        <Toggle checked={enLaCarta} onChange={setEnLaCarta} label="Está en la carta" />
-      )}
+        <Toggle
+          checked={llevaCuenta}
+          onChange={setLlevaCuenta}
+          label="Llevar la cuenta de cuántos quedan"
+        />
 
-      {(groups.data?.length ?? 0) > 0 && (
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium text-[var(--text-strong)]">Agregados</legend>
-
-          {groups.data?.map((group) => (
-            <label key={group.id} className="flex min-h-11 items-center gap-3">
-              <input
-                type="checkbox"
-                checked={gruposElegidos.includes(group.id)}
-                onChange={(e) =>
-                  setGruposElegidos((prev) =>
-                    e.target.checked ? [...prev, group.id] : prev.filter((g) => g !== group.id),
-                  )
-                }
-                className="size-5"
+        {llevaCuenta && (
+          <Field label="Cuántos quedan">
+            {({ id: fieldId }) => (
+              <Input
+                id={fieldId}
+                inputMode="numeric"
+                value={quedan}
+                onChange={(e) => setQuedan(e.target.value)}
               />
-              <span className="text-sm">
-                {group.name}{' '}
-                <span className="text-[var(--text-muted)]">— {group.rule}</span>
-              </span>
-            </label>
-          ))}
-        </fieldset>
-      )}
+            )}
+          </Field>
+        )}
 
-      <Button type="submit" size="touch" block disabled={guardar.isPending}>
-        {guardar.isPending ? 'Guardando…' : 'Guardar'}
-      </Button>
-    </form>
+        {!esNuevo && (
+          <Toggle checked={enLaCarta} onChange={setEnLaCarta} label="Está en la carta" />
+        )}
+
+        {(groups.data?.length ?? 0) > 0 && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm font-medium text-[var(--text-strong)]">Agregados</legend>
+
+            {groups.data?.map((group) => (
+              <label key={group.id} className="flex min-h-11 items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={gruposElegidos.includes(group.id)}
+                  onChange={(e) =>
+                    setGruposElegidos((prev) =>
+                      e.target.checked ? [...prev, group.id] : prev.filter((g) => g !== group.id),
+                    )
+                  }
+                  className="size-5"
+                />
+                <span className="text-sm">
+                  {group.name}{' '}
+                  <span className="text-[var(--text-muted)]">— {group.rule}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        )}
+
+        <Button type="submit" size="touch" block disabled={guardar.isPending}>
+          {guardar.isPending ? 'Guardando…' : 'Guardar'}
+        </Button>
+        </form>
+    </Page>
   )
 }
 

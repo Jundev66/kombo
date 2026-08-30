@@ -1,8 +1,8 @@
-import { Card, EmptyState, Money, Spinner, buttonClasses, formatUsd } from '@kombo/ui'
+import { Card, EmptyState, Money, plural, Spinner, buttonClasses, formatUsd, Page} from '@kombo/ui'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { paymentLabel } from '../api/orders'
-import { CHANNEL_LABELS, PERIODS, reports, type Period, type SalesReport } from '../api/reports'
+import { channelLabel, paymentLabel } from '../api/orders'
+import { PERIODS, reports, type Period, type SalesReport } from '../api/reports'
 
 /**
  * Qué vendiste.
@@ -23,7 +23,7 @@ export function ReportsScreen() {
   })
 
   return (
-    <div className="flex flex-col gap-4">
+    <Page ancho="tablero" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="flex-1 text-xl font-bold text-[var(--text-strong)]">Ventas</h1>
 
@@ -60,7 +60,7 @@ export function ReportsScreen() {
       {reporte.isLoading && <Spinner />}
 
       {reporte.data !== undefined && <Report data={reporte.data} />}
-    </div>
+    </Page>
   )
 }
 
@@ -88,7 +88,7 @@ function Report({ data }: { data: SalesReport }) {
           </div>
 
           <div className="text-right">
-            <p className="text-sm text-[var(--text-muted)]">{summary.orders} pedidos</p>
+            <p className="text-sm text-[var(--text-muted)]">{plural(summary.orders, 'pedido', 'pedidos')}</p>
             <p className="tabular text-sm text-[var(--text-muted)]">
               {formatUsd(summary.averageTicketCents)} de promedio
             </p>
@@ -109,7 +109,7 @@ function Report({ data }: { data: SalesReport }) {
 
         {summary.cancelled > 0 && (
           <p className="text-sm text-[var(--text-muted)]">
-            {summary.cancelled} {summary.cancelled === 1 ? 'cancelado' : 'cancelados'}
+            {plural(summary.cancelled, 'cancelado', 'cancelados')}
           </p>
         )}
       </Card>
@@ -158,7 +158,7 @@ function Report({ data }: { data: SalesReport }) {
               {data.byChannel.map((canal) => (
                 <li key={canal.channel} className="flex justify-between gap-3 text-sm">
                   <span className="text-[var(--text-default)]">
-                    {CHANNEL_LABELS[canal.channel] ?? canal.channel}
+                    {channelLabel(canal.channel)}
                   </span>
                   <span className="tabular">
                     {canal.orders} · {formatUsd(canal.totalCents)}
@@ -213,7 +213,7 @@ function HourChart({ hours }: { hours: SalesReport['byHour'] }) {
             className="flex flex-1 flex-col items-center justify-end gap-1"
             // El título nativo: en un teléfono no hay hover, pero en el
             // escritorio del local sí, y es gratis.
-            title={`${String(hora.hour).padStart(2, '0')}:00 · ${hora.orders} pedidos`}
+            title={`${String(hora.hour).padStart(2, '0')}:00 · ${plural(hora.orders, 'pedido', 'pedidos')}`}
           >
             <div
               className={`w-full rounded-t-sm ${

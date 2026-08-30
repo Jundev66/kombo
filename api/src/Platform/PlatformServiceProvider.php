@@ -9,6 +9,7 @@ use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Platform\Auth\Console\ReconcileRolesCommand;
 use Platform\Capabilities\CapabilityResolver;
 use Platform\Capabilities\CurrentCapabilities;
 use Platform\Modules\ModuleManifest;
@@ -74,6 +75,8 @@ final class PlatformServiceProvider extends ServiceProvider
         $this->guardConnectionsOnTransactions();
         $this->registerModuleRoutes();
         $this->registerModuleMigrations();
+
+        $this->commands([ReconcileRolesCommand::class]);
     }
 
     /**

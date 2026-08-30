@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
-use Platform\Auth\RoleCatalog;
+use Platform\Auth\RoleProvisioner;
 
 beforeEach(function (): void {
     $sufijo = Str::lower(Str::random(6));
@@ -31,23 +31,12 @@ beforeEach(function (): void {
     $this->maria = makeUser($this->tenant, 'maria@ejemplo.com', 'María');
     giveRole($this->tenant, $this->maria, 'owner');
 
-    // Los roles base tienen que existir para poder repartirlos. Se crean
-    // directamente y no con `giveRole`, que además crea un usuario: aquí lo
-    // que hace falta son los roles, no gente de relleno ocupando el plan.
-    foreach (['manager', 'counter', 'kitchen'] as $code) {
-        $catalogo = RoleCatalog::get($code);
-
-        DB::table('roles')->insert([
-            'id' => (string) Str::uuid7(),
-            'tenant_id' => $this->tenant,
-            'code' => $code,
-            'name' => $catalogo['name'],
-            'is_system' => true,
-            'is_owner' => false,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-    }
+    // Los roles base tienen que existir para poder repartirlos, y **con sus
+    // permisos**: parte de lo que se prueba aquí es qué puede hacer un
+    // encargado, y un rol sin filas de permisos no puede nada. Se usa el mismo
+    // objeto que la siembra real en vez de escribirlos a mano, que es como el
+    // mundo de las pruebas acaba siendo distinto del de producción.
+    app(RoleProvisioner::class)->reconcile($this->tenant);
 });
 
 /** Alguien del equipo con un rol que YA existe en el negocio. */
@@ -266,6 +255,108 @@ it('un PIN que no son cuatro dígitos no se guarda', function (): void {
     ])->json('data.id');
 
     equipo($this->slug, 'PATCH', "/{$id}", ['pin' => '12'])->assertStatus(422);
+});
+
+/*
+ * Hasta dónde llega el encargado.
+ *
+ * Antes no llegaba a nada de esto: no tenía `users.manage`, porque quien crea
+ * usuarios puede crearse una cuenta de dueño. Pero quitarle el permiso también
+ * le impedía lo legítimo —dar de alta al cocinero nuevo un sábado—, así que
+ * ahora lo tiene y el agujero se tapa donde de verdad se decide.
+ */
+
+it('el encargado suma gente a su equipo', function (): void {
+    actingForTenant($this->tenant);
+    conRol($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
+
+    entrarComo($this->slug, 'jose@ejemplo.com');
+
+    equipo($this->slug, 'POST', '', [
+        'name' => 'Carlos',
+        'email' => 'carlos@ejemplo.com',
+        'password' => 'clave-larga-123',
+        'role_code' => 'kitchen',
+        'pin' => '4567',
+    ])->assertCreated();
+});
+
+it('el encargado no puede nombrar a otro dueño', function (): void {
+    actingForTenant($this->tenant);
+    conRol($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
+
+    entrarComo($this->slug, 'jose@ejemplo.com');
+
+    equipo($this->slug, 'POST', '', [
+        'name' => 'Intruso',
+        'email' => 'intruso@ejemplo.com',
+        'password' => 'clave-larga-123',
+        'role_code' => 'owner',
+    ])->assertStatus(422);
+
+    actingForTenant($this->tenant);
+    expect(User::where('email', 'intruso@ejemplo.com')->exists())->toBeFalse();
+});
+
+it('el encargado no puede ascender a nadie a dueño', function (): void {
+    actingForTenant($this->tenant);
+    conRol($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
+    $ana = conRol($this->tenant, 'ana@ejemplo.com', 'Ana', 'counter');
+
+    entrarComo($this->slug, 'jose@ejemplo.com');
+
+    equipo($this->slug, 'PATCH', "/{$ana}", ['role_code' => 'owner'])->assertStatus(422);
+
+    actingForTenant($this->tenant);
+    expect(User::find($ana)->isOwner())->toBeFalse();
+});
+
+/*
+ * Ésta es la que de verdad cierra la puerta.
+ *
+ * Sin ella, la regla de arriba es decorativa: `update()` acepta `password`, así
+ * que al encargado le bastaba con cambiarle la clave al dueño y entrar como él.
+ * No hacía falta ascenderse a nada.
+ */
+it('el encargado no le cambia la contraseña al dueño', function (): void {
+    actingForTenant($this->tenant);
+    conRol($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
+
+    entrarComo($this->slug, 'jose@ejemplo.com');
+
+    equipo($this->slug, 'PATCH', "/{$this->maria}", ['password' => 'me-la-quedo-yo'])
+        ->assertForbidden();
+
+    // Y la contraseña de María sigue siendo la suya.
+    entrarComo($this->slug, 'maria@ejemplo.com');
+});
+
+it('el encargado no da de baja al dueño', function (): void {
+    actingForTenant($this->tenant);
+    conRol($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
+
+    entrarComo($this->slug, 'jose@ejemplo.com');
+
+    equipo($this->slug, 'DELETE', "/{$this->maria}")->assertForbidden();
+
+    actingForTenant($this->tenant);
+    expect(User::find($this->maria)->is_active)->toBeTrue();
+});
+
+it('al encargado no se le ofrece el rol de dueño, y al dueño sí', function (): void {
+    // Enseñar una opción que el servidor va a rechazar es peor que no
+    // enseñarla: se descubre después de rellenar el formulario entero.
+    actingForTenant($this->tenant);
+    conRol($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
+
+    entrarComo($this->slug, 'jose@ejemplo.com');
+    $paraJose = array_column(equipo($this->slug)->assertOk()->json('meta.roles'), 'code');
+
+    entrarComo($this->slug, 'maria@ejemplo.com');
+    $paraMaria = array_column(equipo($this->slug)->assertOk()->json('meta.roles'), 'code');
+
+    expect($paraJose)->not->toContain('owner')->toContain('kitchen')
+        ->and($paraMaria)->toContain('owner');
 });
 
 it('quien no maneja usuarios, no los ve', function (): void {

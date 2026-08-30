@@ -1,4 +1,4 @@
-import { api } from '@kombo/api-client'
+import { api, type Paged } from '@kombo/api-client'
 
 /**
  * Lo que la super administración le pide al servidor.
@@ -21,6 +21,8 @@ export interface TenantRow {
   status: string
   statusLabel: string
   planCode: string
+  /** El nombre del plan, que es lo que se enseña. «Negocio», no `negocio`. */
+  planName: string
   currentPeriodEnd: string | null
   /** En negativo, cuántos días lleva vencido. Es la cifra que se mira. */
   daysLeft: number | null
@@ -106,14 +108,13 @@ export const platform = {
 
   metrics: () => api.get<{ data: Metrics }>('/platform/metrics').then((r) => r.data),
 
-  tenants: (params?: { buscar?: string; estado?: string }) => {
-    const query = new URLSearchParams()
+  /** Devuelve la página entera, con su `meta`: la lista dice cuántos hay. */
+  tenants: (params?: { buscar?: string; estado?: string; page?: number }) => {
+    const query = new URLSearchParams({ page: String(params?.page ?? 1) })
     if (params?.buscar) query.set('buscar', params.buscar)
     if (params?.estado) query.set('estado', params.estado)
 
-    const suffix = query.size > 0 ? `?${query.toString()}` : ''
-
-    return api.get<{ data: TenantRow[] }>(`/platform/tenants${suffix}`).then((r) => r.data)
+    return api.get<Paged<TenantRow>>(`/platform/tenants?${query.toString()}`)
   },
 
   tenant: (id: string) =>

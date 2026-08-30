@@ -21,7 +21,17 @@ import { PaymentSheet } from './PaymentSheet'
  * se toca la arepa. Y **una sola acción primaria** —Cobrar—, siempre en el
  * mismo sitio, alcanzable con el pulgar.
  */
-export function Register({ needsPin, onLeave }: { needsPin: boolean; onLeave: () => void }) {
+export function Register({
+  needsPin,
+  operator,
+  onLeave,
+}: {
+  needsPin: boolean
+  /** Quien opera según `/me`. Va en la cabecera: lo que se venda lleva su nombre. */
+  operator: string
+  /** `null` en supervisión: no hay turno que cerrar y la salida la lleva la banda. */
+  onLeave: (() => void) | null
+}) {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [groups, setGroups] = useState<ModifierGroup[]>([])
@@ -96,9 +106,16 @@ export function Register({ needsPin, onLeave }: { needsPin: boolean; onLeave: ()
   if (loading) return <Spinner label="Cargando la carta…" />
 
   return (
-    <div className="flex h-dvh flex-col bg-[var(--surface-sunken)]">
+    // `min-h-0` y no `h-dvh`: la altura la manda quien nos monta, que es quien
+    // sabe si además hay una banda arriba.
+    <div className="flex min-h-0 flex-1 flex-col bg-[var(--surface-sunken)]">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--surface-border)] bg-[var(--surface-raised)] px-4">
         <h1 className="font-semibold text-[var(--text-strong)]">Caja</h1>
+
+        {/* Quién está vendiendo. No es decorativo: en una máquina que se pasan
+            tres personas en un turno, es lo que hace evidente que el nombre
+            que va a llevar la venta no es el que uno cree. */}
+        <span className="min-w-0 truncate text-sm text-[var(--text-muted)]">· {operator}</span>
 
         <div className="flex-1" />
 
@@ -108,13 +125,15 @@ export function Register({ needsPin, onLeave }: { needsPin: boolean; onLeave: ()
           </span>
         )}
 
-        <button
-          type="button"
-          onClick={onLeave}
-          className="min-h-11 text-sm text-[var(--text-muted)] underline-offset-2 hover:underline"
-        >
-          Salir
-        </button>
+        {onLeave != null && (
+          <button
+            type="button"
+            onClick={onLeave}
+            className="min-h-11 shrink-0 text-sm text-[var(--text-muted)] underline-offset-2 hover:underline"
+          >
+            Salir
+          </button>
+        )}
       </header>
 
       {error != null && (
@@ -145,7 +164,11 @@ export function Register({ needsPin, onLeave }: { needsPin: boolean; onLeave: ()
             </div>
           )}
 
-          <div className="grid flex-1 auto-rows-min grid-cols-2 gap-3 overflow-y-auto px-3 pb-3 sm:grid-cols-3 lg:grid-cols-4">
+          {/* Una columna más en pantallas muy anchas. La caja no lleva tope de
+              ancho —es una herramienta a pantalla completa, no un documento—,
+              así que en un monitor grande cuatro columnas dejaban tarjetas de
+              cuatrocientos píxeles para un nombre y un precio. */}
+          <div className="grid flex-1 auto-rows-min grid-cols-2 gap-3 overflow-y-auto px-3 pb-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
             {visible.map((product) => (
               <button
                 key={product.id}
@@ -260,6 +283,15 @@ function TicketPanel({
       aria-label="La cuenta"
       className="flex shrink-0 flex-col border-t border-[var(--surface-border)] bg-[var(--surface-raised)] md:w-96 md:border-l md:border-t-0"
     >
+      {/* Con la cuenta vacía esto era una columna en blanco. Quien se sienta
+          por primera vez en la caja necesita que la pantalla le diga qué hacer,
+          y «toca un producto» son cuatro palabras que se leen una vez y ya. */}
+      {cart.lines.length === 0 && (
+        <p className="flex-1 px-4 py-8 text-center text-sm text-[var(--text-muted)]">
+          Toca un producto para empezar la cuenta.
+        </p>
+      )}
+
       <ul className="max-h-48 flex-1 overflow-y-auto md:max-h-none">
         {cart.lines.map((line) => (
           <li

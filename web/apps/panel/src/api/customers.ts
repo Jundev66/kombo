@@ -1,4 +1,4 @@
-import { api } from '@kombo/api-client'
+import { api, type Paged } from '@kombo/api-client'
 
 /**
  * La libreta de clientes.
@@ -30,10 +30,19 @@ export interface CustomerDetail extends Customer {
 }
 
 export const customers = {
-  list: (buscar = '') =>
-    api
-      .get<{ data: Customer[] }>(`/customers${buscar ? `?buscar=${encodeURIComponent(buscar)}` : ''}`)
-      .then((r) => r.data),
+  /**
+   * Devuelve la página ENTERA, con su `meta`.
+   *
+   * No sólo `r.data`: sin `meta.total` la pantalla no puede decir cuántos hay,
+   * y una lista que corta sin decirlo es una lista en la que nadie sabe que le
+   * falta algo.
+   */
+  list: (buscar = '', page = 1) => {
+    const query = new URLSearchParams({ page: String(page) })
+    if (buscar) query.set('buscar', buscar)
+
+    return api.get<Paged<Customer>>(`/customers?${query.toString()}`)
+  },
 
   one: (id: string) => api.get<{ data: CustomerDetail }>(`/customers/${id}`).then((r) => r.data),
 

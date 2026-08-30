@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Platform\Auth\RoleCatalog;
+use Platform\Auth\RoleProvisioner;
 use Platform\Capabilities\CurrentCapabilities;
 use Platform\Modules\ModuleRegistry;
 use Platform\Tenancy\Database\TenantSchema;
@@ -147,8 +148,16 @@ function makeUser(
  * cuanto dos pruebas del mismo fichero repartían el mismo rol — un fallo que no
  * dice nada sobre lo que se estaba probando.
  *
- * Concede sólo los permisos de módulos que el negocio tenga encendidos, igual
- * que hace la siembra real: un permiso de un módulo apagado no existe.
+ * Concede sólo los permisos de módulos que el negocio tenga encendidos, y la
+ * cuenta de cuáles son ésos la hace `RoleProvisioner` — el mismo objeto que usa
+ * la siembra real, no una copia.
+ *
+ * Que fueran dos cuentas distintas es exactamente por lo que un fallo tardó en
+ * verse: aquí se leía `tenant_modules` a secas, y las pruebas encendían `core`
+ * a mano en esa tabla. En producción `core` nunca tiene fila —no depende del
+ * plan y no se apaga—, así que `settings.manage` y `users.manage` no llegaban a
+ * ningún rol. El mundo de las pruebas era más generoso que el real, que es la
+ * peor dirección en la que pueden diferir.
  */
 function giveRole(string $tenantId, string $userId, string $code): string
 {
@@ -185,10 +194,8 @@ function giveRole(string $tenantId, string $userId, string $code): string
         'updated_at' => now(),
     ]);
 
-    $activos = DB::table('tenant_modules')
-        ->where('tenant_id', $tenantId)->where('enabled', true)->pluck('module_code')->all();
-
-    $disponibles = app(ModuleRegistry::class)->permissionsFor($activos);
+    $provisioner = app(RoleProvisioner::class);
+    $disponibles = app(ModuleRegistry::class)->permissionsFor($provisioner->activeModules($tenantId));
 
     foreach ($catalogo['permissions'] as $permission => $requiereAutorizacion) {
         if (! in_array($permission, $disponibles, true)) {

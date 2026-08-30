@@ -38,6 +38,10 @@ final class OrderResource
             'customerName' => $order->customer_name,
             'customerPhone' => $order->customer_phone,
             'deliveryAddress' => $order->delivery_address,
+            // La zona, copiada en el pedido igual que el nombre del producto:
+            // una de hace seis meses se lee aunque el dueño la haya renombrado
+            // o dejado de repartir ahí.
+            'deliveryZoneName' => $order->delivery_zone_name,
 
             'subtotalCents' => $order->subtotal_cents,
             'deliveryFeeCents' => $order->delivery_fee_cents,

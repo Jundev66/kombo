@@ -1,8 +1,18 @@
-import { Badge, Button, Card, EmptyState, Money, Spinner } from '@kombo/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  CardGrid,
+  EmptyState,
+  Money,
+  Page,
+  Spinner,
+  formatUsd,
+} from '@kombo/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { catalog } from '../api/catalog'
-import { nextStep, orders, waitedLabel, type Order } from '../api/orders'
+import { nextStep, orders, statusTone, waitedLabel, type Order } from '../api/orders'
 
 /**
  * El tablero de pedidos.
@@ -39,7 +49,7 @@ export function OrdersScreen() {
   })
 
   return (
-    <div className="flex flex-col gap-4">
+    <Page ancho="tablero" className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-[var(--text-strong)]">Pedidos</h1>
         {board.data != null && <Badge>{board.data.meta.total} abiertos</Badge>}
@@ -64,18 +74,30 @@ export function OrdersScreen() {
         />
       )}
 
-      <ul className="flex flex-col gap-2">
+      {/*
+       * En rejilla, no en una columna.
+       *
+       * Con veintidós pedidos abiertos y una sola columna sólo se ven siete en
+       * un portátil — y los que no se ven son los que no se atienden. En dos o
+       * tres columnas se ven veinte de un vistazo, que es para lo que existe
+       * este tablero. En el teléfono sigue siendo una columna: ahí la tarjeta
+       * ES la fila.
+       */}
+      <CardGrid>
         {board.data?.data.map((order) => (
           <li key={order.id}>
-            <Card className="p-3">
-              <div className="flex items-start gap-3">
+            {/* `h-full` para que las tarjetas de una misma fila midan igual:
+                una con «falta por cobrar» y otra sin él dejaban la rejilla con
+                los bordes desalineados. */}
+            <Card className="h-full p-3">
+              <div className="flex h-full items-start gap-3">
                 <Link to={`/pedidos/${order.id}`} className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     {/* El número en grande: es lo que se grita en el mostrador. */}
                     <span className="tabular text-xl font-bold text-[var(--text-strong)]">
                       #{order.number}
                     </span>
-                    <Badge tone={toneFor(order)}>{order.statusLabel}</Badge>
+                    <Badge tone={statusTone(order.status)}>{order.statusLabel}</Badge>
                   </div>
 
                   <p className="mt-0.5 text-xs text-[var(--text-muted)]">
@@ -87,9 +109,13 @@ export function OrdersScreen() {
                     {resumen(order)}
                   </p>
 
+                  {/* Con la CIFRA, no sólo la etiqueta. Lo que falta por cobrar
+                      es de las primeras cosas que un dueño mira, y «falta por
+                      cobrar» a secas le obliga a abrir el pedido para saber si
+                      son dos dólares o veinte. */}
                   {order.outstandingCents > 0 && (
-                    <p className="mt-1 text-xs font-medium text-warn-700">
-                      Falta por cobrar
+                    <p className="tabular mt-1 text-xs font-medium text-warn-700">
+                      Falta por cobrar {formatUsd(order.outstandingCents)}
                     </p>
                   )}
                 </Link>
@@ -115,21 +141,9 @@ export function OrdersScreen() {
             </Card>
           </li>
         ))}
-      </ul>
-    </div>
+      </CardGrid>
+    </Page>
   )
-}
-
-/**
- * Un pedido sin confirmar lleva ámbar: es el único estado en el que el sistema
- * está esperando a una persona, y un pedido olvidado veinte minutos es un
- * cliente perdido.
- */
-function toneFor(order: Order): 'neutral' | 'warn' | 'ok' {
-  if (order.status === 'placed' || order.status === 'pending_payment') return 'warn'
-  if (order.status === 'ready') return 'ok'
-
-  return 'neutral'
 }
 
 function resumen(order: Order): string {

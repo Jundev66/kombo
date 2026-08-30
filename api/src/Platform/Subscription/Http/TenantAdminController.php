@@ -36,6 +36,10 @@ final class TenantAdminController
     {
         $rows = DB::table('tenants')
             ->leftJoin('subscriptions', 'subscriptions.tenant_id', '=', 'tenants.id')
+            // Para enseñar el NOMBRE del plan y no su código: «Negocio», no
+            // `negocio`. Un identificador en minúsculas en una pantalla que
+            // mira una persona es lo mismo que no traducirlo.
+            ->leftJoin('plans', 'plans.code', '=', 'tenants.plan_code')
             ->whereNull('tenants.deleted_at')
             ->when(
                 $request->string('buscar')->isNotEmpty(),
@@ -51,20 +55,32 @@ final class TenantAdminController
                 fn ($q) => $q->where('tenants.status', $request->string('estado')->toString()),
             )
             ->orderBy('tenants.name')
-            ->get([
+            /*
+             * Paginado. No lo estaba, y ése es el problema contrario al del
+             * panel: aquí no había tope ninguno, así que la pantalla se
+             * descargaba TODOS los negocios de la plataforma. Con dos es
+             * cómodo; el día que sean mil, la primera pantalla que ve quien
+             * administra es la que peor va.
+             */
+            ->paginate(50, [
                 'tenants.id', 'tenants.name', 'tenants.slug', 'tenants.status',
                 'tenants.plan_code', 'tenants.created_at',
+                'plans.name as plan_name',
                 'subscriptions.current_period_end', 'subscriptions.grace_days',
             ]);
 
         return response()->json([
-            'data' => $rows->map(fn (object $row): array => [
+            'data' => $rows->getCollection()->map(fn (object $row): array => [
                 'id' => $row->id,
                 'name' => $row->name,
                 'slug' => $row->slug,
                 'status' => $row->status,
                 'statusLabel' => TenantStatus::from($row->status)->label(),
                 'planCode' => $row->plan_code,
+                // Con reserva: un negocio cuyo plan se retiró del catálogo
+                // seguiría teniendo su código, y dejar el hueco en blanco haría
+                // parecer que no tiene plan.
+                'planName' => $row->plan_name ?? $row->plan_code,
                 'currentPeriodEnd' => $row->current_period_end,
                 // Cuántos días le quedan. En negativo, cuántos lleva vencido —
                 // que es la cifra que uno quiere ver de un vistazo.
@@ -73,6 +89,11 @@ final class TenantAdminController
                     : (int) now()->startOfDay()->diffInDays($row->current_period_end, false),
                 'createdAt' => $row->created_at,
             ])->all(),
+            'meta' => [
+                'page' => $rows->currentPage(),
+                'lastPage' => $rows->lastPage(),
+                'total' => $rows->total(),
+            ],
         ]);
     }
 

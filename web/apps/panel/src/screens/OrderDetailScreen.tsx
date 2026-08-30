@@ -9,13 +9,21 @@ import {
   Select,
   Spinner,
   formatUsd,
-  parseAmount,
+  parseAmount, Page
 } from '@kombo/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { catalog } from '../api/catalog'
-import { nextStep, orders, paymentLabel, PAYMENT_METHODS, waitedLabel } from '../api/orders'
+import {
+  channelLabel,
+  nextStep,
+  orders,
+  paymentLabel,
+  PAYMENT_METHODS,
+  statusTone,
+  waitedLabel,
+} from '../api/orders'
 
 /**
  * Un pedido, entero.
@@ -85,17 +93,41 @@ export function OrderDetailScreen() {
   const paso = nextStep(pedido)
 
   return (
-    <div className="flex flex-col gap-4">
+    <Page ancho="lectura" className="flex flex-col gap-4">
       <header>
         <div className="flex items-center gap-2">
           <h1 className="tabular text-2xl font-bold text-[var(--text-strong)]">#{pedido.number}</h1>
-          <Badge>{pedido.statusLabel}</Badge>
+          {/* Con su tono, igual que el tablero y la ficha del cliente. El mismo
+              estado saliendo gris aquí y ámbar allá obliga a leer la etiqueta
+              para creerse el color, y entonces el color no sirve de nada. */}
+          <Badge tone={statusTone(pedido.status)}>{pedido.statusLabel}</Badge>
         </div>
         <p className="text-sm text-[var(--text-muted)]">
-          {pedido.serviceTypeLabel} · {waitedLabel(pedido.waitingSeconds)}
+          {pedido.serviceTypeLabel} · {channelLabel(pedido.channel)} ·{' '}
+          {waitedLabel(pedido.waitingSeconds)}
           {pedido.customerName != null && ` · ${pedido.customerName}`}
         </p>
       </header>
+
+      {/* Adónde va. Ésta es la pantalla desde la que se atiende un problema, y
+          la dirección venía en la respuesta sin que nadie la pintara. */}
+      {pedido.deliveryAddress != null && (
+        <Card className="p-4">
+          <p className="text-sm text-[var(--text-muted)]">Lo llevamos a</p>
+          <p className="text-[var(--text-strong)]">{pedido.deliveryAddress}</p>
+          {pedido.deliveryZoneName != null && (
+            <p className="text-sm text-[var(--text-muted)]">{pedido.deliveryZoneName}</p>
+          )}
+          {pedido.customerPhone != null && (
+            <a
+              href={`tel:${pedido.customerPhone}`}
+              className="tabular mt-1 inline-block font-medium text-accent-600"
+            >
+              {pedido.customerPhone}
+            </a>
+          )}
+        </Card>
+      )}
 
       {error != null && (
         <p role="alert" className="rounded-[var(--radius-md)] bg-bad-50 p-3 text-sm text-bad-700">
@@ -270,7 +302,7 @@ export function OrderDetailScreen() {
           <p className="text-[var(--text-strong)]">«{pedido.cancellationReason}»</p>
         </Card>
       )}
-    </div>
+    </Page>
   )
 }
 

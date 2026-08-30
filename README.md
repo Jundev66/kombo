@@ -49,10 +49,26 @@ make e2e     # pruebas de usuario por el navegador
 
 ## Para entender el sistema
 
-El punto de entrada es **[`CLAUDE.md`](CLAUDE.md)** — el mapa, los invariantes
+El punto de entrada es **[`AGENTS.md`](AGENTS.md)** — el mapa, los invariantes
 y lo que no se puede romper. Sirve igual a una persona nueva que a cualquier IA
 que entre al repositorio. Cada carpeta grande tiene el suyo:
-[`api/`](api/CLAUDE.md), [`web/`](web/CLAUDE.md), [`e2e/`](e2e/CLAUDE.md).
+[`api/`](api/AGENTS.md), [`web/`](web/AGENTS.md), [`e2e/`](e2e/AGENTS.md).
+
+`CLAUDE.md`, `GEMINI.md`, `.cursorrules` y `.github/copilot-instructions.md`
+son punteros de tres líneas que traen ahí: cada herramienta busca su propio
+nombre y **el texto es uno solo**. Si mañana entras con otra que lee un nombre
+distinto, se añade el puntero — no se copia el texto.
+
+Y **[`docs/trabajos/`](docs/trabajos/README.md)** es el porqué de cómo están
+las cosas: un trabajo por carpeta con su código `KMB-XXXX`, con lo que se
+descartó, lo que falló al hacerlo y cómo se verificó. Los códigos se citan
+desde los comentarios del código, así que un `// KMB-0009` en el sitio exacto
+lleva al documento que lo explica.
+
+```bash
+make trabajo t="Lo que voy a hacer"   # abrir el siguiente
+make trabajos                         # regenerar el índice
+```
 
 ## Nota sobre documentos fiscales
 

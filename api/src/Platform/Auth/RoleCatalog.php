@@ -62,11 +62,33 @@ final class RoleCatalog
                     'catalog.manage' => self::SI,
                     'catalog.change_price' => self::SI,
                     'delivery.manage' => self::SI,
+                    // Poder fijar las zonas y no poder abrir el tablero de
+                    // entregas era la misma incoherencia que el horario: el
+                    // encargado configuraba el reparto a ciegas, y cuando al
+                    // repartidor se le quedaba el teléfono sin batería no había
+                    // quien cerrara la entrega.
+                    'delivery.view_own' => self::SI,
+                    'delivery.mark_delivered' => self::SI,
                     'customers.view' => self::SI,
                     'customers.manage' => self::SI,
                     'reports.view_sales' => self::SI,
-                    // NO lleva `users.manage`: quien puede crear usuarios puede
-                    // crearse una cuenta de dueño. El equipo lo maneja el dueño.
+
+                    // El encargado es quien lleva el local cuando el dueño no
+                    // está, así que llega a todo lo que se toca en el día: el
+                    // horario —sin el cual el portal no acepta ni un pedido—,
+                    // la tasa, el bot y el equipo.
+                    'settings.manage' => self::SI,
+                    'channels.view' => self::SI,
+                    'audit.view' => self::SI,
+
+                    // Sí lleva `users.manage` (KMB-0006), y el agujero obvio
+                    // —quien crea usuarios se crea una cuenta de dueño— NO se
+                    // tapa quitándole el permiso, porque quitárselo también le
+                    // impide lo legítimo: dar de alta al cocinero nuevo un
+                    // sábado. Se tapa donde de verdad se decide, en
+                    // `TeamController`: un no-dueño no asigna el rol de dueño
+                    // ni toca la cuenta de uno.
+                    'users.manage' => self::SI,
                 ],
             ],
 

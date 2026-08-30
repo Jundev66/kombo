@@ -66,6 +66,72 @@ it('la ficha se llena sola con cada pedido', function (): void {
         ->and($data[0]['spentCents'])->toBe(900);
 });
 
+/*
+ * La libreta se pagina, y lo dice.
+ *
+ * Antes era un `limit(100)` pelado: un negocio con cuatrocientos clientes veía
+ * cien, sin ningún número que lo insinuara y sin forma de llegar al resto.
+ * Cortar en silencio es el peor fallo que puede tener una lista, porque quien
+ * la mira no sabe que le falta algo y por tanto no lo busca.
+ */
+it('la libreta dice cuántos clientes hay en total, no sólo los que caben', function (): void {
+    entrarComo($this->slug, 'maria@ejemplo.com');
+    actingForTenant($this->tenant);
+
+    foreach (range(1, 3) as $i) {
+        pedirComo($this->arepa->id, '0414123456'.$i, "Cliente {$i}");
+    }
+
+    $respuesta = clientes($this->slug)->assertOk();
+
+    expect($respuesta->json('data'))->toHaveCount(3)
+        ->and($respuesta->json('meta.total'))->toBe(3)
+        ->and($respuesta->json('meta.page'))->toBe(1)
+        ->and($respuesta->json('meta.lastPage'))->toBe(1);
+});
+
+it('la segunda página trae clientes distintos de la primera', function (): void {
+    /*
+     * Que el `meta` esté no basta: si `?page=2` devolviera lo mismo, «Ver más»
+     * traería otra vez lo que ya se ve y nadie sabría por qué.
+     *
+     * Hacen falta MÁS de los que caben en una página —101 para un tope de
+     * 100—, y se insertan directos en vez de pasando por `PlaceOrder`: lo que
+     * se prueba aquí es la lista, y cien pedidos de verdad sólo la harían
+     * lenta.
+     */
+    entrarComo($this->slug, 'maria@ejemplo.com');
+    actingForTenant($this->tenant);
+
+    foreach (range(1, 101) as $i) {
+        $telefono = '0414'.str_pad((string) $i, 7, '0', STR_PAD_LEFT);
+
+        CustomerModel::create([
+            'phone' => $telefono,
+            'phone_hash' => CustomerModel::hashOf($telefono),
+            'name' => "Cliente {$i}",
+            'orders_count' => 1,
+            'spent_cents' => 300,
+            // Distinta para cada uno: la lista ordena por esto, y con la misma
+            // fecha el orden entre páginas no estaría definido — la prueba
+            // pasaría o no según le pareciera a PostgreSQL.
+            'last_order_at' => now()->subMinutes($i),
+        ]);
+    }
+
+    $primera = clientes($this->slug)->assertOk();
+    $segunda = clientes($this->slug, '?page=2')->assertOk();
+
+    expect($primera->json('data'))->toHaveCount(100)
+        ->and($primera->json('meta.total'))->toBe(101)
+        ->and($primera->json('meta.lastPage'))->toBe(2)
+        ->and($segunda->json('data'))->toHaveCount(1);
+
+    $vistos = array_column($primera->json('data'), 'id');
+
+    expect($vistos)->not->toContain($segunda->json('data.0.id'));
+});
+
 it('sin teléfono no hay a quién recordar, y no pasa nada', function (): void {
     // En el mostrador la mayoría de la gente no lo deja, y está bien.
     entrarComo($this->slug, 'maria@ejemplo.com');

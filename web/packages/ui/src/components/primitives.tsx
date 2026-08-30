@@ -63,6 +63,53 @@ export function EmptyState({
   )
 }
 
+/**
+ * El pie de una lista que no cabe entera. **Cuántas hay, y cómo ver más.**
+ *
+ * Existe porque tres pantallas cortaban en silencio: la carta enseñaba 50 de
+ * 693 productos sin nada que lo sugiriera. Y cortar en silencio es el peor
+ * fallo que puede tener una lista — quien la mira no sabe que le falta algo, así
+ * que no busca. La cocina ya avisaba de lo que no cabía; esto es lo mismo para
+ * las listas que sí se pueden seguir.
+ *
+ * Es presentacional a propósito: no sabe nada de consultas ni de páginas. Así lo
+ * usan igual el panel y la super administración, que traen sus datos de formas
+ * distintas.
+ */
+export function ListFooter({
+  shown,
+  total,
+  onMore,
+  loading = false,
+  /** «productos», «clientes», «negocios». */
+  noun,
+}: {
+  shown: number
+  total: number
+  onMore: () => void
+  loading?: boolean
+  noun: string
+}) {
+  if (total <= shown) return null
+
+  return (
+    <div className="flex flex-col items-center gap-2 py-4">
+      <p className="text-sm text-[var(--text-muted)]">
+        Se ven {shown} de {total} {noun}
+      </p>
+
+      <button
+        type="button"
+        onClick={onMore}
+        disabled={loading}
+        className="min-h-touch rounded-[var(--radius-md)] bg-[var(--surface-raised)] px-6 font-medium text-[var(--text-strong)] shadow-[var(--shadow-card)] disabled:opacity-60"
+      >
+        {loading ? 'Cargando…' : `Ver ${Math.min(shown, total - shown)} más`}
+      </button>
+    </div>
+  )
+}
+
 export function Spinner({ label = 'Cargando…' }: { label?: string }) {
   return (
     <p role="status" className="px-6 py-12 text-center text-sm text-[var(--text-muted)]">

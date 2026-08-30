@@ -119,3 +119,55 @@ test('sin tasa cargada, la carta lo avisa antes de que sea un problema', async (
 
   await expect(page.getByRole('alert')).toContainText('tasa del día')
 })
+
+/*
+ * LA CARTA NO CORTA EN SILENCIO.
+ *
+ * Éste es el fallo que motivó el repaso: el negocio de demostración tiene
+ * cientos de productos y la pantalla enseñaba los cincuenta de la primera
+ * página sin un número, sin un botón y sin nada que lo insinuara. El servidor
+ * ya mandaba `meta.total`; se perdía en una línea del cliente.
+ *
+ * Cortar en silencio es el peor fallo que puede tener una lista: quien la mira
+ * no sabe que le falta algo, así que no lo busca.
+ */
+test('la carta dice cuántos productos hay y deja ver los que no caben', async ({ page }) => {
+  await page.goto(panelOf(TENANTS.arepera) + 'carta')
+
+  const { meta } = await apiFetch<{ meta: { total: number; lastPage: number } }>(
+    page,
+    '/api/v1/catalog/products?incluir_inactivos=1',
+  )
+
+  // La prueba sólo tiene sentido con más productos de los que caben en una
+  // página. Con la siembra de demostración siempre los hay.
+  expect(meta.lastPage).toBeGreaterThan(1)
+
+  // El total, arriba y a la vista. `exact` porque el pie de la lista dice
+  // «Se ven 50 de 695 productos», que contiene este mismo texto.
+  await expect(page.getByText(`${meta.total} productos`, { exact: true })).toBeVisible()
+
+  const primeraTanda = await page.getByRole('listitem').count()
+
+  // Y el pie dice cuántos se ven de cuántos, en vez de callarse.
+  await expect(page.getByText(`Se ven ${primeraTanda} de ${meta.total} productos`)).toBeVisible()
+
+  await page.getByRole('button', { name: /Ver \d+ más/ }).click()
+
+  // «Ver más» trae de verdad: la lista crece y el pie lo refleja.
+  await expect
+    .poll(() => page.getByRole('listitem').count())
+    .toBeGreaterThan(primeraTanda)
+})
+
+test('buscar sin resultados no dice que la carta está vacía', async ({ page }) => {
+  // Son dos cosas distintas y decían lo mismo: buscar algo que no existe
+  // contestaba «Tu carta está vacía · Añade lo que vendes» con un botón de
+  // añadir el primero, delante de un dueño con cientos de productos cargados.
+  await page.goto(panelOf(TENANTS.arepera) + 'carta')
+
+  await page.getByRole('searchbox', { name: 'Buscar en la carta' }).fill('zzz-no-existe-zzz')
+
+  await expect(page.getByText(/Nada que se llame/)).toBeVisible()
+  await expect(page.getByText('Tu carta está vacía')).toBeHidden()
+})

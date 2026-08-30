@@ -158,7 +158,7 @@ test('el carrito sobrevive a que el cliente cierre y vuelva', async ({ page }) =
   await expect(cartBar(page)).toContainText('$9,00')
 })
 
-test('el pago móvil pide el comprobante y dice a quién pagarle', async ({ page }) => {
+test('el pago móvil pide el comprobante, dice a quién pagarle y cuánto queda', async ({ page }) => {
   const nombre = `[e2e] Arepa transferida ${RUN}`
 
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
@@ -181,7 +181,19 @@ test('el pago móvil pide el comprobante y dice a quién pagarle', async ({ page
   await page.getByRole('button', { name: /Hacer el pedido/ }).click()
 
   await expect(page.getByText('Esperando tu comprobante')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Falta tu comprobante' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Manda tu comprobante' })).toBeVisible()
+
+  /*
+   * Y CUÁNTO LE QUEDA.
+   *
+   * Es lo que faltaba y más caro salía: un pedido sin comprobante se cancela
+   * solo, y el cliente no veía ningún reloj. Se le moría el pedido en la mano
+   * sin un aviso, y desde fuera parecía que el sistema se lo había comido.
+   *
+   * Los minutos los cuenta el servidor, así que la aserción es sobre la frase
+   * y no sobre un número concreto: el ajuste del negocio puede cambiar.
+   */
+  await expect(page.getByText(/Te quedan? .* para mandar el comprobante/)).toBeVisible()
 })
 
 test('el enlace del pedido lo abre cualquiera que lo tenga, y sólo ése', async ({ page }) => {

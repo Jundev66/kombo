@@ -1,4 +1,4 @@
-import { api } from '@kombo/api-client'
+import { api, type Paged } from '@kombo/api-client'
 
 /**
  * Lo que el panel le pide a la carta.
@@ -64,15 +64,27 @@ interface Envelope<T> {
 }
 
 export const catalog = {
-  products: (params?: { category?: string; buscar?: string; incluirInactivos?: boolean }) => {
-    const query = new URLSearchParams()
+  /**
+   * Una página de la carta, **con su `meta`**.
+   *
+   * Antes devolvía sólo `r.data` y el `meta` que ya mandaba el servidor se
+   * perdía en esa línea. El efecto: un negocio con 693 productos veía 50 y no
+   * había en la pantalla ni un número ni un botón que lo insinuara. Cortar en
+   * silencio es el peor fallo que puede tener una lista, porque quien la mira
+   * no sabe que le falta algo y por tanto no lo busca.
+   */
+  products: (params?: {
+    category?: string
+    buscar?: string
+    incluirInactivos?: boolean
+    page?: number
+  }) => {
+    const query = new URLSearchParams({ page: String(params?.page ?? 1) })
     if (params?.category) query.set('category', params.category)
     if (params?.buscar) query.set('buscar', params.buscar)
     if (params?.incluirInactivos) query.set('incluir_inactivos', '1')
 
-    const suffix = query.size > 0 ? `?${query.toString()}` : ''
-
-    return api.get<{ data: Product[] }>(`/catalog/products${suffix}`).then((r) => r.data)
+    return api.get<Paged<Product>>(`/catalog/products?${query.toString()}`)
   },
 
   product: (id: string) => api.get<Envelope<Product>>(`/catalog/products/${id}`).then((r) => r.data),

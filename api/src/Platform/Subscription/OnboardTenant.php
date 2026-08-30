@@ -7,8 +7,7 @@ namespace Platform\Subscription;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Platform\Auth\RoleCatalog;
-use Platform\Modules\ModuleRegistry;
+use Platform\Auth\RoleProvisioner;
 use Platform\Tenancy\TenantSession;
 use Shared\Domain\Exceptions\UserError;
 
@@ -31,7 +30,7 @@ final class OnboardTenant
         private readonly Subscriptions $subscriptions,
         private readonly PlatformAudit $audit,
         private readonly TenantSession $session,
-        private readonly ModuleRegistry $modules,
+        private readonly RoleProvisioner $roles,
     ) {}
 
     /**
@@ -154,55 +153,13 @@ final class OnboardTenant
     /**
      * Los roles base, con los permisos de los módulos que este negocio TIENE.
      *
-     * Un permiso de un módulo apagado no existe en el sistema, así que
-     * concederlo sería escribir una fila que no significa nada.
+     * La misma reconciliación que aplica `roles:reconciliar` a los negocios que
+     * ya existen. Es un solo sitio a propósito: cuando eran dos, ampliar el
+     * catálogo servía a los negocios nuevos y dejaba fuera a los viejos.
      */
     private function seedRoles(string $tenantId): void
     {
-        $activos = DB::table('tenant_modules')
-            ->where('tenant_id', $tenantId)
-            ->where('enabled', true)
-            ->pluck('module_code')
-            ->all();
-
-        $disponibles = $this->modules->permissionsFor($activos);
-
-        foreach (RoleCatalog::all() as $code => $catalogo) {
-            $roleId = (string) Str::uuid7();
-
-            DB::table('roles')->insert([
-                'id' => $roleId,
-                'tenant_id' => $tenantId,
-                'code' => $code,
-                'name' => $catalogo['name'],
-                'is_system' => true,
-                'is_owner' => $catalogo['is_owner'],
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            // El dueño no lleva filas: se resuelve como `['*']` y se expande
-            // contra los módulos encendidos HOY.
-            if ($catalogo['is_owner']) {
-                continue;
-            }
-
-            foreach ($catalogo['permissions'] as $permission => $requiereAutorizacion) {
-                if (! in_array($permission, $disponibles, true)) {
-                    continue;
-                }
-
-                DB::table('role_permissions')->insert([
-                    'id' => (string) Str::uuid7(),
-                    'tenant_id' => $tenantId,
-                    'role_id' => $roleId,
-                    'permission' => $permission,
-                    'requires_authorization' => $requiereAutorizacion,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-        }
+        $this->roles->reconcile($tenantId);
     }
 
     private function seedOwner(string $tenantId, string $name, string $email, string $password): void

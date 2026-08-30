@@ -1,5 +1,5 @@
 import { ApiError } from '@kombo/api-client'
-import { Badge, Button, Card, Field, Input, Select, Spinner } from '@kombo/ui'
+import { Badge, Button, Card, Field, Input, Select, Spinner, Page} from '@kombo/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { team, type TeamMember } from '../api/team'
@@ -42,7 +42,7 @@ export function TeamScreen() {
   const lleno = meta?.maxUsers != null && meta.active >= meta.maxUsers
 
   return (
-    <div className="flex flex-col gap-4">
+    <Page ancho="tablero" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="flex-1 text-xl font-bold text-[var(--text-strong)]">Equipo</h1>
 
@@ -149,7 +149,7 @@ export function TeamScreen() {
           </li>
         ))}
       </ul>
-    </div>
+    </Page>
   )
 }
 

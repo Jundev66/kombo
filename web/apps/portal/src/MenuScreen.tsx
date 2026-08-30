@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import type { Menu, MenuProduct, Shop } from './api'
 import type { Cart } from './cart'
 import { ProductSheet } from './ProductSheet'
+import { ShopHeader } from './ShopHeader'
 
 /**
  * La carta, en el teléfono de alguien que tiene hambre.
@@ -30,33 +31,26 @@ export function MenuScreen({ shop, menu, cart }: { shop: Shop; menu: Menu; cart:
 
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--surface-sunken)] pb-24">
-      <header className="flex flex-col gap-2 bg-[var(--surface-raised)] px-4 py-5">
-        <div className="flex items-center gap-3">
-          {shop.logoUrl != null && (
-            <img src={shop.logoUrl} alt="" className="size-12 rounded-full object-cover" />
-          )}
-
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-bold text-[var(--text-strong)]">{shop.name}</h1>
-
-            <p className="text-sm">
-              {shop.isOpen ? (
-                <span className="font-medium text-ok-700">Abierto ahora</span>
-              ) : (
-                // Se dice arriba del todo, antes de que arme el pedido. No al
-                // final, cuando ya eligió tres cosas.
-                <span className="font-medium text-bad-500">Cerrado ahora mismo</span>
-              )}
-              {shop.exchangeRate != null && (
-                <span className="tabular text-[var(--text-muted)]">
-                  {' '}
-                  · Bs {shop.exchangeRate.toLocaleString('es-VE')}/$
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-
+      <ShopHeader
+        shop={shop}
+        subtitle={
+          <p className="text-sm">
+            {shop.isOpen ? (
+              <span className="font-medium text-ok-700">Abierto ahora</span>
+            ) : (
+              // Se dice arriba del todo, antes de que arme el pedido. No al
+              // final, cuando ya eligió tres cosas.
+              <span className="font-medium text-bad-500">Cerrado ahora mismo</span>
+            )}
+            {shop.exchangeRate != null && (
+              <span className="tabular text-[var(--text-muted)]">
+                {' '}
+                · Bs {shop.exchangeRate.toLocaleString('es-VE')}/$
+              </span>
+            )}
+          </p>
+        }
+      >
         {shop.notice != null && (
           <p
             role="status"
@@ -67,15 +61,23 @@ export function MenuScreen({ shop, menu, cart }: { shop: Shop; menu: Menu; cart:
         )}
 
         {!shop.isOpen && (
-          <p className="text-sm text-[var(--text-muted)]">
+          <p className="rounded-[var(--radius-md)] bg-[var(--surface-sunken)] px-3 py-2 text-sm text-[var(--text-muted)]">
             Puedes mirar la carta. Para pedir, vuelve cuando abramos:{' '}
             {shop.hours.find((d) => !d.isClosed)?.opensAt ?? '—'}.
           </p>
         )}
-      </header>
+      </ShopHeader>
 
+      {/*
+       * De aquí abajo, con tope de ancho y centrado.
+       *
+       * Sin él, en un portátil cada producto era una franja de metro y medio
+       * con dos palabras en la esquina: la maqueta del teléfono estirada, que
+       * es la otra forma de no ser responsive.
+       */}
+      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
       {menu.categories.length > 0 && (
-        <nav aria-label="Secciones" className="flex gap-2 overflow-x-auto px-4 py-3">
+        <nav aria-label="Secciones" className="-mx-4 flex gap-2 overflow-x-auto px-4 py-3 sm:mx-0 sm:px-0">
           <CategoryChip active={category === null} onClick={() => setCategory(null)}>
             Todo
           </CategoryChip>
@@ -88,19 +90,41 @@ export function MenuScreen({ shop, menu, cart }: { shop: Shop; menu: Menu; cart:
         </nav>
       )}
 
-      <ul className="flex flex-col gap-3 px-4">
+      {/*
+       * En rejilla y con la foto ARRIBA a partir de tablet.
+       *
+       * En comida se elige con los ojos: es el principio número uno del sistema
+       * visual, y en el teléfono ya se cumplía con la miniatura al lado. En una
+       * pantalla ancha hay sitio para que la foto sea la protagonista de
+       * verdad, que es como se ve cualquier carta.
+       */}
+      <ul className="grid grid-cols-1 gap-3 pb-4 sm:grid-cols-2 lg:grid-cols-3">
         {visible.map((product) => (
           <li key={product.id}>
             <button
               type="button"
               onClick={() => setChosen(product)}
-              className="flex w-full items-center gap-3 rounded-[var(--radius-lg)] bg-[var(--surface-raised)] p-3 text-left shadow-[var(--shadow-card)] active:bg-[var(--surface-sunken)]"
+              className="flex h-full w-full items-center gap-3 rounded-[var(--radius-lg)] bg-[var(--surface-raised)] p-3 text-left shadow-[var(--shadow-card)] active:bg-[var(--surface-sunken)] sm:flex-col sm:items-stretch"
             >
-              {product.photoUrl != null && (
+              {/*
+               * Sin foto va un hueco del mismo tamaño, no nada.
+               *
+               * En rejilla, una tarjeta sin foto al lado de una con foto se
+               * estira para igualar la altura y deja un cajón blanco con dos
+               * líneas arriba — parece rota. El hueco gris es el mismo recurso
+               * que ya usa la carta del panel, y de paso deja claro que a ese
+               * producto le falta la foto: es lo que más vende.
+               */}
+              {product.photoUrl != null ? (
                 <img
                   src={product.photoUrl}
                   alt=""
-                  className="size-20 shrink-0 rounded-[var(--radius-md)] object-cover"
+                  className="size-20 shrink-0 rounded-[var(--radius-md)] object-cover sm:h-40 sm:w-full"
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="size-20 shrink-0 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] sm:h-40 sm:w-full"
                 />
               )}
 
@@ -133,13 +157,14 @@ export function MenuScreen({ shop, menu, cart }: { shop: Shop; menu: Menu; cart:
           description="Prueba en otra sección."
         />
       )}
+      </div>
 
       {/* La barra del pedido: aparece sólo cuando hay algo, fija abajo, con el
           total siempre visible. Que el cliente sepa cuánto lleva sin tener que
           entrar a mirar. */}
       {cart.count > 0 && (
         <div className="fixed inset-x-0 bottom-0 border-t border-[var(--surface-border)] bg-[var(--surface-raised)] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <Link to="/carrito" className="block">
+          <Link to="/carrito" className="mx-auto block max-w-lg">
             <Button size="touch" block>
               Ver mi pedido · {cart.count} · {formatUsd(cart.subtotalCents)}
             </Button>

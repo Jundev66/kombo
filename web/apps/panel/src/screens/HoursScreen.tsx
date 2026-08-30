@@ -1,5 +1,5 @@
 import { ApiError } from '@kombo/api-client'
-import { Button, Card, Input, Spinner, Toggle } from '@kombo/ui'
+import { Button, Card, Input, Spinner, Toggle, Page} from '@kombo/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { hours, type BusinessDay } from '../api/hours'
@@ -57,7 +57,7 @@ export function HoursScreen() {
   if (consulta.isLoading) return <Spinner />
 
   return (
-    <div className="flex flex-col gap-4">
+    <Page ancho="lectura" className="flex flex-col gap-4">
       <h1 className="text-xl font-bold text-[var(--text-strong)]">Horario</h1>
 
       <p className="text-sm text-[var(--text-muted)]">
@@ -81,13 +81,22 @@ export function HoursScreen() {
             </div>
 
             {!dia.isClosed && (
-              <div className="flex items-center gap-2">
+              /*
+               * Las dos horas ocupan la fila entera en un teléfono estrecho.
+               *
+               * Con `w-32` fijo se salían de la pantalla a 320 px: dos campos
+               * de 128, el «a» y los espacios no caben en los 256 que quedan
+               * tras los rellenos. Y un desbordamiento horizontal en una
+               * pantalla de configuración es de los que nadie reporta — se
+               * arrastra el dedo, se ve mal, y se cierra.
+               */
+              <div className="flex w-full items-center gap-2 sm:w-auto">
                 <Input
                   type="time"
                   aria-label={`Abre el ${dia.label}`}
                   value={dia.opensAt ?? '08:00'}
                   onChange={(e) => cambiar(dia.weekday, { opensAt: e.target.value })}
-                  className="w-32"
+                  className="w-full min-w-0 sm:w-32"
                 />
 
                 <span className="text-[var(--text-muted)]">a</span>
@@ -97,7 +106,7 @@ export function HoursScreen() {
                   aria-label={`Cierra el ${dia.label}`}
                   value={dia.closesAt ?? '20:00'}
                   onChange={(e) => cambiar(dia.weekday, { closesAt: e.target.value })}
-                  className="w-32"
+                  className="w-full min-w-0 sm:w-32"
                 />
               </div>
             )}
@@ -122,6 +131,6 @@ export function HoursScreen() {
           </span>
         )}
       </div>
-    </div>
+    </Page>
   )
 }

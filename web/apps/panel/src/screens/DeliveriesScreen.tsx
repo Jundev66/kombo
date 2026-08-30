@@ -1,4 +1,4 @@
-import { Badge, Button, Card, EmptyState, Money, Spinner } from '@kombo/ui'
+import { Badge, Button, Card, EmptyState, Money, Spinner, Page} from '@kombo/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { deliveries, type Delivery } from '../api/deliveries'
 
@@ -40,7 +40,7 @@ export function DeliveriesScreen() {
   const libres = lista.data?.filter((entrega) => !entrega.isMine) ?? []
 
   return (
-    <div className="flex flex-col gap-6">
+    <Page ancho="tablero" className="flex flex-col gap-6">
       <h1 className="text-xl font-bold text-[var(--text-strong)]">Entregas</h1>
 
       <section className="flex flex-col gap-3">
@@ -103,7 +103,7 @@ export function DeliveriesScreen() {
           />
         ))}
       </section>
-    </div>
+    </Page>
   )
 }
 

@@ -120,6 +120,33 @@ it('dar de alta un negocio lo deja LISTO para trabajar', function (): void {
     entrarComo($slug, 'duena@nueva.test', 'clave-larga-123');
 });
 
+it('la lista de negocios pagina y dice el nombre del plan, no su código', function (): void {
+    /*
+     * Dos arreglos en una pantalla que nunca se había mirado.
+     *
+     * No tenía tope NINGUNO: se descargaban todos los negocios de la
+     * plataforma. Con dos es cómodo; el día que sean mil, la primera pantalla
+     * que abre quien administra es la que peor va.
+     *
+     * Y enseñaba `plan_code` en crudo —`negocio`, `inicial`—. Un identificador
+     * en minúsculas y en inglés en una pantalla que mira una persona es lo
+     * mismo que no haberlo traducido.
+     */
+    entrarComoAdmin($this->admin);
+
+    makeTenant('paginado-'.Str::lower(Str::random(6)), plan: 'negocio');
+
+    $lista = comoPlataforma('GET', '/api/v1/platform/tenants')->assertOk();
+
+    expect($lista->json('meta.page'))->toBe(1)
+        ->and($lista->json('meta.total'))->toBeGreaterThan(0)
+        ->and($lista->json('meta.lastPage'))->toBeGreaterThan(0);
+
+    $planes = array_column($lista->json('data'), 'planName');
+
+    expect($planes)->not->toContain('negocio')->toContain('Negocio');
+});
+
 it('el alta es TODO o NADA', function (): void {
     entrarComoAdmin($this->admin);
 

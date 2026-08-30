@@ -80,6 +80,17 @@ export interface TrackedOrder {
   paymentStatus: string | null
   expiresAt: string | null
   needsReceipt: boolean
+  /**
+   * Los dos plazos, **en segundos y contados por el servidor**.
+   *
+   * No se derivan de `placedAt` / `expiresAt` en el cliente a propósito: el
+   * reloj de un teléfono en la calle está mal más a menudo de lo que parece, y
+   * lo que se enseña con `expiresInSeconds` es cuánto le queda a alguien antes
+   * de que su pedido se cancele solo. Nunca negativo: cero significa que el
+   * plazo ya pasó.
+   */
+  waitingSeconds: number
+  expiresInSeconds: number | null
   notes: string | null
   cancellationReason: string | null
   placedAt: string | null

@@ -1,5 +1,5 @@
 import { ApiError } from '@kombo/api-client'
-import { Badge, Button, Card, Field, Input, Spinner } from '@kombo/ui'
+import { Badge, Button, Card, Field, Input, Spinner, Page} from '@kombo/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { CHANNEL_LABELS, channels, type Channel } from '../api/channels'
@@ -30,7 +30,7 @@ export function ChannelsScreen() {
   if (lista.isLoading) return <Spinner />
 
   return (
-    <div className="flex flex-col gap-4">
+    <Page ancho="lectura" className="flex flex-col gap-4">
       <h1 className="text-xl font-bold text-[var(--text-strong)]">WhatsApp y Telegram</h1>
 
       <p className="text-sm text-[var(--text-muted)]">
@@ -98,7 +98,7 @@ export function ChannelsScreen() {
           </section>
         </Card>
       ))}
-    </div>
+    </Page>
   )
 }
 

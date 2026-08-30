@@ -1,6 +1,19 @@
-import { ApiError } from '@kombo/api-client'
-import { Badge, Button, Card, EmptyState, Field, Input, Select, Spinner, formatUsd } from '@kombo/ui'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ApiError, hasMore } from '@kombo/api-client'
+import {
+  Badge,
+  Button,
+  Card,
+  CardGrid,
+  EmptyState,
+  Field,
+  Input,
+  ListFooter,
+  plural,
+  Select,
+  Spinner,
+  formatUsd,
+} from '@kombo/ui'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { PAYMENT_METHODS, platform, type TenantRow } from './api'
 
@@ -16,15 +29,24 @@ export function TenantsScreen({ onOpen }: { onOpen: (id: string) => void }) {
   const [estado, setEstado] = useState('')
   const [creando, setCreando] = useState(false)
 
-  const tenants = useQuery({
+  // Por páginas: la lista no tenía tope ninguno y se descargaba entera.
+  const tenants = useInfiniteQuery({
     queryKey: ['tenants', buscar, estado],
-    queryFn: () => platform.tenants({ buscar, estado }),
+    queryFn: ({ pageParam }) => platform.tenants({ buscar, estado, page: pageParam }),
+    initialPageParam: 1,
+    getNextPageParam: (last) => (hasMore(last.meta) ? last.meta.page + 1 : undefined),
   })
+
+  const visibles = tenants.data?.pages.flatMap((p) => p.data) ?? []
+  const total = tenants.data?.pages[0]?.meta.total ?? 0
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end gap-3">
-        <h1 className="flex-1 text-xl font-bold text-[var(--text-strong)]">Negocios</h1>
+        <h1 className="text-xl font-bold text-[var(--text-strong)]">Negocios</h1>
+        {total > 0 && <Badge>{plural(total, 'negocio', 'negocios')}</Badge>}
+
+        <div className="flex-1" />
 
         <Button onClick={() => setCreando(true)}>Dar de alta</Button>
       </div>
@@ -63,12 +85,12 @@ export function TenantsScreen({ onOpen }: { onOpen: (id: string) => void }) {
 
       {tenants.isLoading && <Spinner />}
 
-      {tenants.data?.length === 0 && (
+      {visibles.length === 0 && !tenants.isLoading && (
         <EmptyState title="No hay negocios con ese filtro" description="Prueba con otro estado." />
       )}
 
-      <ul className="flex flex-col gap-2">
-        {tenants.data?.map((tenant) => (
+      <CardGrid columnas={2}>
+        {visibles.map((tenant) => (
           <li key={tenant.id}>
             <Card className="flex flex-wrap items-center gap-3 p-4">
               <button
@@ -78,7 +100,7 @@ export function TenantsScreen({ onOpen }: { onOpen: (id: string) => void }) {
               >
                 <p className="font-medium text-[var(--text-strong)]">{tenant.name}</p>
                 <p className="text-sm text-[var(--text-muted)]">
-                  {tenant.slug} · {tenant.planCode}
+                  {tenant.slug} · {tenant.planName}
                 </p>
               </button>
 
@@ -88,7 +110,15 @@ export function TenantsScreen({ onOpen }: { onOpen: (id: string) => void }) {
             </Card>
           </li>
         ))}
-      </ul>
+      </CardGrid>
+
+      <ListFooter
+        shown={visibles.length}
+        total={total}
+        noun="negocios"
+        loading={tenants.isFetchingNextPage}
+        onMore={() => void tenants.fetchNextPage()}
+      />
     </div>
   )
 }
@@ -110,7 +140,11 @@ function Expiry({ tenant }: { tenant: TenantRow }) {
         dias < 0 ? 'font-medium text-bad-500' : dias <= 7 ? 'text-warn-700' : 'text-[var(--text-muted)]'
       }`}
     >
-      {dias < 0 ? `vencido hace ${Math.abs(dias)} d` : `vence en ${dias} d`}
+      {/* «días», no «d». Esta pantalla no tiene problema de sitio, y la
+          abreviatura obliga a traducirla mentalmente cada vez. */}
+      {dias < 0
+        ? `vencido hace ${plural(Math.abs(dias), 'día', 'días')}`
+        : `vence en ${plural(dias, 'día', 'días')}`}
     </span>
   )
 }

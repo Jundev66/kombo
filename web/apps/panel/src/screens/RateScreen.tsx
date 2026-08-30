@@ -1,4 +1,4 @@
-import { Button, Card, Field, Input, Money, Spinner } from '@kombo/ui'
+import { Button, Card, Field, Input, Money, Spinner, Page} from '@kombo/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { catalog } from '../api/catalog'
@@ -45,7 +45,7 @@ export function RateScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <Page ancho="lectura" className="flex flex-col gap-4">
       <h1 className="text-xl font-bold text-[var(--text-strong)]">Tasa del día</h1>
 
       {rate.isLoading && <Spinner />}
@@ -100,6 +100,6 @@ export function RateScreen() {
           <Money cents={10000} rate={rate.data.rate} scale="sm" />
         </Card>
       )}
-    </div>
+    </Page>
   )
 }

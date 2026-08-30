@@ -151,3 +151,57 @@ test('un negocio sin caja lo dice claro, no falla al cobrar', async ({ page }) =
 
   await expect(page.getByRole('heading', { name: 'Este negocio no tiene caja' })).toBeVisible()
 })
+
+/*
+ * EL DUEÑO SUPERVISA SU PROPIA CAJA.
+ *
+ * Antes esto no se podía sin volver a identificarse dos veces: acababa de
+ * entrar al panel con su contraseña y la caja le pedía dar de alta el aparato y
+ * teclear un PIN. Ahora el panel tiene el enlace y la sesión sirve, con la
+ * pantalla diciendo con todas las letras a nombre de quién se está vendiendo.
+ */
+test('el dueño entra a la caja desde el panel, sin alta y sin PIN', async ({ page }) => {
+  await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
+
+  const nombre = `[e2e] Arepa supervisión ${RUN}`
+  await seedProduct(page, nombre, 300)
+
+  // Sin `signOut`: la gracia es justo que la sesión del panel valga aquí.
+  await page.getByRole('button', { name: 'Más' }).first().click()
+  await page.getByRole('link', { name: 'Caja', exact: true }).click()
+
+  // Ni el alta del aparato ni el teclado del PIN.
+  await expect(page.getByRole('button', { name: 'Dar de alta' })).toBeHidden()
+  await expect(page.getByRole('heading', { name: '¿Quién está en la caja?' })).toBeHidden()
+
+  // Y la pantalla dice quién está operando. No es decoración: lo que se venda
+  // aquí lleva ese nombre.
+  await expect(page.getByRole('status', { name: 'Supervisión' })).toContainText('Supervisando · María')
+
+  // Vende de verdad, que es lo que distingue supervisar de mirar.
+  await page.getByRole('button', { name: nombre }).click()
+  await expect(ticket(page)).toContainText(nombre)
+
+  await page.getByRole('button', { name: 'Cobrar', exact: true }).click()
+
+  const cobro = page.getByRole('dialog', { name: 'Cobrar' })
+  await cobro.getByRole('button', { name: 'Cobrar $3,00' }).click()
+
+  await expect(page.getByRole('dialog')).toContainText('NOTA DE ENTREGA')
+})
+
+test('volver al panel desde la caja no cierra la sesión', async ({ page }) => {
+  await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
+
+  await page.getByRole('button', { name: 'Más' }).first().click()
+  await page.getByRole('link', { name: 'Caja', exact: true }).click()
+
+  await expect(page.getByRole('status', { name: 'Supervisión' })).toContainText('Supervisando')
+
+  // No dice «Salir» a propósito: no hay turno que cerrar, y quien llegó desde
+  // el panel espera volver al panel y no quedarse en una pantalla vacía.
+  await page.getByRole('button', { name: 'Volver al panel' }).click()
+
+  await expect(page.getByRole('button', { name: 'Salir' })).toBeVisible()
+  expect(page.url()).toContain('/panel/')
+})

@@ -1,5 +1,16 @@
-import { useQuery } from '@tanstack/react-query'
-import { Badge, buttonClasses, Card, EmptyState, Input, Money, Spinner } from '@kombo/ui'
+import { hasMore } from '@kombo/api-client'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import {
+  Badge,
+  buttonClasses,
+  Card,
+  EmptyState,
+  Input,
+  ListFooter,
+  Money,
+  plural,
+  Spinner, Page, CardGrid
+} from '@kombo/ui'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { catalog } from '../api/catalog'
@@ -16,15 +27,37 @@ export function ProductsScreen() {
 
   const rate = useQuery({ queryKey: ['rate'], queryFn: catalog.rate })
 
-  const products = useQuery({
+  /*
+   * Por páginas, y acumulando.
+   *
+   * `useInfiniteQuery` ya viene con TanStack Query, así que no hay dependencia
+   * nueva ni que llevar a mano la lista de lo que ya se trajo. La carta puede
+   * tener cientos de productos y esto corre en una PC de mostrador: traerlos
+   * todos de golpe al abrir la pantalla sería pagar por adelantado un scroll
+   * que casi nadie hace.
+   */
+  const products = useInfiniteQuery({
     queryKey: ['products', buscar],
-    queryFn: () => catalog.products({ buscar, incluirInactivos: true }),
+    queryFn: ({ pageParam }) =>
+      catalog.products({ buscar, incluirInactivos: true, page: pageParam }),
+    initialPageParam: 1,
+    getNextPageParam: (last) => (hasMore(last.meta) ? last.meta.page + 1 : undefined),
   })
 
+  const visibles = products.data?.pages.flatMap((p) => p.data) ?? []
+  const total = products.data?.pages[0]?.meta.total ?? 0
+  const buscando = buscar.trim() !== ''
+
   return (
-    <div className="flex flex-col gap-4">
+    <Page ancho="tablero" className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-[var(--text-strong)]">Carta</h1>
+
+        {/* Cuántos hay, arriba: es la respuesta a «¿está todo cargado?», que es
+            justo lo que el dueño viene a comprobar. */}
+        {total > 0 && <Badge>{plural(total, 'producto', 'productos')}</Badge>}
+
+        <div className="flex-1" />
         {/* Enlace, no botón: esto NAVEGA. Un botón con un Link dentro no
             navega y anida dos controles que el teclado no sabe interpretar. */}
         <Link to="/carta/nuevo" className={buttonClasses()}>
@@ -54,20 +87,31 @@ export function ProductsScreen() {
 
       {products.isLoading && <Spinner />}
 
-      {products.data?.length === 0 && (
-        <EmptyState
-          title="Tu carta está vacía"
-          description="Añade lo que vendes. Puedes empezar por lo que más sale y seguir después."
-          action={
-            <Link to="/carta/nuevo" className={buttonClasses()}>
-              Añadir el primero
-            </Link>
-          }
-        />
-      )}
+      {/* Buscar sin resultados y no tener carta son cosas distintas, y hasta
+          ahora decían lo mismo: buscar «xyz» contestaba «Tu carta está vacía ·
+          Añade lo que vendes» con un botón de añadir el primero, delante de un
+          dueño con seiscientos productos cargados. */}
+      {visibles.length === 0 &&
+        !products.isLoading &&
+        (buscando ? (
+          <EmptyState
+            title={`Nada que se llame «${buscar.trim()}»`}
+            description="Prueba con menos letras. Aquí se busca en toda la carta, no sólo en lo que se ve."
+          />
+        ) : (
+          <EmptyState
+            title="Tu carta está vacía"
+            description="Añade lo que vendes. Puedes empezar por lo que más sale y seguir después."
+            action={
+              <Link to="/carta/nuevo" className={buttonClasses()}>
+                Añadir el primero
+              </Link>
+            }
+          />
+        ))}
 
-      <ul className="flex flex-col gap-2">
-        {products.data?.map((product) => (
+      <CardGrid>
+        {visibles.map((product) => (
           <li key={product.id}>
             <Card>
               <Link
@@ -101,7 +145,15 @@ export function ProductsScreen() {
             </Card>
           </li>
         ))}
-      </ul>
-    </div>
+      </CardGrid>
+
+      <ListFooter
+        shown={visibles.length}
+        total={total}
+        noun="productos"
+        loading={products.isFetchingNextPage}
+        onMore={() => void products.fetchNextPage()}
+      />
+    </Page>
   )
 }

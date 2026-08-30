@@ -53,6 +53,11 @@ final class MeController
                 'slug' => $tenant->slug,
                 'logoUrl' => $tenant->logoUrl,
                 'status' => $tenant->status->value,
+                // El huso del NEGOCIO. El panel enseña fechas de pedidos, y la
+                // regla de la casa es que un dato que depende del negocio se
+                // resuelve con SU hora: un dueño que abre el panel de viaje
+                // vería el pedido de anoche fechado hoy.
+                'timezone' => $tenant->timezone,
                 // Que el negocio sepa que está vencido antes de descubrirlo
                 // porque algo dejó de funcionar.
                 'needsAttention' => $tenant->status->needsAttention(),
@@ -64,6 +69,9 @@ final class MeController
                 'name' => $user->name,
                 'email' => $user->email,
                 'isOwner' => $user->isOwner(),
+                // El nombre del rol, no su código: va a una pantalla. Sirve
+                // para que quien mira sepa con qué permisos está mirando.
+                'roleName' => $user->roles->first()?->name,
                 // La caja necesita saber CUÁLES acciones le van a pedir un PIN,
                 // para abrir el diálogo antes de intentarlas en vez de después
                 // de que el servidor la rechace con el cliente delante.

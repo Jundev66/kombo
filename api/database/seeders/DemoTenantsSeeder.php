@@ -8,8 +8,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Platform\Auth\RoleCatalog;
-use Platform\Modules\ModuleRegistry;
+use Platform\Auth\RoleProvisioner;
 use Platform\Tenancy\Database\TenantDatabaseGuard;
 
 /**
@@ -34,6 +33,10 @@ class DemoTenantsSeeder extends Seeder
             slug: 'elsazon',
             nombre: 'Arepera El Sazón',
             plan: 'negocio',
+            telefono: '0414-1234567',
+            // Naranja de arepera. Distinto del acento del sistema a propósito:
+            // así se ve que el color viene del negocio y no del producto.
+            color: '#B4451F',
             equipo: [
                 ['maria@elsazon.test', 'María', 'owner', '1234'],
                 ['jose@elsazon.test', 'José', 'manager', '2345'],
@@ -49,6 +52,10 @@ class DemoTenantsSeeder extends Seeder
             slug: 'laesquina',
             nombre: 'Pizzería La Esquina',
             plan: 'inicial',
+            telefono: '0412-7654321',
+            // Verde oscuro: el segundo negocio con otra marca, para que se note
+            // que cada portal se ve como su dueño y no como el vecino.
+            color: '#1F5D3A',
             equipo: [
                 ['pedro@laesquina.test', 'Pedro', 'owner', '1234'],
                 ['lucia@laesquina.test', 'Lucía', 'kitchen', '5678'],
@@ -59,12 +66,18 @@ class DemoTenantsSeeder extends Seeder
     /**
      * @param  list<array{0: string, 1: string, 2: string, 3: string}>  $equipo
      */
-    private function negocio(string $slug, string $nombre, string $plan, array $equipo): void
-    {
+    private function negocio(
+        string $slug,
+        string $nombre,
+        string $plan,
+        string $telefono,
+        string $color,
+        array $equipo,
+    ): void {
         // `tenants` y `plans` son tablas de plataforma: se escriben sin negocio
         // en contexto, porque se consultan para AVERIGUAR de qué negocio se
         // habla.
-        $tenantId = $this->tenant($slug, $nombre, $plan);
+        $tenantId = $this->tenant($slug, $nombre, $plan, $telefono, $color);
 
         // A partir de aquí se escriben tablas de NEGOCIO, así que hay que
         // fijar el contexto — igual que hace una petición real.
@@ -85,12 +98,7 @@ class DemoTenantsSeeder extends Seeder
             $this->zonas($tenantId);
         }
 
-        $rolesUsados = array_unique(array_column($equipo, 2));
-        $roles = [];
-
-        foreach ($rolesUsados as $code) {
-            $roles[$code] = $this->rol($tenantId, $code);
-        }
+        $roles = $this->roles($tenantId);
 
         foreach ($equipo as [$email, $nombrePersona, $rol, $pin]) {
             $userId = $this->usuario($tenantId, $email, $nombrePersona, $pin);
@@ -110,7 +118,7 @@ class DemoTenantsSeeder extends Seeder
         $guard->clear();
     }
 
-    private function tenant(string $slug, string $nombre, string $plan): string
+    private function tenant(string $slug, string $nombre, string $plan, string $telefono, string $color): string
     {
         $existing = DB::table('tenants')->where('slug', $slug)->value('id');
 
@@ -126,6 +134,13 @@ class DemoTenantsSeeder extends Seeder
             'name' => $nombre,
             'plan_code' => $plan,
             'status' => 'active',
+            // Con teléfono y color de marca, y no en blanco. Un negocio de
+            // demostración sin teléfono deja sin probar el único camino que
+            // tiene un cliente cuando su pedido se atasca, y sin color de marca
+            // el portal se ve como el de cualquiera — que es justo lo que el
+            // dueño quiere que NO pase.
+            'phone' => $telefono,
+            'brand_color' => $color,
             'timezone' => 'America/Caracas',
             'country_code' => 'VE',
             'created_at' => now(),
@@ -215,78 +230,25 @@ class DemoTenantsSeeder extends Seeder
         }
     }
 
-    private function rol(string $tenantId, string $code): string
-    {
-        $catalogo = RoleCatalog::get($code);
-
-        $roleId = (string) (DB::table('roles')
-            ->where('tenant_id', $tenantId)   // a mano: aquí RLS no filtra
-            ->where('code', $code)
-            ->value('id') ?? $this->crearRol($tenantId, $code, $catalogo));
-
-        // El dueño no lleva filas de permisos: se resuelve como `['*']`.
-        if ($catalogo['is_owner']) {
-            return $roleId;
-        }
-
-        /*
-         * Los permisos se reconcilian SIEMPRE, también si el rol ya existía.
-         *
-         * Encender un módulo nuevo tiene que dar sus permisos a los roles base
-         * del negocio: si no, el mostrador estrena la caja sin poder cobrar y
-         * el fallo aparece en el peor sitio —con un cliente delante— y no dice
-         * lo que pasa. Es `insertOrIgnore` sobre el único `(rol, permiso)`, así
-         * que no duplica ni pisa lo que el dueño haya cambiado a mano.
-         */
-
-        // Sólo se conceden los permisos de módulos que este negocio TIENE. Un
-        // permiso de un módulo apagado no existiría de todas formas.
-        $activos = DB::table('tenant_modules')
-            ->where('tenant_id', $tenantId)
-            ->where('enabled', true)
-            ->pluck('module_code')
-            ->all();
-
-        $disponibles = app(ModuleRegistry::class)->permissionsFor($activos);
-
-        foreach ($catalogo['permissions'] as $permission => $requiereAutorizacion) {
-            if (! in_array($permission, $disponibles, true)) {
-                continue;
-            }
-
-            DB::table('role_permissions')->insertOrIgnore([
-                'id' => (string) Str::uuid7(),
-                'tenant_id' => $tenantId,
-                'role_id' => $roleId,
-                'permission' => $permission,
-                'requires_authorization' => $requiereAutorizacion,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-
-        return $roleId;
-    }
-
     /**
-     * @param  array{name: string, is_owner: bool, permissions: array<string, bool>}  $catalogo
+     * Crea los roles base con sus permisos y devuelve sus identificadores.
+     *
+     * La reconciliación es la MISMA que usan el alta de un negocio y
+     * `roles:reconciliar`, no una copia: cuando eran tres copias, ampliar el
+     * catálogo servía a unas y a otras no, y la diferencia sólo se notaba
+     * cuando alguien no podía hacer su trabajo.
+     *
+     * @return array<string, string> código del rol → identificador
      */
-    private function crearRol(string $tenantId, string $code, array $catalogo): string
+    private function roles(string $tenantId): array
     {
-        $roleId = (string) Str::uuid7();
+        app(RoleProvisioner::class)->reconcile($tenantId);
 
-        DB::table('roles')->insert([
-            'id' => $roleId,
-            'tenant_id' => $tenantId,
-            'code' => $code,
-            'name' => $catalogo['name'],
-            'is_system' => true,
-            'is_owner' => $catalogo['is_owner'],
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        return $roleId;
+        return DB::table('roles')
+            ->where('tenant_id', $tenantId)   // a mano: aquí RLS no filtra
+            ->pluck('id', 'code')
+            ->map(fn (mixed $id): string => (string) $id)
+            ->all();
     }
 
     private function usuario(string $tenantId, string $email, string $nombre, string $pin): string

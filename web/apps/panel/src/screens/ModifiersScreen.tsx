@@ -1,4 +1,4 @@
-import { Badge, Button, Card, EmptyState, Field, Input, Select, Spinner, formatUsd, parseAmount } from '@kombo/ui'
+import { Badge, Button, Card, EmptyState, Field, Input, Select, Spinner, formatUsd, parseAmount, Page} from '@kombo/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { catalog } from '../api/catalog'
@@ -53,7 +53,7 @@ export function ModifiersScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <Page ancho="tablero" className="flex flex-col gap-4">
       <h1 className="text-xl font-bold text-[var(--text-strong)]">Agregados</h1>
 
       <Card className="flex flex-col gap-3 p-4">
@@ -168,6 +168,6 @@ export function ModifiersScreen() {
           </li>
         ))}
       </ul>
-    </div>
+    </Page>
   )
 }

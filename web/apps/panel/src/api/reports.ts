@@ -36,13 +36,6 @@ export const PERIODS: { value: Period; label: string }[] = [
   { value: 'mes', label: 'Este mes' },
 ]
 
-export const CHANNEL_LABELS: Record<string, string> = {
-  counter: 'Mostrador',
-  portal: 'Portal',
-  whatsapp: 'WhatsApp',
-  telegram: 'Telegram',
-}
-
 export const reports = {
   sales: (periodo: Period) =>
     api.get<{ data: SalesReport }>(`/reports/sales?periodo=${periodo}`).then((r) => r.data),

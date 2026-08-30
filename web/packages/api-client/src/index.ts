@@ -11,3 +11,5 @@ export type {
   UserSummary,
 } from './capabilities'
 export { api, ApiError, useBearerToken } from './client'
+export { hasMore } from './paged'
+export type { Paged, PageMeta } from './paged'

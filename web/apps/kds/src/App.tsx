@@ -1,5 +1,11 @@
-import { TerminalGate, terminal } from '@kombo/shell'
-import { useState } from 'react'
+import {
+  backToPanel,
+  SupervisionBanner,
+  TerminalGate,
+  useDoorway,
+  useSession,
+} from '@kombo/shell'
+import { plural } from '@kombo/ui'
 import { formatWait, useKitchen } from './useKitchen'
 import type { Ticket } from './api'
 
@@ -11,19 +17,32 @@ import type { Ticket } from './api'
  * un botón por comanda, y nada más que tocar.
  */
 export function App() {
-  const [inside, setInside] = useState(terminal.stationToken() !== null)
+  const { capabilities } = useSession()
+  const { mode, enter, endShift } = useDoorway()
 
-  if (!inside) {
+  if (mode === 'gate') {
     return (
-      <TerminalGate
-        deviceName="Cocina"
-        question="¿Quién está en la cocina?"
-        onReady={() => setInside(true)}
-      />
+      <TerminalGate deviceName="Cocina" question="¿Quién está en la cocina?" onReady={enter} />
     )
   }
 
-  return <Board onLeave={() => { terminal.endShift(); setInside(false) }} />
+  const supervising = mode === 'supervision'
+
+  return (
+    // La altura la manda este contenedor: con la banda puesta, dos elementos
+    // reclamando la pantalla entera dejan la última columna fuera de ella.
+    <div className="flex h-dvh flex-col bg-[var(--surface-sunken)]">
+      {supervising && capabilities?.user != null && (
+        <SupervisionBanner user={capabilities.user} onLeave={backToPanel} />
+      )}
+
+      <Board
+        // Quien opera según el SERVIDOR, no quien puso el PIN.
+        operator={capabilities?.user?.name ?? null}
+        onLeave={supervising ? null : endShift}
+      />
+    </div>
+  )
 }
 
 const COLUMNS = [
@@ -32,13 +51,19 @@ const COLUMNS = [
   { status: 'ready', title: 'Para entregar' },
 ] as const
 
-function Board({ onLeave }: { onLeave: () => void }) {
+function Board({ operator, onLeave }: { operator: string | null; onLeave: (() => void) | null }) {
   const { tickets, hidden, loading, error, advance, waitedSeconds, isLate } = useKitchen()
 
   return (
-    <div className="flex h-dvh flex-col bg-[var(--surface-sunken)]">
+    // `min-h-0` y no `h-dvh`: la altura la manda quien nos monta, que es quien
+    // sabe si además hay una banda arriba.
+    <div className="flex min-h-0 flex-1 flex-col bg-[var(--surface-sunken)]">
       <header className="flex h-14 shrink-0 items-center gap-3 bg-ink-900 px-4 text-white">
         <h1 className="font-semibold">Cocina</h1>
+
+        {operator != null && (
+          <span className="min-w-0 truncate text-sm text-ink-300">· {operator}</span>
+        )}
 
         <div className="flex-1" />
 
@@ -61,12 +86,18 @@ function Board({ onLeave }: { onLeave: () => void }) {
         )}
 
         <span className="tabular text-sm text-ink-300">
-          {loading ? 'Cargando…' : `${tickets.length} pedidos`}
+          {loading ? 'Cargando…' : plural(tickets.length, 'pedido', 'pedidos')}
         </span>
 
-        <button type="button" onClick={onLeave} className="text-sm text-ink-300 underline-offset-2 hover:underline">
-          Salir
-        </button>
+        {onLeave != null && (
+          <button
+            type="button"
+            onClick={onLeave}
+            className="shrink-0 text-sm text-ink-300 underline-offset-2 hover:underline"
+          >
+            Salir
+          </button>
+        )}
       </header>
 
       <div className="grid flex-1 grid-cols-1 gap-3 overflow-hidden p-3 md:grid-cols-3">

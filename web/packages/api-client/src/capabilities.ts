@@ -23,6 +23,13 @@ export interface TenantSummary {
   slug: string
   logoUrl: string | null
   status: string
+  /**
+   * El huso del negocio, para fechar lo suyo con SU hora.
+   *
+   * Un contenedor en UTC —o el navegador de un dueño de viaje— corre las fechas
+   * de los pedidos, y lo hace de forma que a media mañana todo parece correcto.
+   */
+  timezone: string
   /** Vencido o suspendido: hay que decírselo antes de que algo deje de andar. */
   needsAttention: boolean
   canWrite: boolean
@@ -33,6 +40,14 @@ export interface UserSummary {
   name: string
   email: string
   isOwner: boolean
+  /**
+   * «Dueño», «Encargado». `null` si nadie le asignó rol todavía.
+   *
+   * Se enseña junto al nombre porque en un local la misma persona entra desde
+   * sitios distintos, y saber CON QUÉ permisos estás mirando la pantalla es la
+   * diferencia entre «esto no se puede» y «esto no lo puedes tú».
+   */
+  roleName: string | null
   /**
    * Qué acciones le van a pedir el PIN de un supervisor.
    *

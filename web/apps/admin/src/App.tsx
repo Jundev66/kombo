@@ -40,24 +40,31 @@ function Shell() {
 
   return (
     <div className="min-h-dvh bg-[var(--surface-sunken)]">
-      <header className="flex items-center gap-3 border-b border-[var(--surface-border)] bg-[var(--surface-raised)] px-5 py-4">
-        <div className="flex-1">
-          <p className="font-semibold text-[var(--text-strong)]">Kombo · Administración</p>
-          <p className="text-sm text-[var(--text-muted)]">{sesion.data.name}</p>
-        </div>
+      {/* La barra a todo el ancho y su contenido alineado con el de la página:
+          si no, el nombre queda pegado al borde y el contenido empieza
+          doscientos píxeles más adentro, como si fueran dos páginas. */}
+      <header className="border-b border-[var(--surface-border)] bg-[var(--surface-raised)]">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex-1">
+            <p className="font-semibold text-[var(--text-strong)]">Kombo · Administración</p>
+            <p className="text-sm text-[var(--text-muted)]">{sesion.data.name}</p>
+          </div>
 
-        <Button
-          variant="ghost"
-          onClick={async () => {
-            await platform.logout()
-            void sesion.refetch()
-          }}
-        >
-          Salir
-        </Button>
+          <Button
+            variant="ghost"
+            onClick={async () => {
+              await platform.logout()
+              void sesion.refetch()
+            }}
+          >
+            Salir
+          </Button>
+        </div>
       </header>
 
-      <main className="mx-auto flex max-w-4xl flex-col gap-6 p-5">
+      {/* `max-w-7xl` y no `max-w-4xl`: esto es un tablero de negocios, y lo que
+          se gana con el ancho es cuántos se ven de una vez. */}
+      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
         {abierto === null ? (
           <>
             <Metrics />

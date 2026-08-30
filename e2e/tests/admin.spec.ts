@@ -96,6 +96,15 @@ test('un negocio suspendido lee sus datos, pero no puede seguir operando', async
   await page.getByLabel('Contraseña').fill('clave-larga-123')
   await page.getByRole('button', { name: 'Dar de alta', exact: true }).last().click()
 
+  /*
+   * Se BUSCA en vez de mirar la lista entera.
+   *
+   * La lista de negocios viene paginada —antes no tenía tope y se descargaba
+   * completa—, así que una prueba que espera encontrar el suyo en la primera
+   * página deja de pasar el día en que haya más de cincuenta. Que es hoy: cada
+   * corrida deja uno nuevo.
+   */
+  await page.getByRole('searchbox', { name: 'Buscar' }).fill(slug)
   await expect(page.getByText(slug)).toBeVisible()
 
   // Se abre su ficha y se suspende.

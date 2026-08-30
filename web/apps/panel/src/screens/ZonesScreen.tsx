@@ -1,4 +1,4 @@
-import { Badge, Button, Card, EmptyState, Field, Input, Money, Spinner, parseAmount } from '@kombo/ui'
+import { Badge, Button, Card, EmptyState, Field, Input, Money, Spinner, parseAmount, Page} from '@kombo/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { delivery } from '../api/delivery'
@@ -65,7 +65,7 @@ export function ZonesScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <Page ancho="lectura" className="flex flex-col gap-4">
       <h1 className="text-xl font-bold text-[var(--text-strong)]">Zonas de reparto</h1>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -161,6 +161,6 @@ export function ZonesScreen() {
           </li>
         ))}
       </ul>
-    </div>
+    </Page>
   )
 }

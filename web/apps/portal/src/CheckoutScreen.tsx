@@ -94,7 +94,9 @@ export function CheckoutScreen({ shop, cart }: { shop: Shop; cart: Cart }) {
   ].filter((x): x is string => x !== null)
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[var(--surface-sunken)] pb-28">
+    // Un formulario de pedido a metro y medio no se rellena mejor: sólo
+    // aleja cada etiqueta de su campo.
+    <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col bg-[var(--surface-sunken)] pb-28">
       <header className="flex items-center gap-3 bg-[var(--surface-raised)] px-4 py-4">
         <Link
           to="/"

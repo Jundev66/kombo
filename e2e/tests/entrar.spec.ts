@@ -60,12 +60,17 @@ test('el menú lo decide el servidor, no una lista escrita en React', async ({ p
 
   const nav = page.getByRole('navigation', { name: 'Secciones' }).first()
 
-  // La dueña puede gestionar la carta y la configuración, así que las ve.
+  // La dueña puede gestionar la carta, así que la ve en la barra.
   expect(capacidades.permissions).toContain('catalog.view')
   await expect(nav.getByRole('link', { name: 'Carta' })).toBeVisible()
 
+  // Y la configuración está bajo «Más», agrupada. En la barra caben tres, y
+  // llenarla con lo que se toca una vez al mes escondería lo que se usa todo
+  // el día — que era justo el problema de la lista plana de doce entradas.
   expect(capacidades.permissions).toContain('settings.manage')
-  await expect(nav.getByRole('link', { name: 'Tasa' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Más' }).first().click()
+  await expect(page.getByRole('link', { name: 'Tasa' })).toBeVisible()
 })
 
 test('la cocina no ve las secciones que no le tocan', async ({ page }) => {

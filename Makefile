@@ -27,6 +27,19 @@ logs:             ## Seguir los logs
 down:             ## Apagar
 	docker compose down
 
+# ── El registro de trabajos ─────────────────────────────────────────────────
+# El porqué de cómo están las cosas. Ver docs/trabajos/README.md.
+
+trabajo:          ## Abrir un trabajo nuevo: make trabajo t="Paginar la carta"
+	@test -n "$(t)" || (echo 'Falta el título: make trabajo t="Paginar la carta"' >&2; exit 1)
+	@./scripts/trabajos.sh nuevo "$(t)"
+
+trabajos:         ## Regenerar el índice del registro
+	@./scripts/trabajos.sh indice
+
+trabajos-check:   ## Códigos únicos, cabeceras completas e índice al día
+	@./scripts/trabajos.sh verificar
+
 # ── Verificar ───────────────────────────────────────────────────────────────
 # Esto es lo que tiene que estar verde antes de decir "listo".
 
@@ -54,10 +67,10 @@ size:             ## Presupuesto de bundle — rompe si alguna app se pasa
 e2e:              ## Pruebas de usuario por el navegador (siembra antes)
 	./e2e/run.sh
 
-check: test-arch test-isolation test pint-check typecheck size  ## Todo junto
+check: trabajos-check test-arch test-isolation test pint-check typecheck size  ## Todo junto
 
 help:
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
-.PHONY: up up-lite setup demo logs down test test-arch test-isolation pint pint-check typecheck size e2e check help
+.PHONY: up up-lite setup demo logs down trabajo trabajos trabajos-check test test-arch test-isolation pint pint-check typecheck size e2e check help

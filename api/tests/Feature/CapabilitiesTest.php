@@ -28,6 +28,14 @@ beforeEach(function (): void {
     giveRole($this->tenant, $this->carlos, 'kitchen');
 });
 
+it('trae el huso del negocio, para fechar lo suyo con su hora', function (): void {
+    // El panel fecha pedidos. Sin esto sólo tendría el huso del navegador, y un
+    // dueño que abre el panel de viaje vería el pedido de anoche fechado hoy.
+    $this->getJson(urlFor($this->slug, '/api/v1/me'))
+        ->assertOk()
+        ->assertJsonPath('tenant.timezone', 'America/Caracas');
+});
+
 it('responde SIN sesión, con el negocio y cero permisos', function (): void {
     // La pantalla de login necesita el nombre y el logo del negocio antes de
     // que nadie entre. Un login que dice «Kombo» en vez de «El Sazón» parece
@@ -37,6 +45,34 @@ it('responde SIN sesión, con el negocio y cero permisos', function (): void {
         ->assertJsonPath('tenant.slug', $this->slug)
         ->assertJsonPath('user', null)
         ->assertJsonPath('permissions', []);
+});
+
+it('el encargado llega a la configuración del negocio', function (): void {
+    /*
+     * El encargado es quien lleva el local cuando el dueño no está, y hasta
+     * ahora no podía tocar el horario —sin el cual el portal no acepta ni un
+     * pedido— ni la tasa, de la que cuelga cada precio en bolívares.
+     *
+     * También trae `roleName`, que la pantalla enseña junto al nombre: sin él,
+     * «esto no se puede» y «esto no lo puedes tú» se ven igual.
+     */
+    enableModule($this->tenant, 'channels');
+
+    $jose = makeUser($this->tenant, 'jose@ejemplo.com', 'José');
+    giveRole($this->tenant, $jose, 'manager');
+
+    entrarComo($this->slug, 'jose@ejemplo.com');
+
+    $me = $this->withHeaders(browsingAs($this->slug))
+        ->getJson(urlFor($this->slug, '/api/v1/me'))
+        ->assertOk();
+
+    expect($me->json('permissions'))
+        ->toContain('settings.manage')
+        ->toContain('users.manage')
+        ->toContain('channels.view')
+        ->and($me->json('user.roleName'))->toBe('Encargado')
+        ->and($me->json('user.isOwner'))->toBeFalse();
 });
 
 it('el dueño recibe los permisos de los módulos encendidos HOY', function (): void {

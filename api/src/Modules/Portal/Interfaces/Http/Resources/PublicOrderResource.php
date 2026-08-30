@@ -52,6 +52,29 @@ final class PublicOrderResource
             'expiresAt' => $order->expires_at?->toAtomString(),
             'needsReceipt' => $order->status->value === 'pending_payment',
 
+            /*
+             * Los dos plazos, EN SEGUNDOS y calculados aquí.
+             *
+             * Es la misma decisión que ya toma el tablero de pedidos
+             * (`OrderResource`): no depender del reloj del dispositivo. Ahí el
+             * dispositivo es una tablet de local, que casi nunca está en hora;
+             * aquí es el teléfono de alguien que está en la calle, que está
+             * peor — y el número que se le enseña es cuánto le queda antes de
+             * que su pedido se cancele solo. Enseñárselo mal es peor que no
+             * enseñárselo.
+             *
+             * Nunca negativo: pasado el plazo son cero segundos, y la pantalla
+             * dice que se cancela en cualquier momento. Un «-3 min» no
+             * significa nada para quien lo lee.
+             */
+            'waitingSeconds' => $order->placed_at === null
+                ? 0
+                : max(0, (int) round(now()->diffInSeconds($order->placed_at, absolute: true))),
+
+            'expiresInSeconds' => $order->expires_at === null
+                ? null
+                : max(0, (int) round(now()->diffInSeconds($order->expires_at, absolute: false))),
+
             'notes' => $order->notes,
             'cancellationReason' => $order->cancellation_reason,
             'placedAt' => $order->placed_at?->toAtomString(),

@@ -1,4 +1,4 @@
-import { Badge, Button, Card, EmptyState, Field, Input, Spinner } from '@kombo/ui'
+import { Badge, Button, Card, EmptyState, Field, Input, plural, Spinner, Page, CardGrid} from '@kombo/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { catalog } from '../api/catalog'
@@ -39,7 +39,7 @@ export function CategoriesScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <Page ancho="tablero" className="flex flex-col gap-4">
       <h1 className="text-xl font-bold text-[var(--text-strong)]">Categorías</h1>
 
       <form onSubmit={onSubmit} className="flex items-end gap-2">
@@ -69,13 +69,13 @@ export function CategoriesScreen() {
         />
       )}
 
-      <ul className="flex flex-col gap-2">
+      <CardGrid>
         {categories.data?.map((category) => (
           <li key={category.id}>
             <Card className="flex min-h-touch items-center gap-3 p-3">
               <span className="flex-1 font-medium text-[var(--text-strong)]">{category.name}</span>
 
-              <Badge>{category.productCount} productos</Badge>
+              <Badge>{plural(category.productCount, 'producto', 'productos')}</Badge>
 
               <Button
                 variant="ghost"
@@ -92,7 +92,7 @@ export function CategoriesScreen() {
             </Card>
           </li>
         ))}
-      </ul>
-    </div>
+      </CardGrid>
+    </Page>
   )
 }

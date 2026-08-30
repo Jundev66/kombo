@@ -251,6 +251,66 @@ it('el pago móvil deja el pedido esperando el comprobante, con fecha de caducid
     expect(KitchenTicketModel::count())->toBe(0);
 });
 
+/*
+ * Los dos plazos, contados por el SERVIDOR.
+ *
+ * El seguimiento los enseña —cuánto lleva esperando, y cuánto le queda antes de
+ * que su pedido se cancele solo—. Derivarlos de una fecha ISO en el teléfono
+ * daría un número equivocado en cuanto el reloj del aparato no esté en hora, y
+ * el segundo es el que decide si alguien pierde su pedido.
+ */
+
+it('el seguimiento dice cuánto lleva esperando y cuánto le queda para pagar', function (): void {
+    $token = pedirAlPortal($this->slug, [
+        'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
+        'service_type' => 'takeaway',
+        'payment_method' => 'pago_movil',
+        'customer_name' => 'Ana Cliente',
+        'customer_phone' => '04141234567',
+    ])->assertCreated()->json('data.token');
+
+    $seguimiento = comoCliente($this->slug, 'GET', "/api/v1/portal/orders/{$token}")->assertOk();
+
+    expect($seguimiento->json('data.waitingSeconds'))->toBeInt()->toBeLessThan(60)
+        ->and($seguimiento->json('data.expiresInSeconds'))->toBeInt()->toBeGreaterThan(0);
+});
+
+it('un plazo que ya pasó son cero segundos, nunca un número negativo', function (): void {
+    // «Te quedan -3 minutos» no significa nada para quien lo lee. La pantalla
+    // necesita poder decir «se cancela en cualquier momento», y para eso el
+    // cero tiene que llegarle como cero.
+    $token = pedirAlPortal($this->slug, [
+        'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
+        'service_type' => 'takeaway',
+        'payment_method' => 'pago_movil',
+        'customer_name' => 'Ana Cliente',
+        'customer_phone' => '04141234567',
+    ])->assertCreated()->json('data.token');
+
+    actingForTenant($this->tenant);
+    OrderModel::where('public_token', $token)->update(['expires_at' => now()->subHour()]);
+
+    comoCliente($this->slug, 'GET', "/api/v1/portal/orders/{$token}")
+        ->assertOk()
+        ->assertJsonPath('data.expiresInSeconds', 0);
+});
+
+it('un pedido sin plazo no inventa uno', function (): void {
+    // En efectivo no hay comprobante que esperar, así que no hay cuenta atrás
+    // que enseñar. `null` y no cero: cero es «se te acabó el tiempo».
+    $token = pedirAlPortal($this->slug, [
+        'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
+        'service_type' => 'takeaway',
+        'payment_method' => 'cash',
+        'customer_name' => 'Ana Cliente',
+        'customer_phone' => '04141234567',
+    ])->assertCreated()->json('data.token');
+
+    comoCliente($this->slug, 'GET', "/api/v1/portal/orders/{$token}")
+        ->assertOk()
+        ->assertJsonPath('data.expiresInSeconds', null);
+});
+
 it('sin datos de pago móvil, el portal no lo ofrece ni lo acepta', function (): void {
     // Un botón de pagar que no dice a quién pagarle es una llamada de teléfono
     // garantizada.

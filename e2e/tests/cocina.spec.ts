@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { cocinaOf, panelOf, PASSWORD, TENANTS } from '../support/addresses'
 import { apiFetch, apiPost } from '../support/api'
 import { clearBoard, comanda, enterKitchen } from '../support/cocina'
-import { signIn } from '../support/panel'
+import { signIn, signOut } from '../support/panel'
 
 /*
  * EL RECORRIDO QUE MOTIVÓ EL PROYECTO.
@@ -48,7 +48,11 @@ test('confirmar en el panel hace aparecer la comanda en la cocina', async ({ pag
   await clearBoard(page)
   const numero = await unPedidoConfirmado(page, `[e2e] Arepa cocina ${RUN}`)
 
-  // Otra pantalla, otra sesión: se entra con el PIN del cocinero.
+  // Otra pantalla, OTRA SESIÓN. Cerrar la del panel no es limpieza: Sanctum
+  // prefiere la cookie al token, así que sin esto la prueba teclea el PIN de
+  // Carlos y opera como María — y pasaría en verde justo donde tenía que
+  // atrapar un permiso de menos.
+  await signOut(page)
   await enterKitchen(page, TENANTS.arepera, 'Carlos', '4567')
 
   const tarjeta = comanda(page, numero)
@@ -63,6 +67,7 @@ test('la comanda avanza de un toque y al final sale de la pantalla', async ({ pa
   await clearBoard(page)
   const numero = await unPedidoConfirmado(page, `[e2e] Arepa avanza ${RUN}`)
 
+  await signOut(page)
   await enterKitchen(page, TENANTS.arepera, 'Carlos', '4567')
 
   const tarjeta = comanda(page, numero)
@@ -108,6 +113,7 @@ test('los agregados se leen en la comanda, no hay que ir a buscarlos', async ({ 
     [sinCebolla!.id],
   )
 
+  await signOut(page)
   await enterKitchen(page, TENANTS.arepera, 'Carlos', '4567')
 
   // En TEXTO, listo para leer mientras se cocina. No un identificador que
@@ -117,6 +123,7 @@ test('los agregados se leen en la comanda, no hay que ir a buscarlos', async ({ 
 
 test('el cocinero sólo tiene la cocina: no llega al panel', async ({ page }) => {
   // Carlos entra a su pantalla y nada más. Lo que no aplica no existe.
+  // Aquí no hay sesión de panel que cerrar: se llega directo a la cocina.
   await enterKitchen(page, TENANTS.arepera, 'Carlos', '4567')
   await expect(page.getByRole('heading', { name: 'Cocina' })).toBeVisible()
 

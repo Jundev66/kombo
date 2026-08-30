@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Money, Spinner, formatUsd } from '@kombo/ui'
+import { Badge, Button, Card, Money, plural, Spinner, formatUsd } from '@kombo/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { platform, type Usage } from './api'
@@ -196,7 +196,8 @@ function SupportSnapshot({ id }: { id: string }) {
   return (
     <div className="flex flex-col gap-3 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] p-4 text-sm">
       <p className="text-[var(--text-default)]">
-        {vistazo.data.products} productos · módulos: {vistazo.data.modules.join(', ')}
+        {plural(vistazo.data.products, 'producto', 'productos')} · módulos:{' '}
+        {vistazo.data.modules.join(', ')}
       </p>
 
       <div>

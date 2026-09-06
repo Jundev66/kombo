@@ -19,6 +19,10 @@ setup:            ## Primera vez: dependencias, .env, clave, migraciones y base 
 	docker compose exec api php artisan migrate --database=pgsql_owner --force
 	docker compose exec -e DB_DATABASE=kombo_test api \
 		php artisan migrate --database=pgsql_owner --force
+	@# artisan corre como root y php-fpm sirve como www-data. En Linux el clon
+	@# pertenece a quien lo hizo, así que el servidor no puede escribir su
+	@# registro ni sus vistas compiladas y contesta 500 a todo.
+	docker compose exec --user root api chmod -R a+rwX storage bootstrap/cache
 
 demo:             ## Sembrar los negocios de demostración
 	docker compose exec api php artisan db:seed --force

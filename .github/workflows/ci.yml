@@ -167,6 +167,12 @@ jobs:
           docker compose exec -T api php artisan key:generate
           docker compose exec -T api php artisan storage:link
           docker compose exec -T api php artisan migrate --database=pgsql_owner --force
+          # artisan runs as root and php-fpm serves as www-data. On Linux the
+          # checkout belongs to whoever cloned it, so the server cannot write
+          # its log or its compiled views and answers 500 to everything. On a
+          # Docker Desktop bind mount permissions are faked and this never
+          # shows, which is why it took until CI to appear.
+          docker compose exec -T --user root api chmod -R a+rwX storage bootstrap/cache
 
       # The runner is slower than a development machine. Without this the suite
       # begins against an API that is not answering yet, and every test fails
@@ -193,9 +199,14 @@ jobs:
         if: failure()
         run: |
           docker compose ps
-          echo '── api ──'   && docker compose logs --tail=120 api
-          echo '── nginx ──' && docker compose logs --tail=60 nginx
-          echo '── colas ──' && docker compose logs --tail=40 queue
+          echo '── api ──'   && docker compose logs --tail=60 api
+          echo '── nginx ──' && docker compose logs --tail=40 nginx
+          echo '── colas ──' && docker compose logs --tail=20 queue
+          echo '── permisos ──'
+          docker compose exec -T api ls -la storage storage/logs bootstrap/cache || true
+          docker compose exec -T --user www-data api php -r 'var_dump(is_writable("storage/logs"), is_writable("bootstrap/cache"));' || true
+          echo '── laravel.log ──'
+          docker compose exec -T api tail -40 storage/logs/laravel.log || true
 
       - name: Guardar el informe si algo falló
         if: failure()

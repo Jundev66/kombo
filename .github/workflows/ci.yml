@@ -168,14 +168,17 @@ jobs:
           docker compose exec -T api php artisan storage:link
           docker compose exec -T api php artisan migrate --database=pgsql_owner --force
 
-      # The runner is slower than a development machine and the five Vite
-      # servers start on demand. Without this the suite begins against an API
-      # that is not answering yet, and every test fails for a reason that has
-      # nothing to do with what it checks.
+      # The runner is slower than a development machine. Without this the suite
+      # begins against an API that is not answering yet, and every test fails
+      # for a reason that has nothing to do with what it checks.
+      #
+      # `/up` and not `/api/v1/me`: the seeding happens inside `run.sh`, one
+      # step below, so at this point no tenant exists yet and the resolver
+      # answers 404 — correctly, and for five minutes.
       - name: Esperar a que la API responda
         run: |
           for _ in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}'               -H 'Host: elsazon.localhost' http://localhost:8010/api/v1/me || true)
+            code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: admin.localhost' http://localhost:8010/up || true)
             if [ "$code" = "200" ]; then echo "La API responde."; exit 0; fi
             sleep 5
           done

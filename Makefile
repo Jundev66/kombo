@@ -8,7 +8,10 @@ up:               ## Levantar todo (nginx, api, colas, postgres, redis y las 5 a
 up-lite:          ## Sólo lo imprescindible: API, base, panel y cocina (máquinas justas)
 	docker compose up -d nginx api postgres redis dashboard kds
 
-setup:            ## Primera vez: .env, clave, migraciones y base de pruebas
+setup:            ## Primera vez: dependencias, .env, clave, migraciones y base de pruebas
+	@# `api/vendor` no está en el repositorio y la imagen no lo trae: el código
+	@# se monta desde el host. Sin esto, artisan no tiene autoloader.
+	docker compose exec api composer install --no-interaction --prefer-dist --no-progress
 	docker compose exec api cp -n .env.example .env || true
 	docker compose exec api php artisan key:generate
 	@# Sin esto, las fotos de los productos se suben y no se ven.

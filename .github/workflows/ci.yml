@@ -71,7 +71,7 @@ jobs:
         run: bash docker/postgres/init/01-roles.sh
 
       - name: Caché de dependencias
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: api/vendor
           key: composer-${{ hashFiles('api/composer.lock') }}
@@ -157,10 +157,15 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Levantar el entorno completo
+        # The same steps as `make setup`. `api/vendor` is not in the repository
+        # and the image does not carry it — the code is bind-mounted — so
+        # without the install artisan has no autoloader.
         run: |
           docker compose up -d --build
+          docker compose exec -T api composer install --no-interaction --prefer-dist --no-progress
           docker compose exec -T api cp -n .env.example .env || true
           docker compose exec -T api php artisan key:generate
+          docker compose exec -T api php artisan storage:link
           docker compose exec -T api php artisan migrate --database=pgsql_owner --force
 
       - name: Correr
@@ -168,7 +173,7 @@ jobs:
 
       - name: Guardar el informe si algo falló
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright
           path: |

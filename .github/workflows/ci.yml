@@ -168,8 +168,31 @@ jobs:
           docker compose exec -T api php artisan storage:link
           docker compose exec -T api php artisan migrate --database=pgsql_owner --force
 
+      # The runner is slower than a development machine and the five Vite
+      # servers start on demand. Without this the suite begins against an API
+      # that is not answering yet, and every test fails for a reason that has
+      # nothing to do with what it checks.
+      - name: Esperar a que la API responda
+        run: |
+          for _ in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}'               -H 'Host: elsazon.localhost' http://localhost:8010/api/v1/me || true)
+            if [ "$code" = "200" ]; then echo "La API responde."; exit 0; fi
+            sleep 5
+          done
+          echo "La API no respondió en cinco minutos. Devolvió: $code"
+          exit 1
+
       - name: Correr
         run: ./e2e/run.sh
+
+      # A CI that fails without saying why is the failure it was meant to catch.
+      - name: Qué dicen los contenedores
+        if: failure()
+        run: |
+          docker compose ps
+          echo '── api ──'   && docker compose logs --tail=120 api
+          echo '── nginx ──' && docker compose logs --tail=60 nginx
+          echo '── colas ──' && docker compose logs --tail=40 queue
 
       - name: Guardar el informe si algo falló
         if: failure()

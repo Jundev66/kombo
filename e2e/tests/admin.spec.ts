@@ -31,6 +31,14 @@ test('platform administration does not open without signing in', async ({ page }
   // Not even the figures are visible: the door comes first.
   await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible()
   await expect(page.getByText('Negocios activos')).toBeHidden()
+
+  // And the door means what it says. This screen used to be painted whenever
+  // `/platform/me` failed for ANY reason, so it was green through an outage that
+  // answered 502 to everything: "not signed in" and "no server" looked the same.
+  // KMB-0014.
+  await expect(
+    page.getByRole('heading', { name: 'No se pudo contactar al servidor' }),
+  ).toBeHidden()
 })
 
 test('signing a tenant up leaves it ready for its owner to sign in', async ({ page }) => {

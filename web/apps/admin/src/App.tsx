@@ -1,4 +1,5 @@
 import { ApiError } from '@kombo/api-client'
+import { ServerUnavailable } from '@kombo/shell'
 import { Button, Card, Field, Input, Money, Spinner } from '@kombo/ui'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
@@ -32,6 +33,21 @@ function Shell() {
   const [openNow, setOpenNow] = useState<string | null>(null)
 
   if (session.isLoading) return <Spinner label="Un momento…" />
+
+  // Three states and no more, the same three as `Boot` on the tenants' side.
+  // `/platform/me` answers 200 with `null` when nobody is signed in, so a server
+  // that does not answer at all is a DIFFERENT thing: without this branch the
+  // query fails, `data` comes back undefined, and the door is painted over a
+  // dead backend. It says "sign in" to somebody whose password was never the
+  // problem — and it is why the test guarding this door stayed green through an
+  // outage that answered 502 to every request. KMB-0014.
+  if (session.isError) {
+    return (
+      <ServerUnavailable
+        error={session.error instanceof ApiError ? session.error.message : null}
+      />
+    )
+  }
 
   if (session.data == null) {
     return <LoginScreen onDone={() => void session.refetch()} />
@@ -100,9 +116,9 @@ function Metrics() {
       {(m.tenants.pastDue > 0 || m.tenants.suspended > 0) && (
         <Card className="flex flex-wrap items-center gap-3 p-4">
           <p className="flex-1 text-sm text-[var(--text-default)]">
-            {m.tenants.pastDue > 0 && <strong>{m.tenants.pastDue} expired</strong>}
+            {m.tenants.pastDue > 0 && <strong>{m.tenants.pastDue} vencidos</strong>}
             {m.tenants.pastDue > 0 && m.tenants.suspended > 0 && ' · '}
-            {m.tenants.suspended > 0 && <strong>{m.tenants.suspended} suspended</strong>}
+            {m.tenants.suspended > 0 && <strong>{m.tenants.suspended} suspendidos</strong>}
           </p>
         </Card>
       )}

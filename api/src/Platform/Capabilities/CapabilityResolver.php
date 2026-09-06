@@ -9,18 +9,12 @@ use Illuminate\Database\DatabaseManager;
 use Platform\Modules\ModuleRegistry;
 
 /**
- * El eje del sistema: plan × módulos encendidos × configuración → capacidades.
+ * The hub: plan × enabled modules × settings → capabilities.
  *
- * Los tres niveles se combinan **en este orden**, y cada uno significa una cosa
- * distinta:
- *
- *   1. **El plan** es el TECHO: qué puede llegar a tener este negocio.
- *   2. **`tenant_modules`** es lo ENCENDIDO: qué tiene hoy, dentro de ese techo.
- *   3. **`tenant_settings`** es el COMPORTAMIENTO: cómo lo quiere.
- *
- * Combinarlos en un solo sitio es lo que permite que el frontend no decida
- * nada y que el servidor valide contra exactamente la misma fuente que pintó
- * la pantalla.
+ * The plan is the CEILING, `tenant_modules` is what is ON within it, and
+ * `tenant_settings` is how it BEHAVES. Combining them in one place is what lets
+ * the frontend decide nothing and the server validate against the same source
+ * that painted the screen.
  */
 final class CapabilityResolver
 {
@@ -33,7 +27,7 @@ final class CapabilityResolver
     ) {}
 
     /**
-     * @param  list<string>  $userPermissions  `['*']` si es el dueño.
+     * @param  list<string>  $userPermissions  `['*']` for an owner.
      */
     public function resolve(string $tenantId, string $planCode, array $userPermissions): TenantCapabilities
     {
@@ -46,9 +40,8 @@ final class CapabilityResolver
 
         $granted = $this->registry->permissionsFor($base['modules']);
 
-        // El dueño tiene `['*']`, que se EXPANDE contra los módulos que el
-        // negocio tenga encendidos hoy. No se le guardan permisos uno a uno:
-        // así, cuando enciende un módulo nuevo, ya puede usarlo.
+        // An owner has `['*']`, expanded against the modules switched on today, so
+        // enabling a new module makes it usable immediately.
         $permissions = in_array('*', $userPermissions, true)
             ? $granted
             : array_values(array_intersect($userPermissions, $granted));
@@ -63,8 +56,8 @@ final class CapabilityResolver
     }
 
     /**
-     * Hay que llamarlo al encender o apagar un módulo, al cambiar un ajuste y
-     * al cambiar de plan. Si se olvida, el negocio ve la pantalla de ayer.
+     * Call on enabling or disabling a module, changing a setting, or changing
+     * plan. Forget it and the tenant sees yesterday's screen.
      */
     public function forget(string $tenantId): void
     {
@@ -88,15 +81,14 @@ final class CapabilityResolver
             ->all();
 
         $modules = array_values(array_unique([
-            // El núcleo NO depende del plan y no se apaga. Es lo mínimo sin lo
-            // cual el sistema no es un sistema.
+            // The core does not depend on the plan and cannot be switched off.
             ...$this->registry->coreCodes(),
             ...array_intersect($enabledByTenant, $allowedByPlan),
         ]));
 
-        // Filas huérfanas fuera: si un módulo se retiró de esta versión, su
-        // fila en `tenant_modules` sigue ahí y no debe contar. No se borra —si
-        // el módulo vuelve, el negocio lo recupera encendido.
+        // Orphan rows out: a module withdrawn from this version still has its
+        // `tenant_modules` row. It is not deleted — if the module comes back, the
+        // tenant gets it enabled again.
         $modules = array_values(array_filter($modules, $this->registry->has(...)));
 
         return [
@@ -122,8 +114,8 @@ final class CapabilityResolver
         foreach ($stored as $row) {
             $definition = $this->registry->settingDefinition((string) $row->key);
 
-            // Una clave cuyo módulo ya no existe se IGNORA, no se borra: si el
-            // módulo vuelve, el negocio recupera su configuración tal cual.
+            // A key whose module no longer exists is IGNORED, not deleted: if the
+            // module returns, the tenant gets its settings back unchanged.
             if ($definition === null) {
                 continue;
             }
@@ -149,11 +141,10 @@ final class CapabilityResolver
     }
 
     /**
-     * Lo que este negocio NO tiene, con el plan más barato que lo incluye.
+     * What this tenant does NOT have, with the cheapest plan that includes it.
      *
-     * Es lo único que la interfaz muestra deshabilitado a propósito: bloqueado
-     * y con su precio al lado. Todo lo demás que no aplica sencillamente no
-     * existe en la pantalla.
+     * The only thing the UI shows deliberately disabled — locked, with its
+     * price. Everything else that does not apply simply is not on the screen.
      *
      * @param  list<string>  $active
      * @return list<array{module: string, name: string, requiresPlan: string}>
@@ -173,8 +164,7 @@ final class CapabilityResolver
         foreach ($rows as $row) {
             $code = (string) $row->module_code;
 
-            // El primero que aparece es el plan más barato, porque vienen
-            // ordenados por `sort_order`.
+            // The first one is the cheapest plan: they come ordered by `sort_order`.
             if (isset($seen[$code]) || ! $this->registry->has($code)) {
                 continue;
             }

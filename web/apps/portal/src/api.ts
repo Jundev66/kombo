@@ -1,14 +1,14 @@
 import { api } from '@kombo/api-client'
 
 /**
- * Lo que el portal le pide al negocio.
+ * What the portal asks of the tenant.
  *
- * **Sin sesión y sin token.** Quien está del otro lado es alguien de la calle
- * con un teléfono; el negocio sale del subdominio desde el que se cargó la
- * página, así que no hay nada que mandar ni nada que se pueda equivocar.
+ * No session and no token: the person on the other side is somebody off the
+ * street with a phone, and the tenant comes from the subdomain the page loaded
+ * from — nothing to send and nothing to get wrong.
  *
- * Y ningún importe viaja hacia el servidor: se mandan identificadores y
- * cantidades. El total que vale es el que vuelve.
+ * And no amount travels to the server: ids and quantities do. The total that
+ * counts is the one that comes back.
  */
 
 export interface Shop {
@@ -26,7 +26,7 @@ export interface Shop {
   zones: { id: string; name: string; feeCents: number; estimatedMinutes: number | null }[]
   minimumOrderCents: number
   paymentMethods: string[]
-  pagoMovilDetails: string | null
+  mobilePaymentDetails: string | null
   paymentWindowMinutes: number
   exchangeRate: number | null
 }
@@ -81,13 +81,12 @@ export interface TrackedOrder {
   expiresAt: string | null
   needsReceipt: boolean
   /**
-   * Los dos plazos, **en segundos y contados por el servidor**.
+   * Both deadlines, in seconds and counted by the server.
    *
-   * No se derivan de `placedAt` / `expiresAt` en el cliente a propósito: el
-   * reloj de un teléfono en la calle está mal más a menudo de lo que parece, y
-   * lo que se enseña con `expiresInSeconds` es cuánto le queda a alguien antes
-   * de que su pedido se cancele solo. Nunca negativo: cero significa que el
-   * plazo ya pasó.
+   * Deliberately not derived from `placedAt` / `expiresAt` on the client: a
+   * phone's clock out in the street is wrong more often than you would think,
+   * and `expiresInSeconds` is how long somebody has before their order cancels
+   * itself. Never negative: zero means the deadline has passed.
    */
   waitingSeconds: number
   expiresInSeconds: number | null
@@ -120,11 +119,10 @@ export const shopApi = {
     api.get<{ data: TrackedOrder }>(`/portal/orders/${token}`).then((r) => r.data),
 
   /**
-   * La foto del pago móvil.
+   * The mobile-payment photo.
    *
-   * Va como `FormData` y no como base64: una captura de pantalla convertida a
-   * texto crece un tercio, y ese tercio se paga en datos del teléfono de
-   * alguien que a lo mejor no tiene wifi.
+   * As `FormData` rather than base64: a screenshot turned into text grows by a
+   * third, paid for in data by somebody who may have no wifi.
    */
   uploadReceipt: async (token: string, file: File, reference: string): Promise<TrackedOrder> => {
     const form = new FormData()

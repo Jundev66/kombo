@@ -8,10 +8,10 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * La carta: qué vende este negocio.
+ * The menu: what this tenant sells.
  *
- * Vive dentro del módulo y la carga su manifiesto, no `database/migrations/`.
- * Así, quitar el módulo del sistema se lleva su esquema con él.
+ * Loaded by the module's manifest rather than `database/migrations/`, so
+ * removing the module takes its schema with it.
  */
 return new class extends Migration
 {
@@ -32,26 +32,22 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('photo_url')->nullable();
 
-            // Centavos de USD. El bolívar se calcula con la tasa del día y se
-            // congela en cada documento; guardarlo aquí sería guardar un valor
-            // que caduca.
+            // USD cents. The bolívar is computed with the rate of the day and frozen
+            // into each document; storing it here would store a value with an expiry.
             $table->bigInteger('price_cents')->default(0);
             $table->char('currency', 3)->default('USD');
 
-            // Cuándo cambió el precio por última vez. Sirve para que el dueño
-            // vea de un vistazo qué lleva meses sin revisar, que en un país con
-            // inflación es la diferencia entre ganar y regalar.
+            // When the price last changed: what the owner scans for products that have
+            // gone months without review.
             $table->timestampTz('price_updated_at')->nullable();
 
-            // Cuánto tarda en salir. De aquí sale el semáforo de la pantalla de
-            // cocina: sin esto, «va tarde» sería una corazonada.
+            // How long it takes to come out. The kitchen traffic light reads this.
             $table->integer('prep_minutes')->nullable();
 
             $table->boolean('is_active')->default(true);
 
-            // La mayoría de los platos NO llevan control de existencias: se
-            // hacen al momento. Se activa para lo contado —las diez tortas del
-            // día, las cervezas— y sólo entonces `stock_qty` significa algo.
+            // Most dishes do NOT track stock: they are made to order. Switched on for
+            // countable things, and only then does `stock_qty` mean anything.
             $table->boolean('track_stock')->default(false);
             $table->integer('stock_qty')->nullable();
 
@@ -61,11 +57,8 @@ return new class extends Migration
             TenantSchema::index($table, ['is_active'], 'idx_products_tenant_active');
         });
 
-        // Un grupo es una PREGUNTA que se le hace a quien pide, y min/max dicen
-        // de qué tipo:
-        //   (0, N)  extras opcionales      «¿algo más?»
-        //   (1, 1)  elegir uno, obligatorio «¿término de la carne?»
-        //   (0, 1)  opcional excluyente     «¿alguna salsa?»
+        // A group is a QUESTION put to whoever orders, and min/max say which kind:
+        //   (0, N) optional extras · (1, 1) pick one, required · (0, 1) exclusive
         TenantSchema::create('modifier_groups', function (Blueprint $table): void {
             $table->string('name');
             $table->smallInteger('min_choices')->default(0);
@@ -81,7 +74,7 @@ return new class extends Migration
 
             $table->string('name');
 
-            // Puede ser NEGATIVO: «sin queso» a veces descuenta.
+            // Can be NEGATIVE: "no cheese" sometimes takes money off.
             $table->bigInteger('price_delta_cents')->default(0);
 
             $table->integer('sort_order')->default(0);
@@ -90,7 +83,7 @@ return new class extends Migration
             TenantSchema::index($table, ['group_id', 'sort_order'], 'idx_modifiers_tenant_group');
         });
 
-        // Qué preguntas aplican a qué producto.
+        // Which questions apply to which product.
         TenantSchema::create('product_modifier_groups', function (Blueprint $table): void {
             TenantSchema::references($table, 'product_id', 'products', onDelete: 'cascade');
             TenantSchema::references($table, 'group_id', 'modifier_groups', onDelete: 'cascade');

@@ -1,11 +1,11 @@
 import type { Capabilities } from './capabilities'
 
 /**
- * El cliente HTTP. Sin axios: son ~15 KB para hacer lo que hace `fetch`.
+ * The HTTP client. No axios: ~15 KB to do what `fetch` does.
  *
- * **El negocio no viaja como parámetro ni como cabecera.** Sale del subdominio
- * desde el que se cargó la página. No hay forma de pedir los datos de otro
- * negocio desde aquí, ni siquiera equivocándose.
+ * The tenant travels neither as a parameter nor as a header — it comes from the
+ * subdomain the page was loaded from. There is no way to ask for another
+ * tenant's data from here, not even by mistake.
  */
 
 export class ApiError extends Error {
@@ -24,11 +24,11 @@ type TokenSource = () => string | null
 let bearerToken: TokenSource = () => null
 
 /**
- * La caja y la cocina usan token; el panel y el portal, cookie de sesión.
+ * The till and the kitchen use a token; the dashboard and the portal a session
+ * cookie.
  *
- * Recibe una FUNCIÓN y no un valor porque el token cambia dentro de la misma
- * sesión de la pantalla: primero es el del dispositivo, y al poner el PIN pasa
- * a ser el de la persona.
+ * It takes a FUNCTION rather than a value because the token changes within one
+ * screen session: first the device's, then the person's once they enter a PIN.
  */
 export function useBearerToken(source: TokenSource): void {
   bearerToken = source
@@ -37,42 +37,35 @@ export function useBearerToken(source: TokenSource): void {
 function xsrfToken(): string | null {
   const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/)
 
-  // decodeURIComponent NO es opcional: la cookie viene codificada y mandarla
-  // tal cual devuelve un 419 que parece un problema de sesión y no lo es.
+  // decodeURIComponent is not optional: the cookie arrives encoded, and sending
+  // it raw returns a 419 that looks like a session problem and is not.
   return match?.[1] ? decodeURIComponent(match[1]) : null
 }
 
 /**
- * Todo lo que hay en vuelo ahora mismo, para poder cortarlo de golpe.
+ * Everything in flight right now, so it can all be cut at once.
  *
- * Existe por el cierre de sesión, y el motivo es más sutil de lo que parece.
+ * It exists for signing out. Every Laravel response carries its session
+ * `Set-Cookie`; a read that LEFT before signing out but ARRIVES after carries
+ * the previous session's cookie and the browser applies it, undoing the sign-out
+ * with the previous person's name still on screen.
  *
- * Cada respuesta de Laravel trae su `Set-Cookie` de sesión. Una lectura que
- * SALIÓ antes de cerrar sesión pero LLEGA después trae la cookie de la sesión
- * anterior —la cargó antes de que se destruyera— y el navegador la aplica tal
- * cual: deshace el cierre de sesión. La pantalla se queda dentro, con el
- * nombre de la persona anterior arriba.
- *
- * En una máquina de mostrador, que se pasan tres personas en un turno, eso no
- * es un detalle. Y es intermitente —hace falta que la lectura y el cierre se
- * solapen de verdad— que es la peor forma de tenerlo.
- *
- * Cortarlas antes de cerrar significa que sus respuestas no llegan, y una
- * respuesta que no llega no trae cookie que aplicar.
+ * On a counter machine three people share in a shift, that is not a detail —
+ * and it is intermittent, which is the worst way to have it.
  */
-let enVuelo = new AbortController()
+let inFlight = new AbortController()
 
-export function abortarPeticionesEnVuelo(): void {
-  enVuelo.abort()
-  enVuelo = new AbortController()
+export function abortInFlightRequests(): void {
+  inFlight.abort()
+  inFlight = new AbortController()
 }
 
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
-  /** Fuera del corte de arriba: el propio cierre de sesión no se autocancela. */
-  aparte = false,
+  /** Outside the cut above: signing out does not cancel itself. */
+  uncancellable = false,
 ): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' }
 
@@ -90,13 +83,13 @@ async function request<T>(
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  // El cuerpo se añade sólo si existe. Con `exactOptionalPropertyTypes`,
-  // pasar `body: undefined` no es lo mismo que no pasar `body` — y aquí la
-  // diferencia importa: un GET con cuerpo es una petición inválida.
+  // The body is added only when it exists. With `exactOptionalPropertyTypes`,
+  // `body: undefined` is not the same as no `body` — and a GET with a body is
+  // an invalid request.
   const init: RequestInit = { method, headers, credentials: 'same-origin' }
 
-  if (!aparte) {
-    init.signal = enVuelo.signal
+  if (!uncancellable) {
+    init.signal = inFlight.signal
   }
 
   if (body !== undefined) {
@@ -134,11 +127,11 @@ export const api = {
   capabilities: () => request<Capabilities>('GET', '/me'),
 
   /**
-   * Pide la cookie de CSRF antes de entrar.
+   * Asks for the CSRF cookie before signing in.
    *
-   * Va fuera del prefijo `/api/v1` porque la sirve Sanctum. Sin esta llamada,
-   * el PRIMER login de una pestaña responde 419 y el resto funciona — que es
-   * de los errores más confusos que hay.
+   * Outside the `/api/v1` prefix because Sanctum serves it. Without this call,
+   * the FIRST login in a tab answers 419 and the rest work — one of the most
+   * confusing errors there is.
    */
   csrf: () => fetch('/sanctum/csrf-cookie', { credentials: 'same-origin' }),
 
@@ -148,12 +141,12 @@ export const api = {
   },
 
   /**
-   * Cerrar sesión: primero se corta lo que quedó en vuelo, y después se cierra.
+   * Signing out: what is still in flight is cut first, then the session closes.
    *
-   * El orden es la parte que importa. Ver `abortarPeticionesEnVuelo`.
+   * The order is the part that matters. See `abortInFlightRequests`.
    */
   async logout(): Promise<void> {
-    abortarPeticionesEnVuelo()
+    abortInFlightRequests()
 
     await request<{ ok: boolean }>('POST', '/auth/logout', undefined, true)
   },

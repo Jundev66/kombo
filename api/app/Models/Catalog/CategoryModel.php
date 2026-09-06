@@ -11,9 +11,8 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Una sección de la carta. Existe para que la caja tenga menos que mirar:
- * arepas, bebidas, postres. Sin categorías, una carta de sesenta productos es
- * una lista imposible de recorrer con un cliente delante.
+ * A section of the menu, so the till has less to look at. A sixty-product menu
+ * with no categories cannot be scanned with a customer standing there.
  */
 #[Fillable(['name', 'sort_order', 'is_active'])]
 class CategoryModel extends Model

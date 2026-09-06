@@ -1,20 +1,20 @@
-# Las cinco aplicaciones, compiladas.
+# The five apps, built.
 #
-# En producción **no hay servidores de Vite**: hay cinco carpetas de archivos
-# estáticos que nginx sirve directamente. Es más rápido, no mantiene cinco
-# procesos de Node vivos en un VPS pequeño, y elimina toda una clase de fallos
-# —el recambio en caliente, los websockets del desarrollo— que en un servidor no
+# In production there are NO Vite servers: there are five directories of
+# static files nginx serves directly. It is faster, it keeps five Node
+# processes off a small VPS, and it removes a whole class of failure — hot
+# reload, development websockets — that has no business on a server.
 # tienen nada que hacer.
 FROM node:24-alpine AS build
 
 WORKDIR /app
 
-# Los manifiestos primero: `npm ci` sólo se repite cuando cambian las
-# dependencias, no cada vez que se toca un componente.
+# Manifests first: `npm ci` only repeats when the dependencies change, not
+# every time a component is touched.
 COPY web/package.json web/package-lock.json ./
 COPY web/apps/portal/package.json ./apps/portal/
-COPY web/apps/caja/package.json ./apps/caja/
-COPY web/apps/panel/package.json ./apps/panel/
+COPY web/apps/pos/package.json ./apps/pos/
+COPY web/apps/dashboard/package.json ./apps/dashboard/
 COPY web/apps/kds/package.json ./apps/kds/
 COPY web/apps/admin/package.json ./apps/admin/
 COPY web/packages/ui/package.json ./packages/ui/
@@ -25,31 +25,31 @@ RUN npm ci --no-audit --no-fund
 
 COPY web/ ./
 
-# El presupuesto de arranque ROMPE el build, también aquí. Una imagen que se
-# construye igual con el portal a 300 KB sería un presupuesto decorativo.
+# The startup budget BREAKS the build here too. An image that builds happily
+# with the portal at 300 KB would be a decorative budget.
 RUN npm run build && npm run size
 
-# ── Sólo los archivos ───────────────────────────────────────────────────────
+# ── Files only ──────────────────────────────────────────────────────────────
 #
-# La imagen final no lleva Node ni node_modules: son cientos de megas para
-# servir HTML.
+# The final image carries neither Node nor node_modules: hundreds of
+# megabytes to serve HTML.
 FROM alpine:3.21 AS assets
 
 COPY --from=build /app/apps/portal/dist /assets/portal
-COPY --from=build /app/apps/caja/dist   /assets/caja
-COPY --from=build /app/apps/panel/dist  /assets/panel
-COPY --from=build /app/apps/kds/dist    /assets/cocina
+COPY --from=build /app/apps/pos/dist   /assets/pos
+COPY --from=build /app/apps/dashboard/dist  /assets/dashboard
+COPY --from=build /app/apps/kds/dist    /assets/kds
 COPY --from=build /app/apps/admin/dist  /assets/admin
 
-# El contenedor no sirve nada: COPIA los archivos al volumen que nginx lee, y
-# termina.
+# The container serves nothing: it COPIES the files to the volume nginx reads
+# and exits.
 #
-# Y lo copia SIEMPRE, en cada arranque. Ésta es la trampa que se lleva por
-# delante un despliegue: Docker rellena un volumen con el contenido de la imagen
-# **sólo la primera vez que lo crea**. Si esto viviera dentro de la imagen y ya
-# está, el segundo despliegue construiría el frontend nuevo, arrancaría sin una
-# queja, y seguiría sirviendo el de la semana pasada.
+# And it copies them ALWAYS, on every start. This is the trap that takes down
+# a deployment: Docker fills a volume with the image's content ONLY the first
+# time it creates it. If this lived inside the image and the volume already
+# existed, the second deployment would build the new frontend, start without a
+# complaint, and carry on serving last week's.
 #
-# El borrado previo importa igual: los nombres de los assets llevan hash, así
-# que sin él el volumen acumularía para siempre los de todas las versiones.
+# The prior deletion matters too: asset names carry hashes, so without it the
+# volume would accumulate every version's forever.
 CMD ["sh", "-c", "find /srv -mindepth 1 -delete && cp -a /assets/. /srv/ && echo 'Aplicaciones publicadas en /srv.'"]

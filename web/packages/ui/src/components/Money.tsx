@@ -5,7 +5,7 @@ type Scale = 'sm' | 'md' | 'lg' | 'xl'
 
 interface MoneyProps {
   cents: Cents
-  /** Si se pasa, debajo aparece el equivalente en bolívares. */
+  /** When given, the bolívar equivalent appears underneath. */
   rate?: Rate | null
   scale?: Scale
   className?: string
@@ -19,16 +19,15 @@ const SCALES: Record<Scale, string> = {
 }
 
 /**
- * Un importe.
+ * An amount.
  *
- * **El número es el protagonista**: el total, el vuelto y el saldo van en la
- * mayor escala de su pantalla. Y en cifras de ancho fijo (`tabular`), porque
- * sin eso una columna de importes baila al actualizarse y cuesta compararla de
- * un vistazo.
+ * The number is the protagonist: the total, the change and the balance go in
+ * the largest scale on their screen, in tabular figures — without them a column
+ * of amounts jitters as it updates and is hard to compare at a glance.
  *
- * El dólar arriba y el bolívar debajo, más pequeño: el dólar es la moneda de
- * valor y el bolívar la de cobro. Invertirlo haría que el número que manda
- * cambie solo cada mañana.
+ * The dollar on top and the bolívar below, smaller: the dollar is the unit of
+ * value and the bolívar the unit of payment. Inverting them would make the
+ * governing number change by itself every morning.
  */
 export function Money({ cents, rate, scale = 'md', className }: MoneyProps) {
   return (

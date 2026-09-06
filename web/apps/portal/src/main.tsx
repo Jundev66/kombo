@@ -10,14 +10,13 @@ createRoot(document.getElementById('root')!).render(
 )
 
 /*
- * El service worker, sólo en producción.
+ * The service worker, in production only.
  *
- * En desarrollo estorba: sirve de la caché el JS de hace dos guardados y hace
- * perder media hora buscando un fallo que ya estaba arreglado.
+ * In development it gets in the way: it serves JS from two saves ago and costs
+ * half an hour hunting a bug that was already fixed.
  *
- * Y se registra DESPUÉS de pintar (`load`), no antes: la primera visita tiene
- * que ver la carta cuanto antes, y descargar el trabajador puede esperar a que
- * la pantalla esté lista.
+ * And it is registered AFTER paint (`load`): the first visit has to see the
+ * menu as soon as possible, and downloading the worker can wait.
  */
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {

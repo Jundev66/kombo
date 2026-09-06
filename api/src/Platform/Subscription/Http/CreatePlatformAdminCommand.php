@@ -10,24 +10,21 @@ use Illuminate\Console\Command;
 use function Laravel\Prompts\password;
 
 /**
- * Crear (o recuperar) al administrador de la plataforma.
+ * Creates (or recovers) the platform administrator.
  *
- * Es la ÚNICA vía en producción. El sembrador crea `admin@kombo.test` con una
- * contraseña que está escrita en este repositorio; en un servidor público eso
- * es una puerta con la llave puesta, así que allí no se siembra: se crea aquí.
+ *     php artisan platform:admin you@example.com
  *
- * La contraseña se pide por teclado y no se pasa como argumento a propósito. Un
- * argumento se queda en el historial de la terminal, sale en `ps` mientras el
- * comando corre, y acaba pegado en el chat donde se coordinó el despliegue.
+ * The ONLY route in production: the seeder creates `admin@kombo.test` with a
+ * password published in this repository. The password is prompted for rather
+ * than passed as an argument — arguments survive in shell history, show up in
+ * `ps`, and end up pasted into the deployment chat.
  *
- *     php artisan plataforma:admin tu@correo.com
- *
- * Sirve también para recuperar el acceso: si ya existe ese correo, cambia la
- * contraseña y reactiva la cuenta.
+ * It also recovers access: an existing email gets a new password and is
+ * reactivated.
  */
 final class CreatePlatformAdminCommand extends Command
 {
-    protected $signature = 'plataforma:admin {email} {--nombre=Administración}';
+    protected $signature = 'platform:admin {email} {--name=Administración}';
 
     protected $description = 'Crea o actualiza un administrador de la super administración';
 
@@ -41,29 +38,29 @@ final class CreatePlatformAdminCommand extends Command
             return self::FAILURE;
         }
 
-        $clave = $this->pedirClave();
+        $password = $this->requestDeviceToken();
 
-        if ($clave === null) {
+        if ($password === null) {
             return self::FAILURE;
         }
 
-        $existente = PlatformUser::where('email', $email)->first();
+        $existing = PlatformUser::where('email', $email)->first();
 
         PlatformUser::updateOrCreate(
             ['email' => $email],
             [
-                'name' => (string) $this->option('nombre'),
-                // En crudo: el modelo tiene el atributo casteado a `hashed`, y
-                // pasarlo ya cifrado lo cifraría dos veces. El síntoma es una
-                // cuenta que se crea sin queja y con la que no se puede entrar.
-                'password' => $clave,
-                // Reactivar es parte del trabajo: la razón más común para
-                // volver a correr esto es haber perdido el acceso.
+                'name' => (string) $this->option('name'),
+                // Raw: the model casts the attribute as `hashed`, so passing it already
+                // hashed would hash it twice. The symptom is an account that is created
+                // without complaint and cannot be signed into.
+                'password' => $password,
+                // Reactivating is part of the job: the usual reason to run this again is
+                // having lost access.
                 'is_active' => true,
             ],
         );
 
-        $this->info($existente !== null
+        $this->info($existing !== null
             ? "Contraseña actualizada para {$email}."
             : "Administrador {$email} creado.");
 
@@ -72,40 +69,39 @@ final class CreatePlatformAdminCommand extends Command
         return self::SUCCESS;
     }
 
-    private function pedirClave(): ?string
+    private function requestDeviceToken(): ?string
     {
-        // Sin terminal interactiva —un despliegue automatizado, por ejemplo—
-        // se acepta por variable de entorno. Es la única concesión, y va
-        // documentada en `docs/despliegue.md`.
-        $delEntorno = getenv('KOMBO_ADMIN_PASSWORD');
+        // With no interactive terminal — an automated deployment — it is accepted
+        // from an environment variable. The one concession, documented in
+        // `docs/despliegue.md`.
+        $fromEnv = getenv('KOMBO_ADMIN_PASSWORD');
 
-        if (is_string($delEntorno) && $delEntorno !== '') {
-            return $this->validar($delEntorno);
+        if (is_string($fromEnv) && $fromEnv !== '') {
+            return $this->validate($fromEnv);
         }
 
-        $clave = password('Contraseña', required: true);
-        $repetida = password('Repítela', required: true);
+        $password = password('Contraseña', required: true);
+        $repeated = password('Repítela', required: true);
 
-        if ($clave !== $repetida) {
+        if ($password !== $repeated) {
             $this->error('Las dos contraseñas no coinciden.');
 
             return null;
         }
 
-        return $this->validar($clave);
+        return $this->validate($password);
     }
 
-    private function validar(string $clave): ?string
+    private function validate(string $password): ?string
     {
-        // Doce, y no ocho como para el personal de un negocio: esta cuenta ve
-        // los datos de TODOS los clientes y su formulario de entrada está en
-        // una dirección pública.
-        if (mb_strlen($clave) < 12) {
+        // Twelve, not eight as for shop staff: this account sees EVERY customer's
+        // data and its sign-in form is at a public address.
+        if (mb_strlen($password) < 12) {
             $this->error('Muy corta: mínimo 12 caracteres.');
 
             return null;
         }
 
-        return $clave;
+        return $password;
     }
 }

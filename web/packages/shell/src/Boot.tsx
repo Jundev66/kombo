@@ -3,11 +3,11 @@ import { LoginScreen } from './LoginScreen'
 import { boot, useSession } from './session'
 
 /**
- * El arranque, con tres estados y ninguno más.
+ * Boot, with three states and no more.
  *
- * Ni pantallas en blanco ni spinners eternos: si el servidor no contesta se
- * dice, con el detalle técnico debajo. Quien está en el mostrador necesita
- * saber si el problema es suyo o del sistema.
+ * No blank screens and no eternal spinners: if the server does not answer, it
+ * says so with the technical detail underneath. Whoever is at the counter needs
+ * to know whether the problem is theirs or the system's.
  */
 export function Boot({ children }: { children: ReactNode }) {
   const { capabilities, status, error } = useSession()

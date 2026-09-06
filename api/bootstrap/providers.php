@@ -16,16 +16,11 @@ use Platform\PlatformServiceProvider;
 use Platform\Subscription\SubscriptionServiceProvider;
 
 /*
- * El orden importa.
+ * Order matters. PlatformServiceProvider goes first: it registers the tenant
+ * context and the module registry, which everything else depends on.
  *
- * PlatformServiceProvider va primero: registra el contexto de negocio y el
- * registro de módulos, y todo lo demás depende de que existan.
- *
- * Los proveedores de MÓDULO van en medio, y cuando llegue el momento los
- * verticales van AL FINAL: sustituyen enlaces del contenedor (un puerto que el
- * núcleo declara con una implementación neutra), y en Laravel gana el último
- * que registra. Es lo que permite que un vertical extienda el núcleo sin que
- * el núcleo sepa que existe.
+ * Module providers go in the middle; vertical ones would go LAST, because they
+ * replace container bindings and in Laravel the last registration wins.
  */
 return [
     PlatformServiceProvider::class,

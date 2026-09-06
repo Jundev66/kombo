@@ -8,15 +8,13 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * Hasta cuándo se espera un pago que todavía no llegó.
+ * How long a payment that has not arrived is waited for.
  *
- * Un pedido de pago móvil nace esperando el comprobante, y el cliente se va a
- * la aplicación del banco. A veces vuelve; a veces se le olvida, o cambia de
- * idea, o no le alcanzó. Sin una fecha de caducidad esos pedidos se acumulan
- * para siempre en el tablero del negocio, que acaba mirándolo con desconfianza
- * porque la mitad de lo que hay no existe.
+ * The customer goes off to the banking app and sometimes does not come back.
+ * Without an expiry those orders pile up forever on the board, which then gets
+ * viewed with suspicion because half of it does not exist.
  *
- * Dos horas: lo que tarda ir al banco, no lo que tarda arrepentirse.
+ * Two hours: how long it takes to go to the bank, not to have second thoughts.
  */
 return new class extends Migration
 {
@@ -26,9 +24,8 @@ return new class extends Migration
             $table->timestampTz('expires_at')->nullable();
         });
 
-        // El trabajo diario pregunta «cuáles esperan pago y ya vencieron»: este
-        // índice sirve esa consulta exacta, y sólo tiene filas mientras hay
-        // algo que esperar.
+        // The daily job asks "awaiting payment and already expired": this index
+        // serves that query, and only has rows while there is something to wait for.
         Schema::table('orders', function (Blueprint $table): void {
             TenantSchema::index($table, ['expires_at'], 'idx_orders_tenant_expira');
         });

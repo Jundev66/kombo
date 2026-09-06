@@ -9,11 +9,11 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * La bitácora. De sólo inserción, y no por convención.
+ * The audit log. Insert-only, and not by convention.
  *
- * Registra quién hizo qué, cuándo, desde dónde y con la autorización de quién.
- * Existe sobre todo para dos conversaciones incómodas: «falta dinero en la
- * caja» y «yo no anulé ese pedido».
+ * Who did what, when, from where and with whose authorisation. It exists for
+ * two uncomfortable conversations: "the till is short" and "I did not void
+ * that order".
  */
 return new class extends Migration
 {
@@ -22,8 +22,8 @@ return new class extends Migration
         TenantSchema::create('audit_log', function (Blueprint $table): void {
             $table->uuid('user_id')->nullable();
 
-            // El nombre COPIADO, no referenciado. Si mañana se borra el
-            // usuario, la bitácora tiene que seguir diciendo quién fue.
+            // The name COPIED, not referenced: if the user is deleted tomorrow, the log
+            // still has to say who it was.
             $table->string('user_name')->nullable();
 
             $table->string('action');
@@ -34,9 +34,8 @@ return new class extends Migration
             $table->jsonb('after')->nullable();
             $table->text('reason')->nullable();
 
-            // Quién autorizó con su PIN, cuando la acción lo exigía. Van los
-            // dos campos: un identificador sin nombre no se puede leer, y un
-            // nombre sin identificador no se puede rastrear.
+            // Who authorised with their PIN. Both fields: an id with no name cannot be
+            // read, and a name with no id cannot be traced.
             $table->uuid('authorized_by')->nullable();
             $table->string('authorized_by_name')->nullable();
 
@@ -51,15 +50,14 @@ return new class extends Migration
             TenantSchema::index($table, ['entity_type', 'entity_id'], 'idx_audit_tenant_entity');
         });
 
-        // ── Y aquí está lo que hace REAL la inmutabilidad ────────────────────
+        // ── What makes the immutability REAL ─────────────────────────────────
         //
-        // El usuario con el que conecta la aplicación puede INSERTAR y LEER
-        // esta tabla, y nada más. Ni el código, ni un error, ni alguien con
-        // acceso a la aplicación puede modificar el histórico.
+        // The application's database user can INSERT into and READ this table and
+        // nothing else. Neither the code, nor a bug, nor someone with access to the
+        // application can alter the history — the only place where a PostgreSQL
         //
-        // Es la única parte del sistema donde un privilegio de PostgreSQL hace
-        // un trabajo que el código no puede hacer solo — y la segunda razón
-        // por la que hay dos usuarios de base de datos.
+        // privilege does a job the code cannot, and the second reason there are two
+        // database users.
         DB::statement('revoke update, delete on audit_log from '.self::appUser());
     }
 
@@ -70,8 +68,8 @@ return new class extends Migration
 
     private static function appUser(): string
     {
-        // Del entorno, no fijo: en CI y en producción el usuario puede
-        // llamarse distinto, y una migración que asume un nombre falla tarde.
+        // From the environment: in CI and production the user may be named
+        // differently, and a migration assuming one fails late.
         return (string) config('database.connections.pgsql.username', 'kombo_app');
     }
 };

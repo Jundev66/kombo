@@ -7,16 +7,12 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Los planes. Tabla de PLATAFORMA: sin `tenant_id` y sin RLS.
+ * The plans. A PLATFORM table: no `tenant_id` and no RLS.
  *
- * La regla de negocio está embebida en qué columnas hay y cuáles NO:
- * **se cobra por tamaño, no por funcionalidad básica**. Un negocio pequeño no
- * debe quedarse sin saber cuánto vendió porque no le alcanza. Lo que separa
- * los planes es cuántos usuarios, cuántos productos y cuántos pedidos al mes.
- *
- * Por eso no hay banderas del tipo `tiene_reportes`. Los módulos que incluye
- * cada plan sí van aparte, en `plan_modules`, porque ahí lo que se compra es
- * una capacidad nueva (la caja, los canales), no el sistema básico.
+ * The business rule is in which columns exist and which do not: you pay for
+ * SIZE, not for basic functionality — no tenant is left unable to see what it
+ * sold. Hence no `has_reports` flags; the modules a plan includes live in
+ * `plan_modules`, because there what you buy is a new capability.
  */
 return new class extends Migration
 {
@@ -31,8 +27,8 @@ return new class extends Migration
             $table->bigInteger('price_cents')->default(0);
             $table->char('currency', 3)->default('USD');
 
-            // NULL = ilimitado. Nunca cero: cero significaría "ninguno", que
-            // es una respuesta distinta y mucho peor de depurar.
+            // NULL = unlimited. Never zero: zero means "none", a different answer and
+            // far worse to debug.
             $table->integer('max_users')->nullable();
             $table->integer('max_products')->nullable();
             $table->integer('max_orders_month')->nullable();
@@ -51,9 +47,9 @@ return new class extends Migration
             $table->foreign('plan_code')->references('code')->on('plans')->cascadeOnDelete();
         });
 
-        // `module_code` es texto libre y no una clave foránea a propósito: no
-        // existe una tabla `modules`. Qué módulos hay lo dice el código
-        // (config/modules.php), no una fila que alguien pueda borrar.
+        // `module_code` is free text rather than a foreign key: there is no
+        // `modules` table. What exists is stated by the code, not by a row someone
+        // could delete.
     }
 
     public function down(): void

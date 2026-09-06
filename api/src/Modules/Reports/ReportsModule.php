@@ -8,18 +8,13 @@ use Platform\Modules\ModuleManifest;
 use Platform\Modules\Setting;
 
 /**
- * Qué se vendió, cuándo y cómo se pagó.
+ * What was sold, when, and how it was paid for. Four questions and no more:
+ * how much did I sell today, what sells most, what time do people come in, and
+ * how do they pay me.
  *
- * Cuatro preguntas y ninguna más, porque son las que un dueño de comida se hace
- * de verdad: **cuánto vendí hoy**, **qué se vende más**, **a qué hora entra la
- * gente** y **cómo me pagan**. Con eso decide qué comprar mañana, a qué hora
- * poner a alguien más, y si le sigue conviniendo aceptar pago móvil.
- *
- * **Márgenes no hay, y no se inventan.** Calcular ganancia exige saber lo que
- * cuesta cada plato, y eso el sistema no lo sabe: no hay costo por producto ni
- * recetas. Enseñar una «ganancia» calculada sobre la nada sería peor que no
- * enseñarla — alguien tomaría decisiones con ella. El día que existan costos,
- * este módulo crece; hasta entonces dice lo que sabe.
+ * There are no margins, and none are invented: computing profit needs
+ * per-product costs, which the system does not have. A "profit" computed from
+ * nothing would be worse than none — somebody would make decisions with it.
  */
 final class ReportsModule extends ModuleManifest
 {
@@ -62,9 +57,8 @@ final class ReportsModule extends ModuleManifest
     public function permissions(): array
     {
         return [
-            // Ver las ventas. Va aparte del resto a propósito: hay negocios
-            // donde el encargado opera todo el día y el dueño prefiere que no
-            // vea los totales.
+            // Seeing sales, deliberately separate: in some tenants the manager works
+            // all day and the owner would rather they did not see the totals.
             'reports.view_sales',
         ];
     }
@@ -75,8 +69,8 @@ final class ReportsModule extends ModuleManifest
     public function settings(): array
     {
         return [
-            // Cuántos productos entran en el «lo que más se vende». Diez es lo
-            // que se lee de un vistazo en un teléfono.
+            // How many products go into "what sells most". Ten reads at a glance on a
+            // phone.
             'top_products' => Setting::int(10)->min(3)->max(50),
         ];
     }

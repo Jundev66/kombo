@@ -8,11 +8,10 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * Qué módulos tiene encendidos un negocio, y cómo los quiere.
+ * Which modules a tenant has switched on, and how it wants them.
  *
- * Estas dos tablas son lo que hace que encender la caja o los canales sea
- * **una fila, sin desplegar nada**. El plan pone el techo; estas dos dicen qué
- * está encendido dentro de ese techo y cómo se comporta.
+ * These two tables make turning on the till or the channels one row with
+ * nothing to deploy. The plan sets the ceiling; these say what is on within it.
  */
 return new class extends Migration
 {
@@ -28,12 +27,11 @@ return new class extends Migration
         });
 
         TenantSchema::create('tenant_settings', function (Blueprint $table): void {
-            // Clave calificada: `orders.auto_confirm`, `kitchen.stale_minutes`.
+            // Qualified key: `orders.auto_confirm`, `kitchen.stale_minutes`.
             $table->string('key');
 
-            // SIEMPRE texto. El tipo lo declara el manifiesto del módulo y lo
-            // castea `Setting::cast()`. Guardar el tipo aquí sería tenerlo en
-            // dos sitios, y el día que discrepen gana el equivocado.
+            // ALWAYS text. The type is declared by the module manifest and cast by
+            // `Setting::cast()`; storing it here too would mean two places to disagree.
             $table->text('value');
 
             $table->uuid('updated_by')->nullable();
@@ -41,12 +39,10 @@ return new class extends Migration
             TenantSchema::uniquePerTenant($table, ['key'], 'uq_tenant_settings_key');
         });
 
-        // Los valores POR DEFECTO no se guardan aquí: viven en `settings()` del
-        // manifiesto. Esta tabla sólo almacena lo que el negocio cambió.
+        // DEFAULTS are not stored here: they live in the manifest's `settings()`,
+        // so adding an option touches no rows and changing a default for everybody
         //
-        // Es lo que permite añadir una opción nueva sin tocar una sola fila, y
-        // que cambiar el valor por defecto para todo el mundo sea editar una
-        // línea de código en vez de una migración de datos.
+        // is one line of code rather than a data migration.
     }
 
     public function down(): void

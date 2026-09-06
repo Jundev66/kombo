@@ -3,12 +3,12 @@
 declare(strict_types=1);
 
 /*
- * El portal público: la única parte del sistema que se usa SIN sesión.
+ * The public portal: the only part of the system used WITHOUT a session, and
+ * the most exposed — anybody on the internet can call it.
  *
- * Es también la más expuesta —cualquiera en internet puede llamarla— así que
- * las pruebas se escriben desde esa desconfianza: que nada de lo que mande el
- * cliente decida un precio, que no se acepte un pedido que el negocio no puede
- * cumplir, y que un token sólo abra su propio pedido.
+ * The tests are written from that distrust: nothing the client sends decides a
+ * price, no order is accepted that the tenant cannot fulfil, and a token opens
+ * only its own order.
  */
 
 use App\Models\Catalog\ProductModel;
@@ -24,30 +24,30 @@ use Modules\Portal\Application\UseCases\CancelExpiredOrders;
 use Platform\Capabilities\CurrentCapabilities;
 
 beforeEach(function (): void {
-    $sufijo = Str::lower(Str::random(6));
+    $suffix = Str::lower(Str::random(6));
 
-    $this->slug = "elsazon-{$sufijo}";
-    $this->tenant = makeTenant($this->slug, plan: 'negocio');
+    $this->slug = "elsazon-{$suffix}";
+    $this->tenant = makeTenant($this->slug, plan: 'business');
 
     actingForTenant($this->tenant);
-    foreach (['core', 'catalog', 'orders', 'kitchen', 'portal', 'delivery'] as $modulo) {
-        enableModule($this->tenant, $modulo);
+    foreach (['core', 'catalog', 'orders', 'kitchen', 'portal', 'delivery'] as $module) {
+        enableModule($this->tenant, $module);
     }
 
-    abierto($this->tenant);
-    ajuste($this->tenant, 'portal.pago_movil_details', 'Banco · 0102 · V-12.345.678');
+    openNow($this->tenant);
+    setting($this->tenant, 'portal.pago_movil_details', 'Banco · 0102 · V-12.345.678');
 
     $this->arepa = ProductModel::create(['name' => 'Reina Pepiada', 'price_cents' => 300]);
 
-    $this->zona = DeliveryZoneModel::create([
+    $this->zone = DeliveryZoneModel::create([
         'name' => 'Los Palos Grandes',
         'fee_cents' => 200,
         'estimated_minutes' => 30,
     ]);
 });
 
-/** Deja el negocio abierto las 24 horas, todos los días. */
-function abierto(string $tenantId): void
+/** Leaves the tenant open 24 hours a day, every day. */
+function openNow(string $tenantId): void
 {
     for ($weekday = 0; $weekday <= 6; $weekday++) {
         DB::table('business_hours')->insert([
@@ -63,12 +63,12 @@ function abierto(string $tenantId): void
     }
 }
 
-function cerrado(string $tenantId): void
+function closed(string $tenantId): void
 {
     DB::table('business_hours')->where('tenant_id', $tenantId)->update(['is_closed' => true]);
 }
 
-function ajuste(string $tenantId, string $key, string $value): void
+function setting(string $tenantId, string $key, string $value): void
 {
     DB::table('tenant_settings')->updateOrInsert(
         ['tenant_id' => $tenantId, 'key' => $key],
@@ -78,45 +78,45 @@ function ajuste(string $tenantId, string $key, string $value): void
     app(CurrentCapabilities::class)->reset();
 }
 
-/** Una llamada al portal, SIN sesión: como la haría alguien de la calle. */
-function comoCliente(string $slug, string $method, string $path, array $body = []): TestResponse
+/** A portal call with no session, as somebody off the street would make it. */
+function asCustomer(string $slug, string $method, string $path, array $body = []): TestResponse
 {
     return test()->withHeaders(['Accept' => 'application/json'])
         ->json($method, urlFor($slug, $path), $body);
 }
 
 /**
- * Una foto de pago, falsificada por su TIPO y no generada de verdad.
+ * A payment photo, faked by TYPE rather than really generated.
  *
- * `UploadedFile::fake()->image()` necesita la extensión GD, y meterla en la
- * imagen de producción para que una prueba pueda dibujar un cuadrado sería
- * engordarla por nada: el sistema no procesa imágenes, sólo las guarda.
+ * `UploadedFile::fake()->image()` needs the GD extension, and adding it to the
+ * production image so a test can draw a square would be weight for nothing: the
+ * system does not process images, it stores them.
  */
-function comprobanteFalso(string $name = 'pago.jpg', string $mime = 'image/jpeg'): UploadedFile
+function fakeReceipt(string $name = 'pago.jpg', string $mime = 'image/jpeg'): UploadedFile
 {
     return UploadedFile::fake()->create($name, 120, $mime);
 }
 
-function pedirAlPortal(string $slug, array $body): TestResponse
+function orderFromPortal(string $slug, array $body): TestResponse
 {
-    return comoCliente($slug, 'POST', '/api/v1/portal/orders', $body);
+    return asCustomer($slug, 'POST', '/api/v1/portal/orders', $body);
 }
 
-it('la tienda y la carta se ven SIN entrar', function (): void {
-    // Pedirle una cuenta a alguien para comprar una arepa es la forma más
-    // rápida de que se vaya.
-    comoCliente($this->slug, 'GET', '/api/v1/portal/shop')
+it('the shop and the menu are visible WITHOUT signing in', function (): void {
+    // Asking somebody for an account to buy an arepa is the fastest way to make
+    // them leave.
+    asCustomer($this->slug, 'GET', '/api/v1/portal/shop')
         ->assertOk()
         ->assertJsonPath('data.slug', $this->slug)
         ->assertJsonPath('data.isOpen', true)
         ->assertJsonPath('data.zones.0.name', 'Los Palos Grandes');
 
-    comoCliente($this->slug, 'GET', '/api/v1/portal/menu')
+    asCustomer($this->slug, 'GET', '/api/v1/portal/menu')
         ->assertOk()
         ->assertJsonPath('data.products.0.name', 'Reina Pepiada');
 });
 
-it('la carta pública NO enseña lo apagado ni lo agotado', function (): void {
+it('the public menu does NOT show what is off or sold out', function (): void {
     actingForTenant($this->tenant);
 
     ProductModel::create(['name' => 'Fuera de carta', 'price_cents' => 100, 'is_active' => false]);
@@ -124,13 +124,13 @@ it('la carta pública NO enseña lo apagado ni lo agotado', function (): void {
         'name' => 'Se acabó', 'price_cents' => 100, 'track_stock' => true, 'stock_qty' => 0,
     ]);
 
-    $nombres = comoCliente($this->slug, 'GET', '/api/v1/portal/menu')->json('data.products.*.name');
+    $names = asCustomer($this->slug, 'GET', '/api/v1/portal/menu')->json('data.products.*.name');
 
-    expect($nombres)->toBe(['Reina Pepiada']);
+    expect($names)->toBe(['Reina Pepiada']);
 });
 
-it('un pedido del portal entra por el canal correcto y llega al negocio', function (): void {
-    $respuesta = pedirAlPortal($this->slug, [
+it('a portal order comes in through the right channel and reaches the tenant', function (): void {
+    $response = orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 2]],
         'service_type' => 'takeaway',
         'payment_method' => 'cash',
@@ -138,11 +138,11 @@ it('un pedido del portal entra por el canal correcto y llega al negocio', functi
         'customer_phone' => '04141234567',
     ])->assertCreated();
 
-    $respuesta->assertJsonPath('data.totalCents', 600)
-        // Efectivo al recibir: entra directo a la cola del negocio.
+    $response->assertJsonPath('data.totalCents', 600)
+        // Cash on delivery: it goes straight into the tenant's queue.
         ->assertJsonPath('data.status', 'placed')
         ->assertJsonPath('data.needsReceipt', false)
-        // En palabras del CLIENTE, no en las del negocio.
+        // In the CUSTOMER's words, not the tenant's.
         ->assertJsonPath('data.statusLabel', 'Recibido, ya lo vemos');
 
     actingForTenant($this->tenant);
@@ -152,10 +152,10 @@ it('un pedido del portal entra por el canal correcto y llega al negocio', functi
         ->and($order->customer_phone)->toBe('04141234567');
 });
 
-it('el precio lo pone el catálogo, aunque el cliente mande otro', function (): void {
-    // Es la puerta más expuesta del sistema: cualquiera puede editar el cuerpo
-    // de la petición desde la consola del navegador.
-    pedirAlPortal($this->slug, [
+it('the catalog sets the price, whatever the client sends', function (): void {
+    // The most exposed door in the system: anybody can edit the request body
+    // from the browser console.
+    orderFromPortal($this->slug, [
         'items' => [[
             'product_id' => $this->arepa->id,
             'quantity' => 1,
@@ -171,26 +171,26 @@ it('el precio lo pone el catálogo, aunque el cliente mande otro', function (): 
     ])->assertCreated()->assertJsonPath('data.totalCents', 300);
 });
 
-it('la tarifa del reparto sale de la ZONA, no de la petición', function (): void {
-    pedirAlPortal($this->slug, [
+it('the delivery fee comes from the ZONE, not from the request', function (): void {
+    orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'delivery',
         'payment_method' => 'cash',
         'customer_name' => 'Ana Cliente',
         'customer_phone' => '04141234567',
-        'delivery_zone_id' => $this->zona->id,
+        'delivery_zone_id' => $this->zone->id,
         'delivery_address' => 'Cuarta avenida, casa 12',
         'delivery_fee_cents' => 0,
     ])->assertCreated()
         ->assertJsonPath('data.deliveryFeeCents', 200)
         ->assertJsonPath('data.totalCents', 500)
-        // COPIADO: el pedido tiene que decir a qué barrio fue aunque la zona
-        // se apague mañana.
+        // COPIED: the order has to say which neighbourhood it went to even if the
+        // zone is switched off tomorrow.
         ->assertJsonPath('data.deliveryZoneName', 'Los Palos Grandes');
 });
 
-it('no se reparte a una zona que no existe', function (): void {
-    pedirAlPortal($this->slug, [
+it('there is no delivery to a zone that does not exist', function (): void {
+    orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'delivery',
         'payment_method' => 'cash',
@@ -201,26 +201,26 @@ it('no se reparte a una zona que no existe', function (): void {
     ])->assertStatus(422)->assertJsonValidationErrors('delivery_zone_id');
 });
 
-it('sin dirección no hay a dónde llevarlo', function (): void {
-    pedirAlPortal($this->slug, [
+it('with no address there is nowhere to take it', function (): void {
+    orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'delivery',
         'payment_method' => 'cash',
         'customer_name' => 'Ana Cliente',
         'customer_phone' => '04141234567',
-        'delivery_zone_id' => $this->zona->id,
+        'delivery_zone_id' => $this->zone->id,
     ])->assertStatus(422)->assertJsonValidationErrors('delivery_address');
 });
 
-it('cerrado no se acepta ni un pedido', function (): void {
-    // Aceptar un pedido que nadie va a preparar es peor que rechazarlo: el
-    // cliente se queda esperando comida que no está haciendo nadie.
+it('closed, not a single order is accepted', function (): void {
+    // Accepting an order nobody will prepare is worse than refusing it: the
+    // customer waits for food nobody is making.
     actingForTenant($this->tenant);
-    cerrado($this->tenant);
+    closed($this->tenant);
 
-    comoCliente($this->slug, 'GET', '/api/v1/portal/shop')->assertJsonPath('data.isOpen', false);
+    asCustomer($this->slug, 'GET', '/api/v1/portal/shop')->assertJsonPath('data.isOpen', false);
 
-    pedirAlPortal($this->slug, [
+    orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'takeaway',
         'payment_method' => 'cash',
@@ -232,8 +232,8 @@ it('cerrado no se acepta ni un pedido', function (): void {
     expect(OrderModel::count())->toBe(0);
 });
 
-it('el pago móvil deja el pedido esperando el comprobante, con fecha de caducidad', function (): void {
-    $respuesta = pedirAlPortal($this->slug, [
+it('mobile payment leaves the order awaiting the receipt, with an expiry', function (): void {
+    $response = orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'takeaway',
         'payment_method' => 'pago_movil',
@@ -241,27 +241,27 @@ it('el pago móvil deja el pedido esperando el comprobante, con fecha de caducid
         'customer_phone' => '04141234567',
     ])->assertCreated();
 
-    $respuesta->assertJsonPath('data.status', 'pending_payment')
+    $response->assertJsonPath('data.status', 'pending_payment')
         ->assertJsonPath('data.needsReceipt', true);
 
-    expect($respuesta->json('data.expiresAt'))->not->toBeNull();
+    expect($response->json('data.expiresAt'))->not->toBeNull();
 
-    // Y NO llega a la cocina: no se cocina lo que todavía no se pagó.
+    // And it does NOT reach the kitchen: what has not been paid is not cooked.
     actingForTenant($this->tenant);
     expect(KitchenTicketModel::count())->toBe(0);
 });
 
 /*
- * Los dos plazos, contados por el SERVIDOR.
+ * Both deadlines, counted by the SERVER.
  *
- * El seguimiento los enseña —cuánto lleva esperando, y cuánto le queda antes de
- * que su pedido se cancele solo—. Derivarlos de una fecha ISO en el teléfono
- * daría un número equivocado en cuanto el reloj del aparato no esté en hora, y
- * el segundo es el que decide si alguien pierde su pedido.
+ * The tracking screen shows them — how long they have waited, and how long
+ * before the order cancels itself. Deriving them from an ISO date on the phone
+ * would be wrong the moment the device clock is off, and the second one decides
+ * whether somebody loses their order.
  */
 
-it('el seguimiento dice cuánto lleva esperando y cuánto le queda para pagar', function (): void {
-    $token = pedirAlPortal($this->slug, [
+it('tracking says how long they have waited and how long they have to pay', function (): void {
+    $token = orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'takeaway',
         'payment_method' => 'pago_movil',
@@ -269,17 +269,17 @@ it('el seguimiento dice cuánto lleva esperando y cuánto le queda para pagar', 
         'customer_phone' => '04141234567',
     ])->assertCreated()->json('data.token');
 
-    $seguimiento = comoCliente($this->slug, 'GET', "/api/v1/portal/orders/{$token}")->assertOk();
+    $tracking = asCustomer($this->slug, 'GET', "/api/v1/portal/orders/{$token}")->assertOk();
 
-    expect($seguimiento->json('data.waitingSeconds'))->toBeInt()->toBeLessThan(60)
-        ->and($seguimiento->json('data.expiresInSeconds'))->toBeInt()->toBeGreaterThan(0);
+    expect($tracking->json('data.waitingSeconds'))->toBeInt()->toBeLessThan(60)
+        ->and($tracking->json('data.expiresInSeconds'))->toBeInt()->toBeGreaterThan(0);
 });
 
-it('un plazo que ya pasó son cero segundos, nunca un número negativo', function (): void {
-    // «Te quedan -3 minutos» no significa nada para quien lo lee. La pantalla
-    // necesita poder decir «se cancela en cualquier momento», y para eso el
-    // cero tiene que llegarle como cero.
-    $token = pedirAlPortal($this->slug, [
+it('a deadline already past is zero seconds, never a negative number', function (): void {
+    // "You have -3 minutes left" means nothing. The screen needs to be able to
+    // say "it may be cancelled at any moment", and for that zero has to arrive
+    // as zero.
+    $token = orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'takeaway',
         'payment_method' => 'pago_movil',
@@ -290,15 +290,15 @@ it('un plazo que ya pasó son cero segundos, nunca un número negativo', functio
     actingForTenant($this->tenant);
     OrderModel::where('public_token', $token)->update(['expires_at' => now()->subHour()]);
 
-    comoCliente($this->slug, 'GET', "/api/v1/portal/orders/{$token}")
+    asCustomer($this->slug, 'GET', "/api/v1/portal/orders/{$token}")
         ->assertOk()
         ->assertJsonPath('data.expiresInSeconds', 0);
 });
 
-it('un pedido sin plazo no inventa uno', function (): void {
-    // En efectivo no hay comprobante que esperar, así que no hay cuenta atrás
-    // que enseñar. `null` y no cero: cero es «se te acabó el tiempo».
-    $token = pedirAlPortal($this->slug, [
+it('an order with no deadline does not invent one', function (): void {
+    // In cash there is no receipt to wait for, so there is no countdown. `null`
+    // and not zero: zero means "your time is up".
+    $token = orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'takeaway',
         'payment_method' => 'cash',
@@ -306,22 +306,21 @@ it('un pedido sin plazo no inventa uno', function (): void {
         'customer_phone' => '04141234567',
     ])->assertCreated()->json('data.token');
 
-    comoCliente($this->slug, 'GET', "/api/v1/portal/orders/{$token}")
+    asCustomer($this->slug, 'GET', "/api/v1/portal/orders/{$token}")
         ->assertOk()
         ->assertJsonPath('data.expiresInSeconds', null);
 });
 
-it('sin datos de pago móvil, el portal no lo ofrece ni lo acepta', function (): void {
-    // Un botón de pagar que no dice a quién pagarle es una llamada de teléfono
-    // garantizada.
+it('with no mobile payment details, the portal neither offers nor accepts it', function (): void {
+    // A pay button that does not say who to pay is a guaranteed phone call.
     actingForTenant($this->tenant);
-    ajuste($this->tenant, 'portal.pago_movil_details', '');
+    setting($this->tenant, 'portal.pago_movil_details', '');
 
-    comoCliente($this->slug, 'GET', '/api/v1/portal/shop')
+    asCustomer($this->slug, 'GET', '/api/v1/portal/shop')
         ->assertJsonPath('data.paymentMethods', ['cash'])
         ->assertJsonPath('data.pagoMovilDetails', null);
 
-    pedirAlPortal($this->slug, [
+    orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'takeaway',
         'payment_method' => 'pago_movil',
@@ -330,29 +329,29 @@ it('sin datos de pago móvil, el portal no lo ofrece ni lo acepta', function ():
     ])->assertStatus(422)->assertJsonValidationErrors('payment_method');
 });
 
-it('el mínimo del reparto se dice con el número, no con un «no»', function (): void {
+it('the delivery minimum is stated as a figure, not as a flat "no"', function (): void {
     actingForTenant($this->tenant);
-    ajuste($this->tenant, 'delivery.minimum_order_cents', '1000');
+    setting($this->tenant, 'delivery.minimum_order_cents', '1000');
 
-    $respuesta = pedirAlPortal($this->slug, [
+    $response = orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'delivery',
         'payment_method' => 'cash',
         'customer_name' => 'Ana Cliente',
         'customer_phone' => '04141234567',
-        'delivery_zone_id' => $this->zona->id,
+        'delivery_zone_id' => $this->zone->id,
         'delivery_address' => 'Cuarta avenida, casa 12',
     ])->assertStatus(422);
 
-    expect($respuesta->json('message'))->toContain('$10,00');
+    expect($response->json('message'))->toContain('$10,00');
 
-    // La transacción se deshizo entera: ni pedido, ni hueco en el correlativo.
+    // The whole transaction rolled back: no order, and no gap in the sequence.
     actingForTenant($this->tenant);
     expect(OrderModel::count())->toBe(0);
 });
 
-it('el token sigue su propio pedido y ningún otro', function (): void {
-    $mio = pedirAlPortal($this->slug, [
+it('the token follows its own order and no other', function (): void {
+    $mineOne = orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'takeaway',
         'payment_method' => 'cash',
@@ -360,20 +359,19 @@ it('el token sigue su propio pedido y ningún otro', function (): void {
         'customer_phone' => '04141234567',
     ])->json('data.token');
 
-    comoCliente($this->slug, 'GET', "/api/v1/portal/orders/{$mio}")
+    asCustomer($this->slug, 'GET', "/api/v1/portal/orders/{$mineOne}")
         ->assertOk()
         ->assertJsonPath('data.customerName', 'Ana Cliente');
 
-    // 404 y no 403: un 403 confirmaría que ese token existe en algún sitio.
-    comoCliente($this->slug, 'GET', '/api/v1/portal/orders/'.Str::random(22))
+    // 404 and not 403: a 403 would confirm that token exists somewhere.
+    asCustomer($this->slug, 'GET', '/api/v1/portal/orders/'.Str::random(22))
         ->assertNotFound();
 });
 
-it('el seguimiento no le enseña al cliente lo que no es suyo', function (): void {
-    // Quien mira esto es alguien de la calle con un enlace. Aquí no van las
-    // notas internas del negocio, ni quién lo atendió, ni las referencias de
-    // otros pagos.
-    $token = pedirAlPortal($this->slug, [
+it('tracking does not show the customer what is not theirs', function (): void {
+    // Whoever looks at this is somebody off the street with a link. No internal
+    // notes, no who handled it, no other payments' references.
+    $token = orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'takeaway',
         'payment_method' => 'cash',
@@ -381,15 +379,15 @@ it('el seguimiento no le enseña al cliente lo que no es suyo', function (): voi
         'customer_phone' => '04141234567',
     ])->json('data.token');
 
-    $datos = comoCliente($this->slug, 'GET', "/api/v1/portal/orders/{$token}")->json('data');
+    $data = asCustomer($this->slug, 'GET', "/api/v1/portal/orders/{$token}")->json('data');
 
-    expect($datos)->not->toHaveKeys(['payments', 'createdBy', 'customerPhone', 'id']);
+    expect($data)->not->toHaveKeys(['payments', 'createdBy', 'customerPhone', 'id']);
 });
 
-it('el comprobante se guarda en disco privado y deja el pago esperando revisión', function (): void {
+it('the receipt goes to a private disk and leaves the payment pending review', function (): void {
     Storage::fake('local');
 
-    $token = pedirAlPortal($this->slug, [
+    $token = orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'takeaway',
         'payment_method' => 'pago_movil',
@@ -399,33 +397,33 @@ it('el comprobante se guarda en disco privado y deja el pago esperando revisión
 
     test()->withHeaders(['Accept' => 'application/json'])
         ->post(urlFor($this->slug, "/api/v1/portal/orders/{$token}/receipt"), [
-            'receipt' => comprobanteFalso(),
+            'receipt' => fakeReceipt(),
             'reference' => '998877',
         ])->assertOk();
 
     actingForTenant($this->tenant);
 
     $order = OrderModel::where('public_token', $token)->first();
-    $pago = $order->payments()->first();
+    $payment = $order->payments()->first();
 
-    expect($pago->status)->toBe('pending_review')
-        ->and($pago->reference)->toBe('998877')
-        // La ruta lleva el negocio delante: dar de baja a un cliente es borrar
-        // una carpeta.
-        ->and($pago->receipt_url)->toStartWith("receipts/{$this->tenant}/")
-        // Y el pedido SIGUE esperando: que llegue una foto no significa que el
-        // dinero llegó. Alguien del negocio mira su cuenta y dice que sí.
+    expect($payment->status)->toBe('pending_review')
+        ->and($payment->reference)->toBe('998877')
+        // The path carries the tenant up front: removing a customer is deleting one
+        // directory.
+        ->and($payment->receipt_url)->toStartWith("receipts/{$this->tenant}/")
+        // And the order KEEPS waiting: a photo arriving does not mean the money did.
+        // Somebody at the tenant looks at their account and says yes.
         ->and($order->status->value)->toBe('pending_payment');
 
-    Storage::disk('local')->assertExists($pago->receipt_url);
+    Storage::disk('local')->assertExists($payment->receipt_url);
 });
 
-it('lo que no es una foto no se sube', function (): void {
-    // La puerta acepta archivos de cualquiera en internet. Se valida el tipo,
-    // no la extensión: un `.jpg` que en realidad es otra cosa no pasa.
+it('what is not a photo is not uploaded', function (): void {
+    // The door accepts files from anybody on the internet. The type is
+    // validated, not the extension: a `.jpg` that is something else fails.
     Storage::fake('local');
 
-    $token = pedirAlPortal($this->slug, [
+    $token = orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'takeaway',
         'payment_method' => 'pago_movil',
@@ -435,14 +433,14 @@ it('lo que no es una foto no se sube', function (): void {
 
     test()->withHeaders(['Accept' => 'application/json'])
         ->post(urlFor($this->slug, "/api/v1/portal/orders/{$token}/receipt"), [
-            'receipt' => comprobanteFalso('comprobante.jpg', 'application/pdf'),
+            'receipt' => fakeReceipt('receipt.jpg', 'application/pdf'),
         ])->assertStatus(422)->assertJsonValidationErrors('receipt');
 });
 
-it('no se manda comprobante a un pedido que ya no lo espera', function (): void {
+it('no receipt is sent to an order that is no longer waiting for one', function (): void {
     Storage::fake('local');
 
-    $token = pedirAlPortal($this->slug, [
+    $token = orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'takeaway',
         'payment_method' => 'cash',
@@ -452,12 +450,12 @@ it('no se manda comprobante a un pedido que ya no lo espera', function (): void 
 
     test()->withHeaders(['Accept' => 'application/json'])
         ->post(urlFor($this->slug, "/api/v1/portal/orders/{$token}/receipt"), [
-            'receipt' => comprobanteFalso(),
+            'receipt' => fakeReceipt(),
         ])->assertStatus(422);
 });
 
-it('los pedidos vencidos se cierran solos, con su motivo', function (): void {
-    $token = pedirAlPortal($this->slug, [
+it('expired orders close themselves, with their reason', function (): void {
+    $token = orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'takeaway',
         'payment_method' => 'pago_movil',
@@ -467,20 +465,20 @@ it('los pedidos vencidos se cierran solos, con su motivo', function (): void {
 
     actingForTenant($this->tenant);
 
-    // Se adelanta el reloj del pedido en vez de esperar dos horas.
+    // The order's clock is wound forward rather than waiting two hours.
     OrderModel::where('public_token', $token)->update(['expires_at' => now()->subMinute()]);
 
-    $cerrados = app(CancelExpiredOrders::class)->execute();
+    $closedOnes = app(CancelExpiredOrders::class)->execute();
 
-    expect($cerrados)->toBe(1);
+    expect($closedOnes)->toBe(1);
 
     $order = OrderModel::where('public_token', $token)->first();
     expect($order->status->value)->toBe('cancelled')
         ->and($order->cancellation_reason)->toContain('comprobante');
 });
 
-it('un pedido pagado y vivo no lo cierra nadie', function (): void {
-    pedirAlPortal($this->slug, [
+it('a paid and live order is closed by nobody', function (): void {
+    orderFromPortal($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         'service_type' => 'takeaway',
         'payment_method' => 'cash',
@@ -493,18 +491,18 @@ it('un pedido pagado y vivo no lo cierra nadie', function (): void {
     expect(app(CancelExpiredOrders::class)->execute())->toBe(0);
 });
 
-it('un negocio SIN portal no tiene portal: sus rutas no existen', function (): void {
-    $sufijo = Str::lower(Str::random(6));
-    $slug = "sinportal-{$sufijo}";
-    $otro = makeTenant($slug, plan: 'negocio');
+it('a tenant with NO portal has no portal: its routes do not exist', function (): void {
+    $suffix = Str::lower(Str::random(6));
+    $slug = "sinportal-{$suffix}";
+    $other = makeTenant($slug, plan: 'business');
 
-    actingForTenant($otro);
-    foreach (['core', 'catalog', 'orders'] as $modulo) {
-        enableModule($otro, $modulo);
+    actingForTenant($other);
+    foreach (['core', 'catalog', 'orders'] as $module) {
+        enableModule($other, $module);
     }
 
-    // 404 y no 403: que un módulo no exista para un negocio es información
-    // sobre su contrato, no sobre los permisos de nadie.
-    comoCliente($slug, 'GET', '/api/v1/portal/shop')->assertNotFound();
-    comoCliente($slug, 'GET', '/api/v1/portal/menu')->assertNotFound();
+    // 404 and not 403: a module a tenant does not have is information about
+    // their contract, not about anyone's permissions.
+    asCustomer($slug, 'GET', '/api/v1/portal/shop')->assertNotFound();
+    asCustomer($slug, 'GET', '/api/v1/portal/menu')->assertNotFound();
 });

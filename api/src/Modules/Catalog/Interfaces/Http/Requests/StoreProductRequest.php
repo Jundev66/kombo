@@ -7,13 +7,11 @@ namespace Modules\Catalog\Interfaces\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Validación de FORMA, no de reglas de negocio.
+ * SHAPE validation, not business rules.
  *
- * Aquí sólo se comprueba que lo que llegó tiene la pinta correcta —que el
- * precio es un entero, que el id parece un uuid—. Que el precio no sea
- * negativo o que el stock cuadre lo decide el dominio, porque esas reglas
- * también tienen que valer cuando el producto entra por un importador de Excel
- * o por una semilla, donde no hay `FormRequest` ninguno.
+ * Whether the price is non-negative or the stock adds up is the domain's call:
+ * those rules also have to hold for an Excel importer or a seeder, where there
+ * is no `FormRequest` at all.
  */
 final class StoreProductRequest extends FormRequest
 {
@@ -25,8 +23,8 @@ final class StoreProductRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:120'],
 
-            // En CENTAVOS. Nunca un decimal: `12.30` en coma flotante no es
-            // 12,30 y ese error acaba en un cuadre de caja que no cierra.
+            // In CENTS. Never a decimal: `12.30` in floating point is not 12.30, and
+            // that error ends up in a cash count that does not balance.
             'price_cents' => ['required', 'integer', 'min:0'],
 
             'category_id' => ['nullable', 'uuid'],

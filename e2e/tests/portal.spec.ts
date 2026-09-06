@@ -1,52 +1,52 @@
 import { expect, test } from '@playwright/test'
 import { TENANTS } from '../support/addresses'
 import { apiPost } from '../support/api'
-import { clearBoard, comanda, enterKitchen } from '../support/cocina'
-import { signIn, signOut } from '../support/panel'
+import { clearBoard, kitchenTicket, enterKitchen } from '../support/kds'
+import { signIn, signOut } from '../support/dashboard'
 import { addToCart, cartBar, openMenu, trackAddress } from '../support/portal'
 
 /*
- * UN PEDIDO COMPLETO DESDE EL TELÉFONO, SIN CUENTA.
+ * A WHOLE ORDER FROM A PHONE, WITH NO ACCOUNT.
  *
- * Es el criterio de salida de la fase: alguien que llega por un enlace de
- * WhatsApp mira la carta, arma su pedido, lo manda, y esa comanda aparece sola
- * en la cocina.
+ * The phase's exit criterion: somebody arriving from a WhatsApp link looks at
+ * the menu, builds their order, sends it, and that ticket appears by itself in
+ * the kitchen.
  *
- * Las pruebas del portal **no entran a ninguna sesión**: quien está del otro
- * lado es alguien de la calle. Cuando hace falta sembrar la carta se entra al
- * panel, se siembra, y se SALE antes de tocar el portal.
+ * The portal tests sign into nothing: the person on the other side is somebody
+ * off the street. When the menu has to be seeded, the dashboard is entered,
+ * seeded, and LEFT before touching the portal.
  */
 
 const RUN = Date.now().toString(36).slice(-5).toUpperCase()
 
-test('un pedido desde el teléfono llega a la cocina, sin cuenta', async ({ page }) => {
-  const nombre = `[e2e] Arepa portal ${RUN}`
+test('an order from a phone reaches the kitchen, with no account', async ({ page }) => {
+  const name = `[e2e] Arepa portal ${RUN}`
 
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
   await apiPost(page, '/api/v1/catalog/products', {
-    name: nombre,
+    name: name,
     price_cents: 350,
     prep_minutes: 8,
   })
 
-  // Se limpia el tablero: las comandas de corridas anteriores se acumulan y
-  // pasado el tope de la pantalla la nueva no cabría.
+  // The board is cleared: earlier runs' tickets pile up and past the screen's
+  // cap the new one would not fit.
   await clearBoard(page)
 
   await signOut(page)
 
-  // A partir de aquí, nadie ha entrado a nada.
+  // From here on, nobody has signed into anything.
   await openMenu(page, TENANTS.arepera)
 
   await expect(page.getByRole('heading', { name: 'Arepera El Sazón' })).toBeVisible()
   await expect(page.getByText('Abierto ahora')).toBeVisible()
 
-  await addToCart(page, nombre, 2)
+  await addToCart(page, name, 2)
 
   await expect(cartBar(page)).toContainText('$7,00')
   await cartBar(page).click()
 
-  // El checkout va en un solo scroll: sin pasos ni «siguiente».
+  // Checkout is a single scroll: no steps and no "next".
   await expect(page.getByRole('heading', { name: 'Tu pedido' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Lo busco' }).click()
@@ -56,81 +56,80 @@ test('un pedido desde el teléfono llega a la cocina, sin cuenta', async ({ page
 
   await page.getByRole('button', { name: /Hacer el pedido/ }).click()
 
-  // Se acaba en el seguimiento, y el enlace queda en la barra de direcciones:
-  // es lo que le permite volver mañana a ver qué pasó.
+  // It ends on the tracking screen, with the link in the address bar: that is
+  // what lets them come back tomorrow to see what happened.
   await expect(page).toHaveURL(/\/p\/[A-Za-z0-9]+$/)
   await expect(page.getByText('Recibido, ya lo vemos')).toBeVisible()
 
-  const numero = /Pedido #(\d+)/.exec(await page.getByRole('heading', { level: 1 }).innerText())
-  expect(numero).not.toBeNull()
+  const number = /Pedido #(\d+)/.exec(await page.getByRole('heading', { level: 1 }).innerText())
+  expect(number).not.toBeNull()
 
-  // Todavía NO está en la cocina: el negocio tiene que confirmarlo primero.
+  // Not in the kitchen yet: the tenant has to confirm it first.
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
-  await page.goto(`http://${TENANTS.arepera}.localhost:8010/panel/pedidos`)
+  await page.goto(`http://${TENANTS.arepera}.localhost:8010/dashboard/pedidos`)
 
-  // Por el nombre del cliente, que es único en esta corrida: el número queda
-  // pegado a la hora en el texto de la fila, así que `#131` encontraría también
-  // a `#1310`.
-  const fila = page.getByRole('listitem').filter({ hasText: `Cliente ${RUN}` })
-  await expect(fila).toContainText(`#${numero![1]}`)
+  // By the customer's name, unique to this run: the number runs into the time
+  // in the row's text, so `#131` would also match `#1310`.
+  const row = page.getByRole('listitem').filter({ hasText: `Cliente ${RUN}` })
+  await expect(row).toContainText(`#${number![1]}`)
 
-  await fila.getByRole('button', { name: 'Confirmar' }).click()
+  await row.getByRole('button', { name: 'Confirmar' }).click()
   await signOut(page)
 
-  // Y ahora sí: la comanda apareció sola en la cocina.
+  // And now: the ticket appeared by itself in the kitchen.
   await page.evaluate(() => localStorage.clear())
   await enterKitchen(page, TENANTS.arepera, 'Carlos', '4567')
 
-  await expect(comanda(page, Number(numero![1]))).toContainText(nombre)
+  await expect(kitchenTicket(page, Number(number![1]))).toContainText(name)
 })
 
-test('el reparto cobra la tarifa de la zona, y el cliente la ve antes de pedir', async ({ page }) => {
-  const nombre = `[e2e] Arepa reparto ${RUN}`
+test('delivery charges the zone\'s fee, and the customer sees it before ordering', async ({ page }) => {
+  const name = `[e2e] Arepa reparto ${RUN}`
 
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
-  await apiPost(page, '/api/v1/catalog/products', { name: nombre, price_cents: 500 })
+  await apiPost(page, '/api/v1/catalog/products', { name: name, price_cents: 500 })
   await signOut(page)
 
   await openMenu(page, TENANTS.arepera)
-  await addToCart(page, nombre)
+  await addToCart(page, name)
   await cartBar(page).click()
 
   await page.getByRole('button', { name: 'Me lo traen' }).click()
 
-  // La tarifa y los minutos van EN la opción: se eligen sabiendo cuánto cuesta
-  // y cuánto tarda, no después.
-  const zona = page.getByLabel('¿A qué zona?')
-  const palosGrandes = await zona
+  // The fee and the minutes are IN the option: chosen knowing the cost and the
+  // wait, not afterwards.
+  const zone = page.getByLabel('¿A qué zona?')
+  const palosGrandes = await zone
     .locator('option')
     .filter({ hasText: 'Los Palos Grandes' })
     .getAttribute('value')
 
-  await zona.selectOption(palosGrandes ?? '')
+  await zone.selectOption(palosGrandes ?? '')
 
-  // La tarifa y los minutos van EN la opción: se elige sabiendo cuánto cuesta.
-  await expect(zona).toContainText('$2,00')
+  // The fee and the minutes are IN the option: chosen knowing the cost.
+  await expect(zone).toContainText('$2,00')
 
   await page.getByLabel('Dirección').fill(`Cuarta avenida, casa ${RUN}`)
   await page.getByLabel('¿Cómo te llamas?').fill(`Cliente ${RUN}`)
   await page.getByLabel('Teléfono').fill('04141234567')
 
-  // 5,00 del producto + 2,00 del reparto. El total lo dice el botón.
+  // 5.00 for the product + 2.00 delivery. The button states the total.
   await expect(page.getByRole('button', { name: /Hacer el pedido/ })).toContainText('$7,00')
 })
 
-test('el botón dice QUÉ FALTA, no sólo que no se puede', async ({ page }) => {
-  const nombre = `[e2e] Arepa falta ${RUN}`
+test('the button says WHAT IS MISSING, not just that it cannot be done', async ({ page }) => {
+  const name = `[e2e] Arepa falta ${RUN}`
 
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
-  await apiPost(page, '/api/v1/catalog/products', { name: nombre, price_cents: 300 })
+  await apiPost(page, '/api/v1/catalog/products', { name: name, price_cents: 300 })
   await signOut(page)
 
   await openMenu(page, TENANTS.arepera)
-  await addToCart(page, nombre)
+  await addToCart(page, name)
   await cartBar(page).click()
 
-  // Un botón gris sin explicación deja a alguien mirando la pantalla sin saber
-  // qué tocar.
+  // A grey button with no explanation leaves somebody staring at the screen
+  // with no idea what to tap.
   await expect(page.getByRole('button', { name: 'Falta tu nombre' })).toBeDisabled()
 
   await page.getByLabel('¿Cómo te llamas?').fill(`Cliente ${RUN}`)
@@ -140,17 +139,17 @@ test('el botón dice QUÉ FALTA, no sólo que no se puede', async ({ page }) => 
   await expect(page.getByRole('button', { name: /Hacer el pedido/ })).toBeEnabled()
 })
 
-test('el carrito sobrevive a que el cliente cierre y vuelva', async ({ page }) => {
-  // Le entra una llamada mientras mira el menú y vuelve diez minutos después.
-  // Encontrar el carrito vacío es tener que empezar otra vez.
-  const nombre = `[e2e] Arepa carrito ${RUN}`
+test('the basket survives the customer closing and coming back', async ({ page }) => {
+  // A call comes in while they browse and they come back ten minutes later.
+  // Finding an empty basket means starting over.
+  const name = `[e2e] Arepa carrito ${RUN}`
 
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
-  await apiPost(page, '/api/v1/catalog/products', { name: nombre, price_cents: 300 })
+  await apiPost(page, '/api/v1/catalog/products', { name: name, price_cents: 300 })
   await signOut(page)
 
   await openMenu(page, TENANTS.arepera)
-  await addToCart(page, nombre, 3)
+  await addToCart(page, name, 3)
   await expect(cartBar(page)).toContainText('$9,00')
 
   await page.reload()
@@ -158,15 +157,15 @@ test('el carrito sobrevive a que el cliente cierre y vuelva', async ({ page }) =
   await expect(cartBar(page)).toContainText('$9,00')
 })
 
-test('el pago móvil pide el comprobante, dice a quién pagarle y cuánto queda', async ({ page }) => {
-  const nombre = `[e2e] Arepa transferida ${RUN}`
+test('mobile payment asks for the receipt, says who to pay and how long is left', async ({ page }) => {
+  const name = `[e2e] Arepa transferida ${RUN}`
 
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
-  await apiPost(page, '/api/v1/catalog/products', { name: nombre, price_cents: 400 })
+  await apiPost(page, '/api/v1/catalog/products', { name: name, price_cents: 400 })
   await signOut(page)
 
   await openMenu(page, TENANTS.arepera)
-  await addToCart(page, nombre)
+  await addToCart(page, name)
   await cartBar(page).click()
 
   await page.getByRole('button', { name: 'Lo busco' }).click()
@@ -174,8 +173,8 @@ test('el pago móvil pide el comprobante, dice a quién pagarle y cuánto queda'
   await page.getByLabel('Teléfono').fill('04141234567')
   await page.getByRole('button', { name: 'Pago móvil', exact: true }).click()
 
-  // A dónde manda el dinero, ANTES de pedir. Un botón de pagar que no dice a
-  // quién pagarle es una llamada de teléfono garantizada.
+  // Where the money goes, BEFORE ordering. A pay button that does not say who
+  // to pay is a guaranteed phone call.
   await expect(page.getByText(/Banco de Venezuela/)).toBeVisible()
 
   await page.getByRole('button', { name: /Hacer el pedido/ }).click()
@@ -184,27 +183,27 @@ test('el pago móvil pide el comprobante, dice a quién pagarle y cuánto queda'
   await expect(page.getByRole('heading', { name: 'Manda tu comprobante' })).toBeVisible()
 
   /*
-   * Y CUÁNTO LE QUEDA.
+   * AND HOW LONG THEY HAVE LEFT.
    *
-   * Es lo que faltaba y más caro salía: un pedido sin comprobante se cancela
-   * solo, y el cliente no veía ningún reloj. Se le moría el pedido en la mano
-   * sin un aviso, y desde fuera parecía que el sistema se lo había comido.
+   * What was missing and cost the most: an order with no receipt cancels
+   * itself, and the customer saw no clock. The order died in their hand with no
+   * warning, and from outside it looked like the system had eaten it.
    *
-   * Los minutos los cuenta el servidor, así que la aserción es sobre la frase
-   * y no sobre un número concreto: el ajuste del negocio puede cambiar.
+   * The minutes are counted by the server, so the assertion is on the sentence
+   * rather than a specific number: the tenant's setting can change.
    */
-  await expect(page.getByText(/Te quedan? .* para mandar el comprobante/)).toBeVisible()
+  await expect(page.getByText(/Te queda(n)? .* para mandar el comprobante/)).toBeVisible()
 })
 
-test('el enlace del pedido lo abre cualquiera que lo tenga, y sólo ése', async ({ page }) => {
-  const nombre = `[e2e] Arepa enlace ${RUN}`
+test('the order link opens for anyone who has it, and only that order', async ({ page }) => {
+  const name = `[e2e] Arepa enlace ${RUN}`
 
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
-  await apiPost(page, '/api/v1/catalog/products', { name: nombre, price_cents: 300 })
+  await apiPost(page, '/api/v1/catalog/products', { name: name, price_cents: 300 })
   await signOut(page)
 
   await openMenu(page, TENANTS.arepera)
-  await addToCart(page, nombre)
+  await addToCart(page, name)
   await cartBar(page).click()
 
   await page.getByRole('button', { name: 'Lo busco' }).click()
@@ -215,15 +214,15 @@ test('el enlace del pedido lo abre cualquiera que lo tenga, y sólo ése', async
   await expect(page).toHaveURL(/\/p\//)
   const token = page.url().split('/p/')[1] ?? ''
 
-  // Se borra TODO lo del navegador: el enlace tiene que valerse solo, que es
-  // justo lo que se necesita cuando el cliente se fue a la aplicación del banco.
+  // EVERYTHING in the browser is cleared: the link has to stand alone, which is
+  // exactly what is needed when the customer went off to the banking app.
   await page.context().clearCookies()
   await page.evaluate(() => localStorage.clear())
 
   await page.goto(trackAddress(TENANTS.arepera, token))
   await expect(page.getByText('Recibido, ya lo vemos')).toBeVisible()
 
-  // Y un token inventado no abre nada: 404, nunca una pantalla de otro pedido.
+  // And an invented token opens nothing: 404, never another order's screen.
   await page.goto(trackAddress(TENANTS.arepera, 'noExisteEsteTokenLargo1'))
   await expect(page.getByRole('heading', { name: 'No encontramos ese pedido' })).toBeVisible()
 })

@@ -1,11 +1,11 @@
 import { api, type Paged } from '@kombo/api-client'
 
 /**
- * Lo que la super administración le pide al servidor.
+ * What platform administration asks the server for.
  *
- * Otra puerta y otra sesión: estar dentro de un negocio no abre esto, ni al
- * revés. Y vive sólo en `admin.dominio` — estas rutas ni siquiera existen en el
- * subdominio de un cliente.
+ * Another door and another session: being inside a tenant does not open this.
+ * And it lives only at `admin.domain` — these routes do not even exist on a
+ * customer's subdomain.
  */
 
 export interface PlatformUser {
@@ -21,17 +21,17 @@ export interface TenantRow {
   status: string
   statusLabel: string
   planCode: string
-  /** El nombre del plan, que es lo que se enseña. «Negocio», no `negocio`. */
+  /** The plan's name, which is what is shown. "Negocio", not `business`. */
   planName: string
   currentPeriodEnd: string | null
-  /** En negativo, cuántos días lleva vencido. Es la cifra que se mira. */
+  /** Negative means days overdue. That is the figure people look at. */
   daysLeft: number | null
   createdAt: string
 }
 
 export interface Usage {
   used: number
-  /** `null` es ILIMITADO, nunca cero. */
+  /** `null` is UNLIMITED, never zero. */
   max: number | null
 }
 
@@ -108,11 +108,11 @@ export const platform = {
 
   metrics: () => api.get<{ data: Metrics }>('/platform/metrics').then((r) => r.data),
 
-  /** Devuelve la página entera, con su `meta`: la lista dice cuántos hay. */
-  tenants: (params?: { buscar?: string; estado?: string; page?: number }) => {
+  /** Returns the whole page with its `meta`: the list says how many there are. */
+  tenants: (params?: { search?: string; status?: string; page?: number }) => {
     const query = new URLSearchParams({ page: String(params?.page ?? 1) })
-    if (params?.buscar) query.set('buscar', params.buscar)
-    if (params?.estado) query.set('estado', params.estado)
+    if (params?.search) query.set('search', params.search)
+    if (params?.status) query.set('estado', params.status)
 
     return api.get<Paged<TenantRow>>(`/platform/tenants?${query.toString()}`)
   },

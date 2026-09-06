@@ -12,19 +12,19 @@ use Platform\Tenancy\TenantSession;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Los pedidos, en un archivo que se abre en cualquier hoja de cálculo.
+ * The orders, in a file that opens in any spreadsheet.
  *
- * Esto es lo que hace verdad la frase que está escrita en el middleware de
- * suspensión: **«un negocio suspendido lee y exporta»**. Sus pedidos son suyos
- * aunque nos deba tres meses, y sin un botón de exportar esa promesa era sólo
- * una frase bonita en un comentario.
+ * This is what makes true the sentence written in the suspension middleware: **a
+ * suspended business reads and exports**. Its orders are its own even if it owes
+ * us three months, and without an export button that promise was just a nice
+ * line in a comment.
  *
- * Se manda **en streaming**, fila a fila: un año de pedidos armado entero en
- * memoria tumba un contenedor de 512 MB, y justo el negocio que más datos tiene
- * es el que menos puede permitirse que se caiga.
+ * It is sent **streaming**, row by row: a year of orders assembled whole in
+ * memory takes down a 512 MB container, and the business with the most data is
+ * precisely the one that can least afford it going down.
  *
- * Con **BOM** al principio, que parece un detalle de nada y no lo es: sin él,
- * Excel abre el archivo en Windows y enseña «Reina Pepiáda».
+ * With a **BOM** at the start, which looks like nothing and is not: without it,
+ * Excel opens the file on Windows and shows "Reina Pepiáda".
  */
 final class ExportController
 {
@@ -42,48 +42,48 @@ final class ExportController
     public function __invoke(Request $request, SalesReport $report): StreamedResponse
     {
         $data = $request->validate([
-            'periodo' => ['nullable', 'string', 'in:hoy,ayer,semana,mes'],
+            'period' => ['nullable', 'string', 'in:today,yesterday,week,month'],
         ]);
 
-        $periodo = $data['periodo'] ?? 'mes';
-        [$desde, $hasta] = $report->range($periodo);
+        $period = $data['period'] ?? 'month';
+        [$from, $until] = $report->range($period);
 
         $tenant = $this->context->current();
-        $nombre = "pedidos-{$tenant->slug}-{$periodo}.csv";
+        $name = "pedidos-{$tenant->slug}-{$period}.csv";
 
-        return response()->streamDownload(function () use ($tenant, $desde, $hasta): void {
-            $salida = fopen('php://output', 'w');
+        return response()->streamDownload(function () use ($tenant, $from, $until): void {
+            $output = fopen('php://output', 'w');
 
-            // El BOM: sin él, Excel en Windows destroza los acentos.
-            fwrite($salida, "\xEF\xBB\xBF");
+            // The BOM: without it, Excel on Windows mangles the accents.
+            fwrite($output, "\xEF\xBB\xBF");
 
-            fputcsv($salida, self::CABECERAS, ';');
+            fputcsv($output, self::CABECERAS, ';');
 
             /*
-             * Se vuelve a entrar en el negocio DENTRO del cuerpo.
+             * The business is entered again INSIDE the body.
              *
-             * Esto se ejecuta cuando el servidor vacía la respuesta, que puede
-             * ser después de que el middleware haya soltado el contexto — y sin
-             * contexto, RLS devuelve cero filas y el archivo sale con la
-             * cabecera y nada más. Un export vacío es peor que un error: el
-             * negocio se lo lleva creyendo que ahí están sus pedidos.
+             * This runs when the server flushes the response, which may be
+             * after the middleware has released the context — and without
+             * context, RLS returns zero rows and the file comes out with the
+             * header and nothing else. An empty export is worse than an error:
+             * the business takes it away believing their orders are in there.
              */
-            $this->session->within($tenant->id, function () use ($salida, $desde, $hasta): void {
+            $this->session->within($tenant->id, function () use ($output, $from, $until): void {
                 OrderModel::query()
                     ->with(['items', 'payments'])
-                    ->whereBetween('placed_at', [$desde, $hasta])
+                    ->whereBetween('placed_at', [$from, $until])
                     ->orderBy('placed_at')
-                    // De cien en cien: lo que hace que esto no dependa de
-                    // cuántos pedidos tenga el negocio.
-                    ->chunk(100, function ($orders) use ($salida): void {
+                    // A hundred at a time: what stops this depending on how
+                    // many orders the business has.
+                    ->chunk(100, function ($orders) use ($output): void {
                         foreach ($orders as $order) {
-                            fputcsv($salida, self::rowOf($order), ';');
+                            fputcsv($output, self::rowOf($order), ';');
                         }
                     });
             });
 
-            fclose($salida);
-        }, $nombre, [
+            fclose($output);
+        }, $name, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
@@ -104,9 +104,9 @@ final class ExportController
             (string) $order->delivery_zone_name,
             (string) $order->delivery_address,
 
-            // Lo que llevaba, legible. El nombre COPIADO en la línea: un
-            // pedido de hace seis meses se lee igual aunque el producto se
-            // haya renombrado.
+            // What they took, readable. The name COPIED onto the line: an
+            // order from six months ago reads the same even if the product
+            // has been renamed.
             $order->items->map(fn ($item): string => "{$item->quantity}x {$item->product_name}")->implode(' | '),
 
             self::money($order->delivery_fee_cents),
@@ -117,10 +117,10 @@ final class ExportController
     }
 
     /**
-     * Con COMA decimal.
+     * With a decimal COMMA.
      *
-     * Una hoja de cálculo configurada en español lee «12.30» como doce mil
-     * trescientos, y eso convierte un reporte en una discusión.
+     * A spreadsheet configured in Spanish reads "12.30" as twelve thousand
+     * three hundred, and that turns a report into an argument.
      */
     private static function money(?int $cents): string
     {

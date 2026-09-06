@@ -16,13 +16,12 @@ use Platform\Tenancy\TenantStatus;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Los negocios, vistos desde la plataforma.
+ * The tenants, seen from the platform.
  *
- * Esta es la única parte del sistema que mira a **todos** los clientes a la
- * vez, y por eso está fuera del alcance de RLS: `tenants`, `subscriptions` y
- * `subscription_payments` son tablas globales. Lo que NO se hace desde aquí es
- * leer los datos de dentro de un negocio sin entrar en él como se entra
- * siempre — con su contexto puesto y quedando escrito.
+ * The only part of the system that looks at every customer at once, which is
+ * why it works on the global tables. What is NOT done from here is reading data
+ * from inside a tenant without entering it the usual way — with its context set
+ * and a record left behind.
  */
 final class TenantAdminController
 {
@@ -36,18 +35,18 @@ final class TenantAdminController
     {
         $rows = DB::table('tenants')
             ->leftJoin('subscriptions', 'subscriptions.tenant_id', '=', 'tenants.id')
-            // Para enseñar el NOMBRE del plan y no su código: «Negocio», no
-            // `negocio`. Un identificador en minúsculas en una pantalla que
-            // mira una persona es lo mismo que no traducirlo.
+            // To show the plan's NAME rather than its code: "Negocio", not
+            // `business`. A lowercase identifier on a screen a person reads is the
+            // same as not translating it.
             ->leftJoin('plans', 'plans.code', '=', 'tenants.plan_code')
             ->whereNull('tenants.deleted_at')
             ->when(
-                $request->string('buscar')->isNotEmpty(),
+                $request->string('search')->isNotEmpty(),
                 function ($q) use ($request) {
-                    $termino = '%'.$request->string('buscar')->toString().'%';
+                    $term = '%'.$request->string('search')->toString().'%';
 
-                    return $q->where(fn ($w) => $w->where('tenants.name', 'ilike', $termino)
-                        ->orWhere('tenants.slug', 'ilike', $termino));
+                    return $q->where(fn ($w) => $w->where('tenants.name', 'ilike', $term)
+                        ->orWhere('tenants.slug', 'ilike', $term));
                 },
             )
             ->when(
@@ -56,11 +55,9 @@ final class TenantAdminController
             )
             ->orderBy('tenants.name')
             /*
-             * Paginado. No lo estaba, y ése es el problema contrario al del
-             * panel: aquí no había tope ninguno, así que la pantalla se
-             * descargaba TODOS los negocios de la plataforma. Con dos es
-             * cómodo; el día que sean mil, la primera pantalla que ve quien
-             * administra es la que peor va.
+             * Paginated. It was not, and that is the opposite problem to the
+             * dashboard's: there was no cap at all, so the screen downloaded
+             * EVERY tenant on the platform.
              */
             ->paginate(50, [
                 'tenants.id', 'tenants.name', 'tenants.slug', 'tenants.status',
@@ -77,13 +74,12 @@ final class TenantAdminController
                 'status' => $row->status,
                 'statusLabel' => TenantStatus::from($row->status)->label(),
                 'planCode' => $row->plan_code,
-                // Con reserva: un negocio cuyo plan se retiró del catálogo
-                // seguiría teniendo su código, y dejar el hueco en blanco haría
-                // parecer que no tiene plan.
+                // With a fallback: a tenant whose plan was withdrawn from the catalog
+                // would still carry its code, and a blank would look like no plan.
                 'planName' => $row->plan_name ?? $row->plan_code,
                 'currentPeriodEnd' => $row->current_period_end,
-                // Cuántos días le quedan. En negativo, cuántos lleva vencido —
-                // que es la cifra que uno quiere ver de un vistazo.
+                // Days left. Negative means days overdue — the figure you want at a
+                // glance.
                 'daysLeft' => $row->current_period_end === null
                     ? null
                     : (int) now()->startOfDay()->diffInDays($row->current_period_end, false),
@@ -108,7 +104,7 @@ final class TenantAdminController
             'owner_password' => ['required', 'string', 'min:8', 'max:100'],
         ]);
 
-        $resultado = $onboard->execute(
+        $result = $onboard->execute(
             name: $data['name'],
             slug: $data['slug'],
             planCode: $data['plan_code'],
@@ -117,11 +113,11 @@ final class TenantAdminController
             ownerPassword: $data['owner_password'],
         );
 
-        return response()->json(['data' => $resultado], 201);
+        return response()->json(['data' => $result], 201);
     }
 
     /**
-     * La ficha de un negocio: su plan, su vencimiento, su uso y sus pagos.
+     * A tenant's record: plan, expiry, usage and payments.
      */
     public function show(string $id): JsonResponse
     {
@@ -149,9 +145,7 @@ final class TenantAdminController
                     'daysLeft' => $subscription->daysLeft(),
                 ],
 
-                // El uso contra los techos del plan. `null` es ILIMITADO, nunca
-                // cero: cero sería «ninguno», que es otra cosa y mucho peor de
-                // depurar.
+                // Usage against the plan ceilings. `null` is UNLIMITED, never zero.
                 'usage' => $this->usage($id, $plan),
 
                 'payments' => $subscription === null ? [] : $subscription->payments()
@@ -165,7 +159,7 @@ final class TenantAdminController
                         'periodTo' => $p->period_to->toDateString(),
                     ])->all(),
 
-                // Lo que hicimos NOSOTROS en su casa. Se le puede enseñar.
+                // What WE did in their house. It can be shown to them.
                 'platformLog' => $this->audit->forTenant($id, 20),
             ],
         ]);
@@ -195,11 +189,11 @@ final class TenantAdminController
     }
 
     /**
-     * Suspender, reactivar o cerrar a mano.
+     * Suspend, reactivate or close by hand.
      *
-     * Existe además del trabajo diario porque hay motivos que no son el pago:
-     * un negocio que cierra, uno que pide pausa, uno que hay que parar por
-     * abuso. Y queda escrito quién lo hizo.
+     * Alongside the daily job, because some reasons are not payment: a tenant
+     * closing down, one asking for a pause, one to stop for abuse. Who did it
+     * is recorded.
      */
     public function changeStatus(Request $request, string $id): JsonResponse
     {
@@ -235,16 +229,13 @@ final class TenantAdminController
     }
 
     /**
-     * Modo soporte: mirar un negocio **en sólo lectura**.
+     * Support mode: viewing a tenant READ-ONLY.
      *
-     * Es lo que hace falta cuando un cliente llama diciendo «no me funciona»:
-     * ver su carta, su equipo y sus últimos pedidos sin pedirle capturas de
-     * pantalla.
+     * What is needed when a customer calls saying "it doesn't work": see their
+     * menu, team and recent orders without asking for screenshots.
      *
-     * Tres cosas que lo mantienen honesto: **sólo lee** —no hay escritura por
-     * esta puerta—, **queda escrito** en la bitácora de plataforma, y esa
-     * bitácora **se le puede enseñar al dueño**. Entrar en casa de un cliente
-     * sin que quede rastro es lo que no se hace.
+     * Three things keep it honest — it only reads, it is written to the
+     * platform audit log, and that log can be shown to the owner.
      */
     public function support(string $id): JsonResponse
     {
@@ -284,7 +275,7 @@ final class TenantAdminController
      */
     private function usage(string $tenantId, ?object $plan): array
     {
-        $contado = $this->session->within($tenantId, fn (): array => [
+        $counted = $this->session->within($tenantId, fn (): array => [
             'users' => DB::table('users')->where('is_active', true)->count(),
             'products' => DB::table('products')->count(),
             'ordersThisMonth' => DB::table('orders')
@@ -293,9 +284,9 @@ final class TenantAdminController
         ]);
 
         return [
-            'users' => ['used' => $contado['users'], 'max' => $plan?->max_users],
-            'products' => ['used' => $contado['products'], 'max' => $plan?->max_products],
-            'ordersThisMonth' => ['used' => $contado['ordersThisMonth'], 'max' => $plan?->max_orders_month],
+            'users' => ['used' => $counted['users'], 'max' => $plan?->max_users],
+            'products' => ['used' => $counted['products'], 'max' => $plan?->max_products],
+            'ordersThisMonth' => ['used' => $counted['ordersThisMonth'], 'max' => $plan?->max_orders_month],
         ];
     }
 }

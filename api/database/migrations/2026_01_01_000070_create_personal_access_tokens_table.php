@@ -8,42 +8,37 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * Los tokens de acceso, en versión propia y como TABLA DE NEGOCIO.
+ * Access tokens, our own version and a TENANT table.
  *
- * Reemplaza la que trae Sanctum. El token de la tablet de una cocina pertenece
- * a ese negocio y a ninguno más: con la tabla original, un token válido serviría
- * en cualquier subdominio.
+ * Sanctum's has no `tenant_id`, so a valid token would work on any subdomain.
  *
- * Hay una excepción declarada: el índice único sobre el hash del token es
- * GLOBAL y no por negocio. Tiene que serlo — un token debe resolver a un único
- * usuario ANTES de saber de qué negocio es, porque esa es justamente la
- * información que trae. Está en TenantSchema::GLOBAL_UNIQUE_INDEXES con su
- * razón, y por eso SchemaGuardTest no protesta.
+ * One declared exception: the unique index on the token hash is GLOBAL. It has
+ * to be — a token must resolve to a single user BEFORE we know its tenant. It
+ * sits in TenantSchema::GLOBAL_UNIQUE_INDEXES with its reason.
  */
 return new class extends Migration
 {
     public function up(): void
     {
         TenantSchema::create('personal_access_tokens', function (Blueprint $table): void {
-            // Declarados a mano y NO con `uuidMorphs()`, para que el índice lo
-            // ponga TenantSchema con `tenant_id` delante.
+            // Declared by hand rather than with `uuidMorphs()`, so TenantSchema puts
+            // the index in place with `tenant_id` first.
             $table->uuid('tokenable_id');
             $table->string('tokenable_type');
 
             $table->text('name');
             $table->string('token', 64)->unique();
 
-            // 'device'  → sólo pedir la lista de nombres y validar un PIN.
-            // 'station' → operar, a nombre de la persona que puso su PIN.
+            // 'device'  → only list the names and validate a PIN.
+            // 'station' → operate, in the name of whoever entered their PIN.
             $table->text('abilities')->nullable();
 
             $table->string('device_id')->nullable();
             $table->timestampTz('last_used_at')->nullable();
 
-            // Sin caducidad por reloj: una caja puede pasar el día entero sin
-            // que nadie la toque y no puede quedarse fuera a media venta. Se
-            // revocan explícitamente, que es más honesto que un cierre de
-            // sesión sorpresa a las siete de la tarde.
+            // No clock expiry: a till can go a day untouched and cannot be locked out
+            // mid-sale. Revoked explicitly, which beats a surprise sign-out at seven in
+            // the evening.
             $table->timestampTz('expires_at')->nullable();
 
             TenantSchema::index($table, ['tokenable_type', 'tokenable_id'], 'idx_pat_tenant_tokenable');

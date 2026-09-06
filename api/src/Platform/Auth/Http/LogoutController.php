@@ -16,16 +16,12 @@ final class LogoutController
 
     public function __invoke(Request $request): JsonResponse
     {
-        // Se audita ANTES: después ya no hay usuario del que sacar el nombre,
-        // y una bitácora con «alguien cerró sesión» no sirve de nada.
+        // Audited first: afterwards there is no user left to take the name from.
         $this->audit->record('auth.logout');
 
-        // Token (caja o cocina): se revoca sólo el de ESTA pantalla, no todos
-        // los del usuario. Cerrar el turno en la caja no puede echar de la
-        // cocina a la misma persona.
-        //
-        // Con sesión por cookie, Sanctum devuelve un `TransientToken` que no
-        // existe en la base y no se puede borrar. Es el caso del panel.
+        // Token (till or kitchen): only THIS screen's token is revoked. Closing the
+        // till cannot sign the same person out of the kitchen. A cookie session
+        // yields a `TransientToken`, which has no row to delete.
         $token = $request->user()?->currentAccessToken();
 
         if ($token instanceof PersonalAccessToken) {
@@ -38,9 +34,8 @@ final class LogoutController
             $request->session()->regenerateToken();
         }
 
-        // Sin esto la sesión está cerrada pero `/me` sigue diciendo que hay
-        // alguien dentro, porque el guard memorizó al usuario en esta misma
-        // petición. Sólo se nota fuera de php-fpm, y por eso muerde tarde.
+        // Without this the session is closed but `/me` still reports someone inside,
+        // because the guard memoised the user during this same request.
         Auth::forgetGuards();
 
         return response()->json(['ok' => true]);

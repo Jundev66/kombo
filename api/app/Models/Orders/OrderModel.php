@@ -13,9 +13,8 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Un pedido, del lado de la base.
- *
- * El dominio (`Modules\Orders\Domain\Entities\Order`) no sabe que esto existe.
+ * An order, from the database's side. The domain
+ * (`Modules\Orders\Domain\Entities\Order`) does not know this exists.
  */
 #[Fillable([
     'number', 'public_token', 'status', 'service_type', 'channel',
@@ -68,10 +67,10 @@ class OrderModel extends Model
     }
 
     /**
-     * Lo que falta por cobrar.
+     * What is still owed.
      *
-     * Se calcula, no se guarda: un campo «pendiente» y otro «pagado» son dos
-     * sitios donde la verdad puede discrepar, y discrepan.
+     * Computed, not stored: a "pending" column and a "paid" column are two
+     * places where the truth can disagree, and it does.
      */
     public function outstandingCents(): int
     {

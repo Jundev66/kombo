@@ -9,39 +9,29 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * ¿De qué negocio es este webhook?
+ * Which tenant does this webhook belong to?
  *
- * Es la misma pregunta que responde el subdominio en el resto del sistema, pero
- * un mensaje de Meta no trae subdominio: llega a una dirección común con el
- * identificador del número dentro del cuerpo. Y hay que contestarla **antes**
- * de poder consultar nada del negocio, porque sin contexto RLS devuelve cero
- * filas — correctamente.
+ * The same question the subdomain answers elsewhere, but a message from Meta
+ * carries none — and it has to be answered before anything of the tenant can be
+ * queried, because without context RLS correctly returns zero rows.
  *
- * Por eso lee `channel_routes`, que es tabla de plataforma: sólo dice de quién
- * es un número. Las credenciales están en otro sitio, con RLS, y se leen
- * después.
- *
- * **Con caché**, porque esto corre en cada mensaje que entra. Y con su
- * contrapartida: quien cambie una ruta tiene que llamar a `forget()`. Si no, el
- * síntoma engaña — los mensajes se aceptan y se procesan contra el negocio
- * equivocado, o contra ninguno.
+ * Cached, since this runs on every incoming message. Whoever changes a route
+ * has to call `forget()`, or messages get processed against the wrong tenant.
  */
 final class ChannelRouter
 {
     private const TTL = 3600;
 
     /**
-     * El «no lo conozco» se cachea sólo unos segundos.
+     * "I do not know it" is cached for only a few seconds.
      *
-     * Es la diferencia entre frenar a quien insiste y romperle el alta a un
-     * cliente nuevo: si el negocio conecta su canal justo después de que
-     * alguien haya preguntado por ese número, cachear la ausencia una hora lo
-     * deja **una hora sin recibir un solo mensaje**, sin ningún error a la
-     * vista. Diez segundos frenan igual de bien a un script y no se notan.
+     * Caching absence for an hour would leave a tenant that just connected its
+     * channel an hour without a single message, with no error in sight. Ten
+     * seconds slows a script down just as well.
      */
     private const TTL_AUSENCIA = 10;
 
-    /** El negocio dueño de esa cuenta, o null si no la conoce nadie. */
+    /** The tenant that owns that account, or null if nobody knows it. */
     public function tenantFor(string $channel, string $externalId): ?string
     {
         $key = self::key($channel, $externalId);
@@ -64,10 +54,8 @@ final class ChannelRouter
     }
 
     /**
-     * Da de alta o actualiza la ruta de una cuenta.
-     *
-     * Escribe la tabla de plataforma y limpia la caché en el mismo gesto: son
-     * dos cosas que no pueden quedar desparejas.
+     * Registers or updates an account's route: writes the platform table and
+     * clears the cache in one gesture, since the two cannot fall out of step.
      */
     public function register(string $channel, string $externalId, string $tenantId): void
     {

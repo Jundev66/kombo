@@ -8,14 +8,11 @@ use LogicException;
 use Platform\Modules\Exceptions\UnknownModule;
 
 /**
- * Qué módulos EXISTEN en esta versión del sistema.
+ * Which modules EXIST in this version of the system.
  *
- * Que un negocio los tenga o no es otra cosa —eso lo dicen su plan y
- * `tenant_modules`—. Esto es sólo el catálogo de lo que hay.
- *
- * Se declara en `config/modules.php` y no se descubre recorriendo carpetas: qué
- * módulos existen no debería depender de qué archivos quedaron en el disco tras
- * un despliegue a medias.
+ * Declared in `config/modules.php` rather than discovered by walking
+ * directories: what exists should not depend on which files survived a
+ * half-finished deployment.
  */
 final class ModuleRegistry
 {
@@ -53,11 +50,11 @@ final class ModuleRegistry
     }
 
     /**
-     * Los módulos pedidos MÁS todo aquello de lo que dependen.
+     * The requested modules PLUS everything they depend on.
      *
-     * Encender «documentos» sin «pedidos» dejaría notas de entrega de nada. En
-     * vez de rechazarlo con un error que el dueño no puede resolver, se
-     * enciende lo que hace falta.
+     * Enabling "documents" without "orders" would leave delivery notes of
+     * nothing. Rather than an error the owner cannot resolve, the dependency is
+     * switched on too.
      *
      * @param  list<string>  $codes
      * @return list<string>
@@ -100,10 +97,10 @@ final class ModuleRegistry
     }
 
     /**
-     * Quién depende de este módulo, entre los que el negocio tiene encendidos.
+     * Which enabled modules depend on this one.
      *
-     * Es lo que impide apagar «pedidos» dejando «cocina» encendida y sin nada
-     * que mostrar.
+     * Stops "orders" being switched off while "kitchen" stays on with nothing
+     * to show.
      *
      * @param  list<string>  $active
      * @return list<string>
@@ -119,11 +116,10 @@ final class ModuleRegistry
     }
 
     /**
-     * Todos los permisos que existen, dados unos módulos encendidos.
+     * Every permission that exists, given a set of enabled modules.
      *
-     * Ésta es la lista contra la que se filtran los permisos de un usuario. Un
-     * permiso de un módulo apagado **nunca** concede acceso, aunque su rol lo
-     * tenga escrito: el módulo se apagó, el permiso dejó de existir.
+     * The list a user's permissions are filtered against. A permission of a
+     * disabled module never grants access, however the role reads.
      *
      * @param  list<string>  $codes
      * @return list<string>
@@ -142,7 +138,7 @@ final class ModuleRegistry
     }
 
     /**
-     * Los valores por defecto, con la clave calificada `modulo.opcion`.
+     * The defaults, keyed `module.option`.
      *
      * @param  list<string>  $codes
      * @return array<string, mixed>
@@ -164,7 +160,7 @@ final class ModuleRegistry
         return $defaults;
     }
 
-    /** La definición de una opción, o null si su módulo ya no existe. */
+    /** One option's definition, or null if its module no longer exists. */
     public function settingDefinition(string $qualifiedKey): ?Setting
     {
         $parts = explode('.', $qualifiedKey, 2);

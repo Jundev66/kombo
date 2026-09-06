@@ -3,12 +3,12 @@
 declare(strict_types=1);
 
 /*
- * WhatsApp y Telegram.
+ * WhatsApp and Telegram.
  *
- * Un webhook es la única puerta del sistema que no pide contraseña y que
- * cualquiera en internet puede empujar. Estas pruebas están escritas desde ahí:
- * que la firma se compruebe ANTES que nada, que un reintento no conteste dos
- * veces, y que un mensaje para un negocio no acabe contestado por otro.
+ * A webhook is the only door in the system that asks for no password and that
+ * anybody on the internet can push. These tests are written from there: the
+ * signature is verified BEFORE anything else, a retry does not answer twice, and
+ * a message for one tenant is never answered by another.
  */
 
 use App\Models\Catalog\CategoryModel;
@@ -26,49 +26,49 @@ use Modules\Channels\Infrastructure\Services\ChannelRouter;
 use Modules\Orders\Application\UseCases\AdvanceOrder;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 
-const SECRETO = 'un-secreto-de-webhook';
+const SECRET = 'un-secreto-de-webhook';
 
 beforeEach(function (): void {
-    // Los adaptadores llaman de verdad a Meta y a Telegram. Aquí no.
+    // The adapters really call Meta and Telegram. Not here.
     Http::fake();
 
-    $sufijo = Str::lower(Str::random(6));
+    $suffix = Str::lower(Str::random(6));
 
-    $this->slug = "elsazon-{$sufijo}";
-    $this->tenant = makeTenant($this->slug, plan: 'negocio');
-    $this->numero = '5551'.random_int(100000, 999999);
+    $this->slug = "elsazon-{$suffix}";
+    $this->tenant = makeTenant($this->slug, plan: 'business');
+    $this->number = '5551'.random_int(100000, 999999);
 
     actingForTenant($this->tenant);
-    foreach (['core', 'catalog', 'orders', 'kitchen', 'portal', 'channels'] as $modulo) {
-        enableModule($this->tenant, $modulo);
+    foreach (['core', 'catalog', 'orders', 'kitchen', 'portal', 'channels'] as $module) {
+        enableModule($this->tenant, $module);
     }
 
-    $this->cuenta = ChannelAccountModel::create([
+    $this->account = ChannelAccountModel::create([
         'channel' => 'whatsapp',
-        'external_id' => $this->numero,
-        'webhook_secret' => SECRETO,
+        'external_id' => $this->number,
+        'webhook_secret' => SECRET,
         'credentials' => ['access_token' => 'un-token'],
         'is_active' => true,
     ]);
 
-    app(ChannelRouter::class)->register('whatsapp', $this->numero, $this->tenant);
+    app(ChannelRouter::class)->register('whatsapp', $this->number, $this->tenant);
 
-    $categoria = CategoryModel::create(['name' => 'Arepas']);
+    $category = CategoryModel::create(['name' => 'Arepas']);
     $this->arepa = ProductModel::create([
-        'name' => 'Reina Pepiada', 'price_cents' => 300, 'category_id' => $categoria->id,
+        'name' => 'Reina Pepiada', 'price_cents' => 300, 'category_id' => $category->id,
     ]);
 });
 
-/** El cuerpo que manda Meta cuando alguien escribe. */
-function cuerpoDeWhatsApp(string $numero, string $texto = 'hola', ?string $boton = null, string $id = 'wamid.1'): array
+/** The body Meta sends when somebody writes. */
+function whatsAppPayload(string $number, string $text = 'hola', ?string $button = null, string $id = 'wamid.1'): array
 {
-    $mensaje = ['id' => $id, 'from' => '584141234567', 'timestamp' => '1', 'type' => 'text'];
+    $message = ['id' => $id, 'from' => '584141234567', 'timestamp' => '1', 'type' => 'text'];
 
-    if ($boton !== null) {
-        $mensaje['type'] = 'interactive';
-        $mensaje['interactive'] = ['type' => 'button_reply', 'button_reply' => ['id' => $boton, 'title' => 'x']];
+    if ($button !== null) {
+        $message['type'] = 'interactive';
+        $message['interactive'] = ['type' => 'button_reply', 'button_reply' => ['id' => $button, 'title' => 'x']];
     } else {
-        $mensaje['text'] = ['body' => $texto];
+        $message['text'] = ['body' => $text];
     }
 
     return [
@@ -79,24 +79,24 @@ function cuerpoDeWhatsApp(string $numero, string $texto = 'hola', ?string $boton
                 'field' => 'messages',
                 'value' => [
                     'messaging_product' => 'whatsapp',
-                    'metadata' => ['phone_number_id' => $numero],
+                    'metadata' => ['phone_number_id' => $number],
                     'contacts' => [['wa_id' => '584141234567', 'profile' => ['name' => 'Ana']]],
-                    'messages' => [$mensaje],
+                    'messages' => [$message],
                 ],
             ]],
         ]],
     ];
 }
 
-/** Llama al webhook FIRMANDO como lo haría Meta. */
+/** Calls the webhook SIGNING as Meta would. */
 /**
- * Lo último que se le contestó al cliente.
+ * The last thing said back to the customer.
  *
- * Se desempata por `id` porque las marcas de tiempo se guardan con precisión
- * de segundos, y las dos respuestas de un mismo webhook caen en el mismo. El
- * uuid7 lleva el tiempo dentro, así que ordena bien.
+ * Tied on `id` because timestamps have second precision and both replies to one
+ * webhook land in the same second. The uuid7 carries the time inside, so it
+ * orders correctly.
  */
-function ultimaSalida(): ?string
+function lastExit(): ?string
 {
     return MessageModel::where('direction', 'out')
         ->orderByDesc('created_at')
@@ -104,27 +104,27 @@ function ultimaSalida(): ?string
         ->first()?->content;
 }
 
-function webhookDeWhatsApp(array $cuerpo, ?string $secreto = SECRETO): TestResponse
+function webhookDeWhatsApp(array $body, ?string $secret = SECRET): TestResponse
 {
-    $json = json_encode($cuerpo, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $json = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
     $headers = ['Content-Type' => 'application/json', 'Accept' => 'application/json'];
 
-    if ($secreto !== null) {
-        $headers['X-Hub-Signature-256'] = 'sha256='.hash_hmac('sha256', (string) $json, $secreto);
+    if ($secret !== null) {
+        $headers['X-Hub-Signature-256'] = 'sha256='.hash_hmac('sha256', (string) $json, $secret);
     }
 
     return test()->call('POST', 'http://localhost/webhooks/whatsapp', [], [], [], [
         'CONTENT_TYPE' => 'application/json',
         'HTTP_ACCEPT' => 'application/json',
-        ...($secreto !== null
-            ? ['HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', (string) $json, $secreto)]
+        ...($secret !== null
+            ? ['HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', (string) $json, $secret)]
             : []),
     ], (string) $json);
 }
 
-it('un mensaje firmado entra, y el bot contesta con el menú', function (): void {
-    webhookDeWhatsApp(cuerpoDeWhatsApp($this->numero))->assertOk();
+it('a signed message gets in, and the bot answers with the menu', function (): void {
+    webhookDeWhatsApp(whatsAppPayload($this->number))->assertOk();
 
     actingForTenant($this->tenant);
 
@@ -133,168 +133,167 @@ it('un mensaje firmado entra, y el bot contesta con el menú', function (): void
         ->and($conversation->external_chat_id)->toBe('584141234567')
         ->and($conversation->customer_name)->toBe('Ana');
 
-    // Se guarda lo que dijo Y lo que se le contestó: media conversación no
-    // sirve para nada cuando el encargado la abre.
-    $salida = MessageModel::where('direction', 'out')->first();
-    expect($salida?->content)->toContain('¿Qué quieres hacer?');
+    // What they said AND what was said back: half a conversation is no use when
+    // the manager opens it.
+    $output = MessageModel::where('direction', 'out')->first();
+    expect($output?->content)->toContain('¿Qué quieres hacer?');
 });
 
-it('sin firma no entra nada', function (): void {
-    // Cualquiera puede hacer un POST a esta dirección.
-    webhookDeWhatsApp(cuerpoDeWhatsApp($this->numero), secreto: null)->assertForbidden();
+it('without a signature nothing gets in', function (): void {
+    // Anyone can POST to this address.
+    webhookDeWhatsApp(whatsAppPayload($this->number), secret: null)->assertForbidden();
 
     actingForTenant($this->tenant);
     expect(ConversationModel::count())->toBe(0);
 });
 
-it('una firma que no cuadra tampoco', function (): void {
-    webhookDeWhatsApp(cuerpoDeWhatsApp($this->numero), secreto: 'otro-secreto')->assertForbidden();
+it('nor does a signature that does not match', function (): void {
+    webhookDeWhatsApp(whatsAppPayload($this->number), secret: 'otro-secreto')->assertForbidden();
 
     actingForTenant($this->tenant);
     expect(ConversationModel::count())->toBe(0);
 });
 
-it('un mensaje repetido NO se contesta dos veces', function (): void {
-    // Meta reintenta: cuando el servidor tarda, cuando devuelve algo que no es
-    // 200, y a veces sin razón aparente.
-    $cuerpo = cuerpoDeWhatsApp($this->numero, id: 'wamid.repetido');
+it('a repeated message is NOT answered twice', function (): void {
+    // Meta retries: when the server is slow, on any non-200, and sometimes for
+    // no apparent reason.
+    $body = whatsAppPayload($this->number, id: 'wamid.repetido');
 
-    webhookDeWhatsApp($cuerpo)->assertOk();
-    webhookDeWhatsApp($cuerpo)->assertOk();
+    webhookDeWhatsApp($body)->assertOk();
+    webhookDeWhatsApp($body)->assertOk();
 
     actingForTenant($this->tenant);
 
     expect(MessageModel::where('direction', 'in')->count())->toBe(1);
 });
 
-it('un POST sin firma NO puede quemar el identificador de un mensaje legítimo', function (): void {
+it('an unsigned POST canNOT burn a legitimate message\'s id', function (): void {
     /*
-     * Es el orden lo que se prueba aquí, y es el fallo más difícil de ver de
-     * todo el módulo: si se deduplicara ANTES de comprobar la firma, cualquiera
-     * podría mandar un POST sin firmar con el identificador de un mensaje que
-     * viene en camino, y el de verdad llegaría y se descartaría por repetido.
+     * The ORDER is what is tested here, and it is the hardest failure in the
+     * module to see: deduplicating before verifying the signature would let
+     * anyone burn an incoming message's id with an unsigned POST, and the real
+     * one would arrive and be discarded as a repeat.
      *
-     * El cliente escribe, no recibe nada, y en los registros no hay ningún
-     * error.
+     * The customer writes, receives nothing, and the logs show no error.
      */
-    $cuerpo = cuerpoDeWhatsApp($this->numero, id: 'wamid.legitimo');
+    $body = whatsAppPayload($this->number, id: 'wamid.legitimo');
 
-    webhookDeWhatsApp($cuerpo, secreto: null)->assertForbidden();
+    webhookDeWhatsApp($body, secret: null)->assertForbidden();
 
-    // El de verdad llega después y SÍ se procesa.
-    webhookDeWhatsApp($cuerpo)->assertOk();
+    // The real one arrives afterwards and IS processed.
+    webhookDeWhatsApp($body)->assertOk();
 
     actingForTenant($this->tenant);
     expect(MessageModel::where('direction', 'in')->count())->toBe(1);
 });
 
-it('un webhook de un número que no conocemos se cierra con 200', function (): void {
-    // 200 y no 404: Meta reintenta todo lo que no sea 200, y reintentar un
-    // mensaje de un negocio que ya no existe es gastar los dos lados.
-    webhookDeWhatsApp(cuerpoDeWhatsApp('999999999999'))->assertOk();
+it('a webhook for a number we do not know is closed with a 200', function (): void {
+    // 200 and not 404: Meta retries anything that is not a 200, and retrying a
+    // message for a tenant that no longer exists wastes both ends.
+    webhookDeWhatsApp(whatsAppPayload('999999999999'))->assertOk();
 
     actingForTenant($this->tenant);
     expect(ConversationModel::count())->toBe(0);
 });
 
-it('los avisos de entregado y leído no se contestan', function (): void {
-    // `statuses` no son mensajes de nadie. Sin descartarlos, el bot contesta un
-    // menú cada vez que el cliente abre el chat.
-    $cuerpo = [
+it('delivered and read receipts are not answered', function (): void {
+    // `statuses` are nobody's message. Without discarding them the bot answers
+    // with a menu every time the customer opens the chat.
+    $body = [
         'object' => 'whatsapp_business_account',
         'entry' => [[
             'changes' => [[
                 'value' => [
-                    'metadata' => ['phone_number_id' => $this->numero],
+                    'metadata' => ['phone_number_id' => $this->number],
                     'statuses' => [['id' => 'wamid.1', 'status' => 'read']],
                 ],
             ]],
         ]],
     ];
 
-    webhookDeWhatsApp($cuerpo)->assertOk();
+    webhookDeWhatsApp($body)->assertOk();
 
     actingForTenant($this->tenant);
     expect(ConversationModel::count())->toBe(0);
 });
 
-it('tocar «Ver la carta» enseña las categorías, y tocar una enseña sus productos', function (): void {
-    webhookDeWhatsApp(cuerpoDeWhatsApp($this->numero, boton: 'carta', id: 'wamid.a'))->assertOk();
+it('tapping "See the menu" shows the categories, and tapping one shows its products', function (): void {
+    webhookDeWhatsApp(whatsAppPayload($this->number, button: 'catalog', id: 'wamid.a'))->assertOk();
 
     actingForTenant($this->tenant);
-    expect(ultimaSalida())
+    expect(lastExit())
         ->toContain('¿Qué te provoca?');
 
-    webhookDeWhatsApp(cuerpoDeWhatsApp($this->numero, boton: 'c:0', id: 'wamid.b'))->assertOk();
+    webhookDeWhatsApp(whatsAppPayload($this->number, button: 'c:0', id: 'wamid.b'))->assertOk();
 
     actingForTenant($this->tenant);
 
-    $ultimo = ultimaSalida();
+    $last = lastExit();
 
-    expect($ultimo)->toContain('Reina Pepiada')
-        // Y el enlace al portal: el carrito se arma allá, no en el chat.
-        ->and($ultimo)->toContain("http://{$this->slug}.localhost:8010/");
+    expect($last)->toContain('Reina Pepiada')
+        // And the portal link: the basket is assembled there, not in the chat.
+        ->and($last)->toContain("http://{$this->slug}.localhost:8010/");
 });
 
-it('pedir hablar con una persona CALLA al bot', function (): void {
-    webhookDeWhatsApp(cuerpoDeWhatsApp($this->numero, boton: 'persona', id: 'wamid.p'))->assertOk();
+it('asking to speak to a person SILENCES the bot', function (): void {
+    webhookDeWhatsApp(whatsAppPayload($this->number, button: 'human', id: 'wamid.p'))->assertOk();
 
     actingForTenant($this->tenant);
     expect(ConversationModel::first()?->is_human_takeover)->toBeTrue();
 
-    $antes = MessageModel::where('direction', 'out')->count();
+    $before = MessageModel::where('direction', 'out')->count();
 
-    // Escribe otra vez y el bot no contesta: el cliente está hablando con una
-    // persona, y un menú automático encima sería lo contrario de lo que pidió.
-    webhookDeWhatsApp(cuerpoDeWhatsApp($this->numero, texto: 'gracias', id: 'wamid.q'))->assertOk();
+    // They write again and the bot stays quiet: they are talking to a person,
+    // and an automated menu on top is the opposite of what they asked for.
+    webhookDeWhatsApp(whatsAppPayload($this->number, text: 'gracias', id: 'wamid.q'))->assertOk();
 
     actingForTenant($this->tenant);
-    expect(MessageModel::where('direction', 'out')->count())->toBe($antes);
+    expect(MessageModel::where('direction', 'out')->count())->toBe($before);
 });
 
-it('la conversación tomada se suelta sola pasado el rato', function (): void {
-    webhookDeWhatsApp(cuerpoDeWhatsApp($this->numero, boton: 'persona', id: 'wamid.p2'))->assertOk();
+it('a taken conversation releases itself after a while', function (): void {
+    webhookDeWhatsApp(whatsAppPayload($this->number, button: 'human', id: 'wamid.p2'))->assertOk();
 
     actingForTenant($this->tenant);
 
-    // Sin esto, el encargado atiende a alguien, se va a cerrar, y el bot queda
-    // mudo para ese cliente PARA SIEMPRE.
+    // Without this, the manager helps somebody, goes off to close up, and the
+    // bot stays mute for that customer FOREVER.
     ConversationModel::query()->update(['takeover_at' => now()->subHours(3)]);
 
-    webhookDeWhatsApp(cuerpoDeWhatsApp($this->numero, texto: 'hola', id: 'wamid.r'))->assertOk();
+    webhookDeWhatsApp(whatsAppPayload($this->number, text: 'hola', id: 'wamid.r'))->assertOk();
 
     actingForTenant($this->tenant);
     expect(ConversationModel::first()?->is_human_takeover)->toBeFalse();
 });
 
-it('las credenciales se guardan CIFRADAS', function (): void {
-    // Aquí dentro está el token con el que se puede escribir a todos los
-    // clientes del negocio en su nombre. Un volcado que se filtre no puede ser
-    // además una lista de tokens listos para usar.
+it('credentials are stored ENCRYPTED', function (): void {
+    // In here is the token that can write to every one of the tenant's customers
+    // in their name. A leaked dump must not also be a list of ready-to-use
+    // tokens.
     actingForTenant($this->tenant);
 
-    $crudo = (string) DB::table('channel_accounts')->where('id', $this->cuenta->id)->value('credentials');
+    $rawBody = (string) DB::table('channel_accounts')->where('id', $this->account->id)->value('credentials');
 
-    expect($crudo)->not->toContain('un-token')
-        ->and(ChannelAccountModel::find($this->cuenta->id)?->credential('access_token'))->toBe('un-token');
+    expect($rawBody)->not->toContain('un-token')
+        ->and(ChannelAccountModel::find($this->account->id)?->credential('access_token'))->toBe('un-token');
 });
 
-it('el token NUNCA vuelve por la API', function (): void {
+it('the token NEVER comes back through the API', function (): void {
     $maria = makeUser($this->tenant, 'maria@ejemplo.com', 'María');
     giveRole($this->tenant, $maria, 'owner');
 
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $respuesta = test()->withHeaders(browsingAs($this->slug))
+    $response = test()->withHeaders(browsingAs($this->slug))
         ->getJson(urlFor($this->slug, '/api/v1/channels'))
         ->assertOk();
 
-    expect(json_encode($respuesta->json()))->not->toContain('un-token')
-        ->and($respuesta->json('data.0.connected'))->toBeTrue();
+    expect(json_encode($response->json()))->not->toContain('un-token')
+        ->and($response->json('data.0.connected'))->toBeTrue();
 });
 
-it('el aviso de «listo» sale por donde el cliente escribió', function (): void {
-    webhookDeWhatsApp(cuerpoDeWhatsApp($this->numero, id: 'wamid.hola'))->assertOk();
+it('the "ready" notice goes out wherever the customer wrote from', function (): void {
+    webhookDeWhatsApp(whatsAppPayload($this->number, id: 'wamid.hola'))->assertOk();
 
     actingForTenant($this->tenant);
 
@@ -307,30 +306,30 @@ it('el aviso de «listo» sale por donde el cliente escribió', function (): voi
         'status' => 'confirmed',
     ]);
 
-    $antes = MessageModel::count();
+    $before = MessageModel::count();
 
     app(AdvanceOrder::class)
         ->execute((string) $order->id, OrderStatus::Preparing);
 
     actingForTenant($this->tenant);
 
-    // «En preparación» no se avisa: para quien espera es lo mismo que
-    // «confirmado», y dos mensajes casi iguales se leen como spam.
-    expect(MessageModel::count())->toBe($antes);
+    // "Preparing" is not announced: to whoever is waiting it is the same as
+    // "confirmed", and two near-identical messages read as spam.
+    expect(MessageModel::count())->toBe($before);
 
     app(AdvanceOrder::class)
         ->execute((string) $order->id, OrderStatus::Ready);
 
     actingForTenant($this->tenant);
 
-    $aviso = MessageModel::where('message_type', 'notification')->latest('created_at')->first();
+    $notice = MessageModel::where('message_type', 'notification')->latest('created_at')->first();
 
-    expect($aviso?->content)->toContain('listo')
-        ->and($aviso?->content)->toContain($order->public_token);
+    expect($notice?->content)->toContain('listo')
+        ->and($notice?->content)->toContain($order->public_token);
 });
 
-it('sin conversación no hay a quién avisarle, y no pasa nada', function (): void {
-    // Pidió por el portal sin haber escrito nunca al bot.
+it('with no conversation there is nobody to notify, and nothing breaks', function (): void {
+    // They ordered through the portal without ever writing to the bot.
     actingForTenant($this->tenant);
 
     $order = OrderModel::create([
@@ -350,6 +349,6 @@ it('sin conversación no hay a quién avisarle, y no pasa nada', function (): vo
 });
 
 afterEach(function (): void {
-    // La deduplicación vive en la caché, que no se deshace con la transacción.
+    // Deduplication lives in the cache, which the transaction does not roll back.
     Cache::flush();
 });

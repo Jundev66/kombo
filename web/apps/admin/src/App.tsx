@@ -7,14 +7,13 @@ import { TenantDetailScreen } from './TenantDetailScreen'
 import { TenantsScreen } from './TenantsScreen'
 
 /**
- * La super administración.
+ * Platform administration.
  *
- * Vive en `admin.dominio` y entra por su propia puerta: estar dentro de un
- * negocio no abre esto, ni al revés. Es la pantalla que permite vender el
- * sistema — dar de alta, cobrar, y saber a quién hay que llamar hoy.
+ * It lives at `admin.domain` and comes in through its own door: being inside a
+ * tenant does not open this, or the other way round.
  *
- * Sin router: son dos pantallas y media, y meter uno costaría bundle para
- * resolver un `useState`.
+ * No router: it is two and a half screens, and adding one would cost bundle to
+ * replace a `useState`.
  */
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -29,32 +28,32 @@ export function App() {
 }
 
 function Shell() {
-  const sesion = useQuery({ queryKey: ['platform-me'], queryFn: platform.me })
-  const [abierto, setAbierto] = useState<string | null>(null)
+  const session = useQuery({ queryKey: ['platform-me'], queryFn: platform.me })
+  const [openNow, setOpenNow] = useState<string | null>(null)
 
-  if (sesion.isLoading) return <Spinner label="Un momento…" />
+  if (session.isLoading) return <Spinner label="Un momento…" />
 
-  if (sesion.data == null) {
-    return <LoginScreen onDone={() => void sesion.refetch()} />
+  if (session.data == null) {
+    return <LoginScreen onDone={() => void session.refetch()} />
   }
 
   return (
     <div className="min-h-dvh bg-[var(--surface-sunken)]">
-      {/* La barra a todo el ancho y su contenido alineado con el de la página:
-          si no, el nombre queda pegado al borde y el contenido empieza
-          doscientos píxeles más adentro, como si fueran dos páginas. */}
+      {/* The bar spans the full width with its content aligned to the page's, or
+          the name sits against the edge while the content starts two hundred
+          pixels in. */}
       <header className="border-b border-[var(--surface-border)] bg-[var(--surface-raised)]">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex-1">
             <p className="font-semibold text-[var(--text-strong)]">Kombo · Administración</p>
-            <p className="text-sm text-[var(--text-muted)]">{sesion.data.name}</p>
+            <p className="text-sm text-[var(--text-muted)]">{session.data.name}</p>
           </div>
 
           <Button
             variant="ghost"
             onClick={async () => {
               await platform.logout()
-              void sesion.refetch()
+              void session.refetch()
             }}
           >
             Salir
@@ -62,16 +61,16 @@ function Shell() {
         </div>
       </header>
 
-      {/* `max-w-7xl` y no `max-w-4xl`: esto es un tablero de negocios, y lo que
-          se gana con el ancho es cuántos se ven de una vez. */}
+      {/* `max-w-7xl` and not `max-w-4xl`: this is a board of tenants, and what
+          the width buys is how many are visible at once. */}
       <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
-        {abierto === null ? (
+        {openNow === null ? (
           <>
             <Metrics />
-            <TenantsScreen onOpen={setAbierto} />
+            <TenantsScreen onOpen={setOpenNow} />
           </>
         ) : (
-          <TenantDetailScreen id={abierto} onBack={() => setAbierto(null)} />
+          <TenantDetailScreen id={openNow} onBack={() => setOpenNow(null)} />
         )}
       </main>
     </div>
@@ -79,10 +78,8 @@ function Shell() {
 }
 
 /**
- * Cuatro cifras y ninguna más.
- *
- * Un tablero con veinte gráficos es un tablero que nadie mira. Éstas contestan
- * «¿esto va bien?» en cinco segundos.
+ * Four figures and no more. A board with twenty charts is a board nobody looks
+ * at; these answer "is this going well?" in five seconds.
  */
 function Metrics() {
   const metrics = useQuery({ queryKey: ['platform-metrics'], queryFn: platform.metrics })
@@ -103,9 +100,9 @@ function Metrics() {
       {(m.tenants.pastDue > 0 || m.tenants.suspended > 0) && (
         <Card className="flex flex-wrap items-center gap-3 p-4">
           <p className="flex-1 text-sm text-[var(--text-default)]">
-            {m.tenants.pastDue > 0 && <strong>{m.tenants.pastDue} vencidos</strong>}
+            {m.tenants.pastDue > 0 && <strong>{m.tenants.pastDue} expired</strong>}
             {m.tenants.pastDue > 0 && m.tenants.suspended > 0 && ' · '}
-            {m.tenants.suspended > 0 && <strong>{m.tenants.suspended} suspendidos</strong>}
+            {m.tenants.suspended > 0 && <strong>{m.tenants.suspended} suspended</strong>}
           </p>
         </Card>
       )}
@@ -157,8 +154,8 @@ function LoginScreen({ onDone }: { onDone: () => void }) {
       await platform.login(email, password)
       onDone()
     } catch (failure) {
-      // Un solo mensaje para los tres fallos posibles: no revelar cuál de las
-      // tres cosas acertó quien lo intenta.
+      // One message for all three possible failures: never reveal which of the
+      // three the caller got right.
       setError(failure instanceof ApiError ? failure.message : 'No se pudo entrar.')
       setSending(false)
     }

@@ -7,11 +7,8 @@ namespace Modules\Catalog\Application\Exceptions;
 use Shared\Domain\Exceptions\UserError;
 
 /**
- * El plan de este negocio no da para otro producto más.
- *
- * El mensaje dice **cuántos caben y qué hacer**, no sólo que no se puede. Un
- * «límite alcanzado» a secas deja a alguien mirando la pantalla sin saber si
- * el problema tiene solución.
+ * This tenant's plan does not stretch to another product. The message says how
+ * many fit and what to do, not just that it cannot be done.
  */
 final class PlanLimitReached extends UserError
 {

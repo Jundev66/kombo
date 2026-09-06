@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 /*
- * Las comandas de una cocina no existen para otra.
+ * One kitchen's tickets do not exist for another.
  *
- * Es el caso más fácil de romper sin darse cuenta: la pantalla de cocina se
- * conecta con un token de tablet, no con una sesión, y es la única del sistema
- * que consulta cada cinco segundos desde una máquina que vive en el local.
+ * The easiest case to break without noticing: the kitchen screen connects with
+ * a tablet token rather than a session, and polls every five seconds from a
+ * machine that lives on the shop floor.
  */
 
 use App\Models\Kitchen\KitchenTicketModel;
@@ -17,34 +17,34 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 beforeEach(function (): void {
-    $sufijo = Str::lower(Str::random(6));
+    $suffix = Str::lower(Str::random(6));
 
-    $this->arepera = makeTenant("elsazon-{$sufijo}");
-    $this->pizzeria = makeTenant("laesquina-{$sufijo}");
+    $this->arepera = makeTenant("elsazon-{$suffix}");
+    $this->pizzeria = makeTenant("laesquina-{$suffix}");
 
-    foreach ([$this->arepera, $this->pizzeria] as $negocio) {
-        actingForTenant($negocio);
+    foreach ([$this->arepera, $this->pizzeria] as $tenant) {
+        actingForTenant($tenant);
 
-        $pedido = OrderModel::create([
+        $order = OrderModel::create([
             'number' => 1, 'public_token' => Str::random(22), 'total_cents' => 300, 'placed_at' => now(),
         ]);
 
         $ticket = KitchenTicketModel::create([
-            'order_id' => $pedido->id,
+            'order_id' => $order->id,
             'number' => 1,
             'status' => 'pending',
             'placed_at' => now(),
         ]);
 
         $ticket->items()->create([
-            'name' => $negocio === $this->arepera ? 'Reina Pepiada' : 'Margarita',
+            'name' => $tenant === $this->arepera ? 'Reina Pepiada' : 'Margarita',
             'quantity' => 1,
             'modifiers' => ['Sin cebolla'],
         ]);
     }
 });
 
-it('cada cocina ve sólo sus propias comandas', function (): void {
+it('each kitchen sees only its own tickets', function (): void {
     actingForTenant($this->arepera);
     expect(KitchenTicketModel::with('items')->get()->pluck('items.0.name')->all())
         ->toBe(['Reina Pepiada']);
@@ -54,15 +54,15 @@ it('cada cocina ve sólo sus propias comandas', function (): void {
         ->toBe(['Margarita']);
 });
 
-it('las líneas de una comanda ajena tampoco se ven', function (): void {
-    // Si el aislamiento dependiera de recorrer la relación, aquí se filtraría
-    // qué cocina el vecino.
+it('another tenant\'s ticket lines are not visible either', function (): void {
+    // If isolation depended on walking the relation, this would leak what the
+    // neighbour is cooking.
     actingForTenant($this->arepera);
 
     expect(DB::table('kitchen_ticket_items')->count())->toBe(1);
 });
 
-it('no se puede colar una comanda en la cocina de otro', function (): void {
+it('a ticket cannot be slipped into another tenant\'s kitchen', function (): void {
     actingForTenant($this->arepera);
 
     expect(fn () => DB::table('kitchen_tickets')->insert([
@@ -77,9 +77,9 @@ it('no se puede colar una comanda en la cocina de otro', function (): void {
     ]))->toThrow(QueryException::class);
 });
 
-it('un pedido no puede tener dos comandas', function (): void {
-    // Si el mismo pedido se confirmara dos veces —dos personas pulsando a la
-    // vez— la base lo impide en vez de duplicar la comida.
+it('an order cannot have two tickets', function (): void {
+    // If the same order were confirmed twice — two people tapping at once — the
+    // database stops it rather than duplicating the food.
     actingForTenant($this->arepera);
 
     $ticket = KitchenTicketModel::first();

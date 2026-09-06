@@ -18,25 +18,19 @@ use Platform\Tenancy\TenantContext;
 use Shared\Domain\ValueObjects\Money;
 
 /**
- * El bot. Cuatro pantallas y ninguna interpretación.
+ * The bot. Four screens and no interpretation.
  *
- * **Botones, no lenguaje libre.** Un modelo que interpreta lo que la gente
- * escribe acierta casi siempre, y ese «casi» son pedidos mal tomados que
- * alguien tiene que pagar. Aquí el cliente toca y el sistema sabe exactamente
- * qué quiso decir; lo único que se lee del texto libre es para volver al menú.
+ * Buttons, not free language: a model that interprets what people write gets it
+ * right almost always, and that "almost" is mis-taken orders somebody pays for.
  *
- * **El carrito se arma en el portal, no aquí.** Elegir agregados dentro de un
- * chat son veinte mensajes que nadie termina. El chat sirve para descubrir la
- * carta, recibir avisos, y hablar con una persona cuando hace falta.
- *
- * Los identificadores de las opciones son **cortos por construcción** (`c:2`,
- * `p:5`) y se resuelven contra lo que quedó guardado en la conversación: el
- * `callback_data` de Telegram no pasa de 64 bytes, y un identificador largo
- * falla sin decir nada.
+ * The basket is assembled in the portal — picking add-ons inside a chat is
+ * twenty messages nobody finishes. Option ids are short by construction (`c:2`,
+ * `p:5`) because Telegram's `callback_data` stops at 64 bytes and a long one
+ * fails without saying anything.
  */
 final class ConversationEngine
 {
-    /** Cuántas opciones se ofrecen de una vez. Más es una lista para leer. */
+    /** How many options are offered at once. More is a list to read. */
     private const PAGE = 6;
 
     public function __construct(
@@ -50,11 +44,9 @@ final class ConversationEngine
     public function respond(ConversationModel $conversation, IncomingMessage $message): array
     {
         /*
-         * Si una persona tomó la conversación, el bot se calla.
-         *
-         * Es la salida sin la que cualquier bot es un muro: el cliente pidió
-         * hablar con alguien, y recibir un menú automático encima de lo que
-         * está escribiendo con el encargado sería justo lo contrario.
+         * If a person took the conversation over, the bot goes quiet. Without
+         * this escape hatch the customer asks for a human and gets an automated
+         * menu on top of what they are writing.
          */
         if ($this->stillTakenByAHuman($conversation)) {
             return [];
@@ -64,12 +56,12 @@ final class ConversationEngine
 
         return match (true) {
             $intent === 'menu' || $intent === '' => $this->mainMenu($conversation),
-            $intent === 'carta' => $this->categories($conversation, 0),
+            $intent === 'catalog' => $this->categories($conversation, 0),
             str_starts_with($intent, 'cat:') => $this->categories($conversation, (int) substr($intent, 4)),
             str_starts_with($intent, 'c:') => $this->products($conversation, (int) substr($intent, 2)),
             str_starts_with($intent, 'p:') => $this->product($conversation, (int) substr($intent, 2)),
-            $intent === 'pedido' => $this->lastOrder($conversation),
-            $intent === 'persona' => $this->handOver($conversation),
+            $intent === 'order' => $this->lastOrder($conversation),
+            $intent === 'human' => $this->handOver($conversation),
             default => $this->mainMenu($conversation),
         };
     }
@@ -80,16 +72,16 @@ final class ConversationEngine
     private function mainMenu(ConversationModel $conversation): array
     {
         $tenant = $this->context->current();
-        $saludo = trim((string) $this->capabilities->get()->setting('channels.greeting', ''));
+        $greeting = trim((string) $this->capabilities->get()->setting('channels.greeting', ''));
 
         $conversation->update(['state' => 'menu', 'state_data' => []]);
 
         return [Reply::withOptions(
-            $saludo !== '' ? $saludo : "¡Hola! Somos {$tenant->name}. ¿Qué quieres hacer?",
+            $greeting !== '' ? $greeting : "¡Hola! Somos {$tenant->name}. ¿Qué quieres hacer?",
             [
-                new ReplyOption('carta', 'Ver la carta'),
-                new ReplyOption('pedido', 'Mi pedido'),
-                new ReplyOption('persona', 'Hablar con alguien'),
+                new ReplyOption('catalog', 'Ver la carta'),
+                new ReplyOption('order', 'Mi pedido'),
+                new ReplyOption('human', 'Hablar con alguien'),
             ],
         )];
     }
@@ -105,8 +97,8 @@ final class ConversationEngine
             ->get();
 
         if ($categories->isEmpty()) {
-            // Sin categorías se enseñan los productos directamente: una carta
-            // pequeña no tiene por qué inventarse secciones.
+            // With no categories the products are shown directly: a small menu has no
+            // business inventing sections.
             return $this->products($conversation, -1);
         }
 
@@ -123,8 +115,8 @@ final class ConversationEngine
 
         $conversation->update([
             'state' => 'categories',
-            // Se guardan los identificadores REALES aquí, y por el canal sólo
-            // viaja el índice. Así el botón cabe en 64 bytes en cualquier canal.
+            // The REAL ids are stored here and only the index travels, so the button
+            // fits in 64 bytes on any channel.
             'state_data' => ['categories' => $categories->pluck('id')->all()],
         ]);
 
@@ -146,14 +138,14 @@ final class ConversationEngine
             ->orderBy('name')
             ->limit(self::PAGE)
             ->get()
-            // Lo agotado no se ofrece: enseñarlo invita a preguntar si de
-            // verdad no queda.
+            // What has run out is not offered: showing it invites the question of
+            // whether there really is none left.
             ->reject(fn (ProductModel $p): bool => $p->track_stock && ($p->stock_qty ?? 0) <= 0)
             ->values();
 
         if ($products->isEmpty()) {
             return [Reply::withOptions('Ahí no queda nada por ahora.', [
-                new ReplyOption('carta', 'Ver otra sección'),
+                new ReplyOption('catalog', 'Ver otra sección'),
                 new ReplyOption('menu', 'Volver'),
             ])];
         }
@@ -166,12 +158,12 @@ final class ConversationEngine
             ],
         ]);
 
-        $lista = $products
+        $list = $products
             ->map(fn (ProductModel $p): string => "• {$p->name} — ".$this->price($p->price_cents))
             ->implode("\n");
 
         return [Reply::withOptions(
-            $lista."\n\nToca uno para verlo, o pide desde la carta completa:\n".$this->portalLink(),
+            $list."\n\nToca uno para verlo, o pide desde la carta completa:\n".$this->portalLink(),
             [
                 ...$products->map(fn (ProductModel $p, int $i): ReplyOption => new ReplyOption(
                     "p:{$i}",
@@ -194,22 +186,22 @@ final class ConversationEngine
             return $this->mainMenu($conversation);
         }
 
-        $texto = "*{$product->name}*\n".$this->price($product->price_cents);
+        $text = "*{$product->name}*\n".$this->price($product->price_cents);
 
         if ($product->description !== null && $product->description !== '') {
-            $texto .= "\n\n{$product->description}";
+            $text .= "\n\n{$product->description}";
         }
 
-        // **Aquí acaba el chat y empieza el portal.** Armar el pedido con sus
-        // agregados es cosa de una pantalla, no de una conversación.
-        $texto .= "\n\nPara pedirlo:\n".$this->portalLink();
+        // Where the chat ends and the portal begins. Assembling the order with its
+        // add-ons is a screen's job, not a conversation's.
+        $text .= "\n\nPara pedirlo:\n".$this->portalLink();
 
         $reply = $product->photo_url !== null
-            ? Reply::withImage($texto, $product->photo_url)
-            : Reply::text($texto);
+            ? Reply::withImage($text, $product->photo_url)
+            : Reply::text($text);
 
         return [$reply, Reply::withOptions('¿Algo más?', [
-            new ReplyOption('carta', 'Ver la carta'),
+            new ReplyOption('catalog', 'Ver la carta'),
             new ReplyOption('menu', 'Volver'),
         ])];
     }
@@ -227,12 +219,12 @@ final class ConversationEngine
         if ($order === null) {
             return [Reply::withOptions(
                 'No encontramos ningún pedido tuyo. Si lo hiciste con otro número, escríbenos.',
-                [new ReplyOption('carta', 'Ver la carta'), new ReplyOption('persona', 'Hablar con alguien')],
+                [new ReplyOption('catalog', 'Ver la carta'), new ReplyOption('human', 'Hablar con alguien')],
             )];
         }
 
-        // El enlace al seguimiento: es la pantalla que ya cuenta esto bien, y
-        // repetir aquí la máquina de estados sería tenerla en dos sitios.
+        // The tracking link: the screen that already tells this story properly, and
+        // repeating the state machine here would be two copies.
         return [Reply::withOptions(
             "Tu pedido #{$order->number} va así: {$order->status->label()}.\n\n".
             'Puedes seguirlo aquí:'."\n".$this->portalLink("/p/{$order->public_token}"),
@@ -257,10 +249,10 @@ final class ConversationEngine
     }
 
     /**
-     * ¿Sigue tomada por una persona?
+     * Still taken by a person?
      *
-     * Se suelta sola pasado un rato: sin eso, el encargado atiende a alguien,
-     * se va a cerrar, y el bot queda mudo para ese cliente **para siempre**.
+     * It releases itself after a while, or the manager helps somebody, goes off
+     * to close up, and the bot stays mute for that customer forever.
      */
     private function stillTakenByAHuman(ConversationModel $conversation): bool
     {
@@ -284,7 +276,7 @@ final class ConversationEngine
         $usd = '$'.Money::fromCents($cents)->format();
         $rate = $this->rate();
 
-        // El bolívar al lado, que es con lo que la gente decide.
+        // The bolívar alongside, which is what people decide on.
         return $rate === null
             ? $usd
             : $usd.' (Bs '.number_format($cents * $rate / 100, 2, ',', '.').')';
@@ -298,10 +290,10 @@ final class ConversationEngine
     }
 
     /**
-     * El enlace al portal de ESTE negocio.
+     * The link to THIS tenant's portal.
      *
-     * Sale de la configuración y no de `url()` a propósito: un aviso se manda
-     * desde la cola, donde no hay petición ni `Host` del que deducir nada.
+     * From settings rather than `url()`: a notice is sent from the queue, where
+     * there is no request and no `Host` to infer anything from.
      */
     private function portalLink(string $path = '/'): string
     {

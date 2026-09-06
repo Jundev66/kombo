@@ -10,78 +10,64 @@ use Platform\Auth\RoleProvisioner;
 use Platform\Tenancy\TenantSession;
 
 /**
- * Poner al día los roles base de todos los negocios contra el catálogo.
+ * Brings every tenant's base roles up to date with the catalog.
  *
- * Se corre **después de ampliar `RoleCatalog`**, y es lo que hace que el cambio
- * llegue a alguien. Sin esto, los permisos nuevos sólo los reciben los negocios
- * que se den de alta a partir de hoy: el código se despliega, no falla nada, y
- * el encargado de un negocio de hace seis meses sigue sin poder tocar el
- * horario. Un cambio que no rompe y tampoco hace nada tarda meses en
- * descubrirse.
- *
- * También sirve tras encender un módulo a mano: sus permisos aparecen para los
- * roles que el catálogo dice que los tienen. Sin eso, un mostrador estrena la
- * caja sin poder cobrar, y el fallo sale en el peor sitio —con un cliente
- * delante—.
- *
- * No lleva horario: es una operación de despliegue, no una tarea periódica.
- * Correrla sola cada noche escondería que hace falta correrla.
+ * Run after widening `RoleCatalog`, or after switching a module on by hand.
+ * Without it, new permissions only reach tenants created from today on.
  */
 final class ReconcileRolesCommand extends Command
 {
-    protected $signature = 'roles:reconciliar {--negocio= : Sólo este subdominio}';
+    protected $signature = 'roles:reconcile {--tenant= : Sólo este subdominio}';
 
     protected $description = 'Da a los roles base de cada negocio los permisos que les toca según el catálogo.';
 
     public function handle(RoleProvisioner $provisioner, TenantSession $session): int
     {
-        $negocios = DB::table('tenants')
+        $tenants = DB::table('tenants')
             ->when(
-                is_string($this->option('negocio')),
-                fn ($query) => $query->where('slug', $this->option('negocio')),
+                is_string($this->option('tenant')),
+                fn ($query) => $query->where('slug', $this->option('tenant')),
             )
             ->whereNull('deleted_at')
             ->orderBy('slug')
             ->get(['id', 'slug']);
 
-        if ($negocios->isEmpty()) {
+        if ($tenants->isEmpty()) {
             $this->warn('No hay negocios que poner al día.');
 
             return self::SUCCESS;
         }
 
         $roles = 0;
-        $permisos = 0;
+        $permissions = 0;
 
-        foreach ($negocios as $negocio) {
-            // `within()` y no sólo el parámetro de PostgreSQL: hace falta
-            // también el ámbito global de Eloquent, y que al terminar se
-            // restaure el negocio anterior en vez de limpiarse.
-            $hecho = $session->within(
-                (string) $negocio->id,
-                fn (): array => $provisioner->reconcile((string) $negocio->id),
+        foreach ($tenants as $tenant) {
+            // `within()` rather than just the PostgreSQL parameter: Eloquent's global
+            // scope needs it too, and the previous tenant has to be restored after.
+            $done = $session->within(
+                (string) $tenant->id,
+                fn (): array => $provisioner->reconcile((string) $tenant->id),
             );
 
-            $roles += $hecho['roles'];
-            $permisos += $hecho['permissions'];
+            $roles += $done['roles'];
+            $permissions += $done['permissions'];
 
-            if ($hecho['roles'] > 0 || $hecho['permissions'] > 0) {
+            if ($done['roles'] > 0 || $done['permissions'] > 0) {
                 $this->line(sprintf(
                     '  %-24s %d rol(es), %d permiso(s)',
-                    $negocio->slug,
-                    $hecho['roles'],
-                    $hecho['permissions'],
+                    $tenant->slug,
+                    $done['roles'],
+                    $done['permissions'],
                 ));
             }
         }
 
-        // Se dice el total aunque sea cero: «0 permisos nuevos» es la respuesta
-        // correcta a la segunda pasada, y sin imprimirla parece que no corrió.
+        // The total is printed even when zero, so a second pass does not look
         $this->info(sprintf(
             '%d negocio(s) revisados · %d rol(es) y %d permiso(s) nuevos.',
-            $negocios->count(),
+            $tenants->count(),
             $roles,
-            $permisos,
+            $permissions,
         ));
 
         return self::SUCCESS;

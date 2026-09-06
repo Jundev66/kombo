@@ -1,9 +1,9 @@
 name: CI
 
-# Existe desde el primer commit a propósito.
+# Present since the first commit, on purpose.
 #
-# Unas pruebas de arquitectura sólo protegen si alguien las corre, y "alguien
-# se acuerda" no es un mecanismo. Éstas se corren solas o no sirven de nada.
+# Architecture tests only protect if somebody runs them, and "somebody
+# remembers" is not a mechanism. These run themselves or they are no use.
 
 on:
   push:
@@ -15,9 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Primero y aparte: no necesita ni base de datos ni dependencias, así que un
-  # índice sin regenerar se dice en veinte segundos y no después de cinco
-  # minutos de suite.
+  # First and separate: it needs neither a database nor dependencies, so a
+  # stale index is reported in twenty seconds rather than after five minutes
+  # of test suite.
   registro:
     name: Registro · códigos e índice
     runs-on: ubuntu-latest
@@ -60,12 +60,15 @@ jobs:
           ini-values: date.timezone=America/Caracas
 
       - name: Crear los dos usuarios de base de datos
-        # kombo_app SIN BYPASSRLS. Es lo que hace que las pruebas de
-        # aislamiento prueben algo: corriendo como el dueño pasarían en verde
-        # incluso con RLS completamente roto.
+        # kombo_app WITHOUT BYPASSRLS. It is what makes the isolation tests test
+        # something: running as the owner they would pass green even with RLS
+        # completely broken.
         env:
           PGPASSWORD: secret
-        run: psql -h localhost -U kombo_owner -d kombo -v ON_ERROR_STOP=1 -f docker/postgres/init/01-roles.sql
+          PGHOST: localhost
+          POSTGRES_USER: kombo_owner
+          POSTGRES_DB: kombo
+        run: bash docker/postgres/init/01-roles.sh
 
       - name: Caché de dependencias
         uses: actions/cache@v4
@@ -121,7 +124,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
           cache: npm
@@ -140,8 +143,8 @@ jobs:
         run: npm run build
 
       - name: Presupuesto de arranque
-        # Rompe si una aplicación se pasa. Es requisito de producto: cada
-        # 100 KB de más son segundos de pantalla en blanco en la PC del local.
+        # Breaks if an app goes over. A product requirement: every extra 100 KB is
+        # seconds of blank screen on the shop's PC.
         working-directory: web
         run: npm run size
 
@@ -169,6 +172,6 @@ jobs:
         with:
           name: playwright
           path: |
-            e2e/reportes/
-            e2e/resultados/
+            e2e/reports/
+            e2e/results/
           retention-days: 7

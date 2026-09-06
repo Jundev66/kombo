@@ -9,33 +9,28 @@ use Modules\Orders\Application\UseCases\CancelOrder;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 
 /**
- * Cerrar los pedidos a los que se les acabó el tiempo de pagar.
+ * Closes orders that ran out of time to pay.
  *
- * El cliente se fue a la aplicación del banco y no volvió: cambió de idea, no
- * le alcanzó, o sencillamente se le olvidó. Pasa todos los días y no es un
- * fallo de nadie.
+ * The customer went to the banking app and did not come back — that happens
+ * daily and is nobody's fault. Leaving them there is the fault: a board half
+ * full of orders that never arrived stops being looked at.
  *
- * Lo que sí sería un fallo es dejarlos ahí. Un tablero con la mitad de los
- * pedidos esperando un pago que nunca llegó es un tablero que el negocio deja
- * de mirar, y ese día se le pasa uno de verdad.
- *
- * Se cancela **uno a uno por el caso de uso normal**, no con un `update`
- * masivo: así cada cancelación pasa por la máquina de estados, queda en la
- * bitácora con su motivo, y avisa a quien tenga que enterarse.
+ * Cancelled one by one through the normal use case, so each passes the state
+ * machine, lands in the audit log, and tells whoever needs to know.
  */
 final class CancelExpiredOrders
 {
     public function __construct(private readonly CancelOrder $cancelOrder) {}
 
-    /** @return int cuántos se cerraron */
+    /** @return int how many were closed */
     public function execute(): int
     {
         $expired = OrderModel::query()
             ->where('status', OrderStatus::PendingPayment->value)
             ->whereNotNull('expires_at')
             ->where('expires_at', '<', now())
-            // De cien en cien: si un negocio acumuló mil, es mejor cerrarlos en
-            // varias pasadas que tener una tarea que tarda un minuto entero.
+            // A hundred at a time: closing a thousand over several passes beats a task
+            // that takes a whole minute.
             ->limit(100)
             ->get();
 

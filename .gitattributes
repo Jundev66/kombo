@@ -1,0 +1,15 @@
+# LF everywhere, in the repository and in the working tree.
+#
+# The shell scripts run inside Linux containers: checked out with CRLF on a
+# Windows machine they fail with `\r: command not found`, and the error names
+# nothing that helps.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary

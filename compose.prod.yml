@@ -1,18 +1,18 @@
 name: kombo
 
-# El entorno de PRODUCCIÓN.
+# The PRODUCTION environment.
 #
 #   docker compose -f compose.prod.yml up -d --build
 #
-# Tres diferencias de fondo con `compose.yml`:
+# Three underlying differences from `compose.yml`:
 #
-#   1. El código va DENTRO de las imágenes, no montado desde el disco. Se
-#      construye una vez y se despliega tal cual.
-#   2. No hay servidores de Vite: las cinco aplicaciones son archivos estáticos.
-#   3. Nada de contraseñas escritas aquí. Todo sale de un `.env` que no está en
-#      el repositorio.
+#   1. The code lives INSIDE the images, not mounted from disk. Built once and
+#      deployed as is.
+#   2. There are no Vite servers: the five apps are static files.
+#   3. No passwords written here. Everything comes from a `.env` that is not
+#      in the repository.
 #
-# Los pasos completos, desde un servidor vacío, están en `docs/despliegue.md`.
+# The full steps, from an empty server, are in `docs/despliegue.md`.
 
 x-api: &api
   build:
@@ -20,16 +20,16 @@ x-api: &api
     dockerfile: docker/php/Dockerfile.prod
   restart: unless-stopped
   volumes:
-    # Lo único que sobrevive a un despliegue: los comprobantes de pago y las
-    # fotos de los productos. Si esto fuera parte de la imagen, cada
-    # actualización borraría los archivos de todos los clientes.
+    # The only thing that survives a deployment: payment receipts and product
+    # photos. Were this part of the image, every update would delete every
+    # customer's files.
     - api-storage:/var/www/api/storage/app
-    # Los respaldos, en su propio volumen. Aparte del anterior a propósito: el
-    # respaldo empaqueta `storage/app`, así que guardarlos ahí haría que cada
-    # copia contuviera a la anterior.
+    # The backups, on their own volume. Deliberately apart from the one above:
+    # the backup packs `storage/app`, so keeping them there would make each copy
+    # contain the previous one.
     #
-    #   docker compose -f compose.prod.yml cp api:/var/www/api/storage/respaldos ./
-    - backups:/var/www/api/storage/respaldos
+    #   docker compose -f compose.prod.yml cp api:/var/www/api/storage/backups ./
+    - backups:/var/www/api/storage/backups
   environment:
     APP_ENV: production
     APP_DEBUG: 'false'
@@ -39,9 +39,9 @@ x-api: &api
     KOMBO_ROOT_DOMAIN: ${KOMBO_ROOT_DOMAIN:?falta el dominio raíz}
     KOMBO_ADMIN_HOST: ${KOMBO_ADMIN_HOST:?falta el host de administración}
     KOMBO_PUBLIC_URL: https://{slug}.${KOMBO_ROOT_DOMAIN}
-    # Apagado, y esto importa: encendido, `demo:limpiar` cerraría pedidos de
-    # clientes reales y el seeder crearía una cuenta de administración con una
-    # contraseña conocida.
+    # Off, and this matters: on, `demo:clean` would close real customers' orders
+    # and the seeder would create an administration account with a known
+    # password.
     KOMBO_DEMO_TOOLS: 'false'
 
     DB_CONNECTION: pgsql
@@ -58,9 +58,9 @@ x-api: &api
 
     SESSION_DRIVER: redis
     SESSION_SECURE_COOKIE: 'true'
-    # VACÍO a propósito. Poner `.tudominio` compartiría la cookie de sesión
-    # entre todos los negocios y entre ellos y la administración: el aislamiento
-    # por origen se apoya en que la cookie sea de un solo host.
+    # Deliberately EMPTY. Setting `.yourdomain` would share the session cookie
+    # across every tenant and with administration: origin isolation rests on the
+    # cookie belonging to one host.
     SESSION_DOMAIN: ''
     SANCTUM_STATEFUL_DOMAINS: ${KOMBO_ROOT_DOMAIN},*.${KOMBO_ROOT_DOMAIN},${KOMBO_ADMIN_HOST}
 
@@ -70,9 +70,8 @@ x-api: &api
     LOG_CHANNEL: stderr
     LOG_LEVEL: ${LOG_LEVEL:-warning}
 
-    # Los respaldos. Sin esto el respaldo se hace igual, pero sólo en disco —
-    # y un respaldo que vive en la misma máquina no sirve el día que se pierde
-    # la máquina.
+    # The backups. Without this the backup still runs, but only to disk — and a
+    # backup living on the same machine is no use the day the machine is lost.
     AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
     AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
     AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-auto}
@@ -96,29 +95,29 @@ services:
       KOMBO_ROOT_DOMAIN: ${KOMBO_ROOT_DOMAIN:?falta el dominio raíz}
       KOMBO_ADMIN_HOST: ${KOMBO_ADMIN_HOST:?falta el host de administración}
     volumes:
-      # `templates/` es la vía de nginx para sustituir variables al arrancar:
-      # así el dominio del cliente no está escrito dentro de la imagen.
+      # `templates/` is nginx's way of substituting variables at startup, so the
+      # customer's domain is not baked into the image.
       - ./docker/nginx/prod.conf:/etc/nginx/templates/default.conf.template:ro
       - ./docker/nginx/seguridad.conf:/etc/nginx/snippets/seguridad.conf:ro
       - ./docker/nginx/cloudflare-ips.conf:/etc/nginx/snippets/cloudflare-ips.conf:ro
-      # El certificado de origen de Cloudflare. Ver `docs/despliegue.md`.
+      # Cloudflare's origin certificate. See `docs/despliegue.md`.
       - ./certs:/etc/nginx/certs:ro
-      # Los estáticos de las cinco aplicaciones y el `public/` de la API, que es
-      # de donde salen las fotos subidas.
+      # The five apps' static files and the API's `public/`, which is where
+      # uploaded photos come from.
       - web-assets:/srv:ro
       - api-storage:/var/www/api/storage/app:ro
     depends_on:
       api:
         condition: service_started
-      # nginx no arranca hasta que las aplicaciones están publicadas: si lo
-      # hiciera antes, el primero que entrara vería un 404 en la raíz.
+      # nginx does not start until the apps are published: otherwise the first
+      # visitor would see a 404 at the root.
       web:
         condition: service_completed_successfully
 
   api:
     <<: *api
-    # php-fpm es el único que migra: tres contenedores arrancando a la vez y
-    # migrando en paralelo es cómo se rompe una base en un despliegue.
+    # php-fpm is the only one that migrates: three containers starting at once
+    # and migrating in parallel is how a database breaks during a deployment.
     command: php-fpm
 
   queue:
@@ -129,9 +128,9 @@ services:
     <<: *api
     command: php artisan schedule:work
 
-  # Compila las cinco aplicaciones, las copia al volumen que lee nginx y
-  # termina. No atiende peticiones: existe para publicar esa carpeta, y en cada
-  # despliegue la vuelve a publicar (ver `docker/web/Dockerfile`).
+  # Builds the five apps, copies them to the volume nginx reads, and exits. It
+  # serves no requests: it exists to publish that directory, and republishes it
+  # on every deployment (see `docker/web/Dockerfile`).
   web:
     build:
       context: .
@@ -147,16 +146,16 @@ services:
       POSTGRES_DB: ${DB_DATABASE:-kombo}
       POSTGRES_USER: kombo_owner
       POSTGRES_PASSWORD: ${KOMBO_OWNER_PASSWORD:?falta la contraseña de kombo_owner}
-      # La lee el script de inicialización para crear el usuario de la
-      # aplicación —el que SÍ está sujeto a RLS—.
+      # Read by the init script to create the application user — the one that IS
+      # subject to RLS.
       KOMBO_APP_PASSWORD: ${KOMBO_APP_PASSWORD:?falta la contraseña de kombo_app}
-      # Vacía: en el servidor de un cliente no se crea base de pruebas. En
-      # desarrollo, sin esta variable, el mismo script crea `kombo_test`.
+      # Empty: no test database is created on a customer's server. In development,
+      # without this variable, the same script creates `kombo_test`.
       KOMBO_TEST_DATABASE: ''
     volumes:
-      # PostgreSQL 18 monta en `/var/lib/postgresql`, no en `.../data`: la
-      # imagen coloca los datos en un subdirectorio por versión mayor para que
-      # `pg_upgrade --link` funcione sin cruzar el punto de montaje.
+      # PostgreSQL 18 mounts at `/var/lib/postgresql`, not `.../data`: the image
+      # places data in a per-major-version subdirectory so `pg_upgrade --link`
+      # works without crossing the mount point.
       - postgres-data:/var/lib/postgresql
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
@@ -168,9 +167,9 @@ services:
   redis:
     image: redis:8-alpine
     restart: unless-stopped
-    # Sin persistencia: aquí sólo viven caché, sesiones, colas y el estado del
-    # bot. Escribir en disco se nota en una máquina modesta y no hay nada que
-    # duela perder — como mucho, alguien vuelve a entrar.
+    # No persistence: only cache, sessions, queues and the bot's state live here.
+    # Writing to disk shows on a modest machine and there is nothing painful to
+    # lose — at worst somebody signs in again.
     command: redis-server --save "" --appendonly no --maxmemory 512mb --maxmemory-policy allkeys-lru
 
 volumes:

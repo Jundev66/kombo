@@ -12,14 +12,10 @@ use Platform\Tenancy\TenantContext;
 use Shared\Domain\Exceptions\UserError;
 
 /**
- * Un repartidor toma un pedido.
+ * A courier takes an order. First to take it gets it, which is why the `UPDATE`
+ * carries `courier_id is null`: two couriers tapping at once really happens.
  *
- * **El primero que lo toma se lo lleva**, y por eso el `UPDATE` lleva
- * `courier_id is null` en el `WHERE`: dos repartidores tocando «lo llevo yo»
- * al mismo tiempo pasa de verdad en la puerta de una cocina, y sin esa
- * condición los dos saldrían con el mismo pedido.
- *
- * Queda a su nombre —copiado— porque es con eso con lo que se le paga.
+ * Recorded in their name — copied — because that is what they get paid on.
  */
 final class TakeDelivery
 {
@@ -37,10 +33,10 @@ final class TakeDelivery
             throw new class('Ese pedido no es para llevar a domicilio.') extends UserError {};
         }
 
-        $afectadas = $this->db->table('orders')
+        $affected = $this->db->table('orders')
             ->where('id', $orderId)
             ->where('tenant_id', $this->context->id())
-            // Sólo si está libre. Es la carrera de verdad, no una teórica.
+            // Only if it is free. A real race, not a theoretical one.
             ->whereNull('courier_id')
             ->update([
                 'courier_id' => $courierId,
@@ -48,7 +44,7 @@ final class TakeDelivery
                 'updated_at' => now(),
             ]);
 
-        if ($afectadas === 0) {
+        if ($affected === 0) {
             throw new class('Ese pedido ya se lo llevó otra persona.') extends UserError {};
         }
 
@@ -62,7 +58,7 @@ final class TakeDelivery
         return $order->refresh();
     }
 
-    /** Soltarlo: se equivocó, o no puede salir. Vuelve a estar libre. */
+    /** Dropping it: they picked wrong, or cannot go out. It is free again. */
     public function release(string $orderId, string $courierId): OrderModel
     {
         $order = OrderModel::find($orderId) ?? throw new OrderNotFound;

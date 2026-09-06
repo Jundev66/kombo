@@ -1,38 +1,34 @@
 import { expect, test, type Page } from '@playwright/test'
-import { panelOf, TENANTS } from '../support/addresses'
+import { dashboardOf, TENANTS } from '../support/addresses'
 import { apiFetch, apiPost } from '../support/api'
-import { signIn } from '../support/panel'
+import { signIn } from '../support/dashboard'
 
 /*
- * EL BOT, DE PUNTA A PUNTA.
+ * THE BOT, END TO END.
  *
- * El dueño conecta WhatsApp desde el panel, llega un mensaje firmado como lo
- * firmaría Meta, y el bot contesta con su carta. Nada de eso está simulado por
- * dentro: se recorre el webhook de verdad, con su firma de verdad, contra el
- * negocio que resuelve la tabla de rutas.
+ * The owner connects WhatsApp from the dashboard, a message arrives signed as
+ * Meta would sign it, and the bot answers with the menu. None of it is
+ * simulated internally: the real webhook is walked, with a real signature,
+ * against the tenant the routing table resolves.
  *
- * El webhook se manda **desde la página**, como todas las llamadas de estas
- * pruebas: `page.request` resuelve nombres con Node y no ve el comodín de
- * subdominios del contenedor.
- *
- * Y se ESPERA la respuesta: el mensaje se procesa en la cola —Meta corta a los
- * 30 segundos y por eso el webhook contesta 200 en el acto—, así que la
- * respuesta del bot llega un momento después. Es lo que pasa en producción.
+ * The webhook is sent FROM THE PAGE, like every call in these tests, and the
+ * response is WAITED for: the message is processed on the queue, so the bot's
+ * reply arrives a moment later. That is what happens in production.
  */
 
 const RUN = Date.now().toString(36).slice(-5).toUpperCase()
 
-/** Un número de WhatsApp de mentira, distinto en cada corrida. */
-const NUMERO = `5551${Date.now().toString().slice(-8)}`
+/** A fake WhatsApp number, different on every run. */
+const NUMBER = `5551${Date.now().toString().slice(-8)}`
 
-const SECRETO = `secreto-de-prueba-${RUN}`
+const SECRET = `secreto-de-prueba-${RUN}`
 
 /**
- * Manda un webhook FIRMADO como lo firma Meta: HMAC-SHA256 del cuerpo crudo.
+ * Sends a webhook SIGNED as Meta signs it: HMAC-SHA256 of the raw body.
  *
- * La firma se calcula dentro de la página con Web Crypto, sobre exactamente el
- * mismo texto que se manda. Un espacio de diferencia y no cuadra — que es justo
- * lo que esta prueba tiene que ejercitar.
+ * The signature is computed inside the page with Web Crypto, over exactly the
+ * text that is sent. One space of difference and it does not match — which is
+ * precisely what this test has to exercise.
  */
 async function sendWebhook(
   page: Page,
@@ -40,8 +36,8 @@ async function sendWebhook(
   options: { sign?: boolean } = {},
 ): Promise<number> {
   return page.evaluate(
-    async ({ cuerpo, secreto, firmar }: { cuerpo: unknown; secreto: string; firmar: boolean }) => {
-      const json = JSON.stringify(cuerpo)
+    async ({ body, secret, firmar }: { body: unknown; secret: string; firmar: boolean }) => {
+      const json = JSON.stringify(body)
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -51,7 +47,7 @@ async function sendWebhook(
       if (firmar) {
         const key = await crypto.subtle.importKey(
           'raw',
-          new TextEncoder().encode(secreto),
+          new TextEncoder().encode(secret),
           { name: 'HMAC', hash: 'SHA-256' },
           false,
           ['sign'],
@@ -74,11 +70,11 @@ async function sendWebhook(
 
       return response.status
     },
-    { cuerpo: body, secreto: SECRETO, firmar: options.sign !== false },
+    { body: body, secret: SECRET, firmar: options.sign !== false },
   )
 }
 
-/** El cuerpo que manda Meta cuando alguien escribe o toca un botón. */
+/** The body Meta sends when somebody writes or taps a button. */
 function whatsAppBody(id: string, options: { text?: string; button?: string } = {}) {
   const message: Record<string, unknown> = {
     id,
@@ -106,7 +102,7 @@ function whatsAppBody(id: string, options: { text?: string; button?: string } = 
             field: 'messages',
             value: {
               messaging_product: 'whatsapp',
-              metadata: { phone_number_id: NUMERO },
+              metadata: { phone_number_id: NUMBER },
               contacts: [{ wa_id: message['from'], profile: { name: `Cliente ${RUN}` } }],
               messages: [message],
             },
@@ -128,12 +124,11 @@ interface Message {
 }
 
 /**
- * Espera a que el bot CONTESTE lo que se espera.
+ * Waits for the bot to ANSWER what is expected.
  *
- * Se espera a la respuesta y no a que exista la conversación, y la diferencia
- * es una prueba intermitente: el trabajo crea la conversación, guarda lo que
- * entró y sólo entonces contesta. Esperar a la conversación deja pasar unos
- * milisegundos en los que la respuesta todavía no está escrita.
+ * It waits for the reply rather than for the conversation to exist, and the
+ * difference is an intermittent test: the job creates the conversation, stores
+ * what came in, and only then answers.
  */
 async function waitForReply(page: Page, contiene: string): Promise<Message[]> {
   let messages: Message[] = []
@@ -147,12 +142,12 @@ async function waitForReply(page: Page, contiene: string): Promise<Message[]> {
 
         if (conversation === undefined) return false
 
-        const detalle = await apiFetch<{ data: { messages: Message[] } }>(
+        const detail = await apiFetch<{ data: { messages: Message[] } }>(
           page,
           `/api/v1/conversations/${conversation.id}`,
         )
 
-        messages = detalle.data.messages
+        messages = detail.data.messages
 
         return messages.some((m) => m.direction === 'out' && m.content.includes(contiene))
       },
@@ -164,75 +159,74 @@ async function waitForReply(page: Page, contiene: string): Promise<Message[]> {
 }
 
 /**
- * Deja WhatsApp conectado con el número y el secreto de esta corrida.
+ * Leaves WhatsApp connected with this run's number and secret.
  *
- * Cada prueba arranca con un navegador limpio, pero la base NO se rehace: sin
- * esto, la segunda prueba mandaría un webhook firmado con un secreto que ya no
- * es el que está guardado.
+ * Every test starts with a clean browser, but the database is NOT rebuilt:
+ * without this, the second test would send a webhook signed with a secret that
+ * is no longer the stored one.
  */
 async function connectWhatsApp(page: Page): Promise<void> {
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
-  await page.goto(panelOf(TENANTS.arepera) + 'canales')
+  await page.goto(dashboardOf(TENANTS.arepera) + 'canales')
 
   const whatsapp = page.getByRole('region', { name: 'WhatsApp' })
 
   await whatsapp.getByRole('button', { name: /Conectar|Cambiar el token/ }).click()
-  await whatsapp.getByLabel('Identificador del número').fill(NUMERO)
+  await whatsapp.getByLabel('Identificador del número').fill(NUMBER)
   await whatsapp.getByLabel('Token permanente').fill(`token-de-prueba-${RUN}`)
-  await whatsapp.getByLabel('Secreto del webhook').fill(SECRETO)
+  await whatsapp.getByLabel('Secreto del webhook').fill(SECRET)
   await whatsapp.getByRole('button', { name: 'Guardar', exact: true }).click()
 
   /*
-   * Se espera a que el formulario SE CIERRE, no a que el canal diga
-   * «Conectado».
+   * It waits for the FORM TO CLOSE, not for the channel to say "Connected".
    *
-   * La diferencia importa: la base no se rehace entre corridas, así que el
-   * canal ya podía estar conectado de antes y ese texto ya estaba ahí. La
-   * aserción pasaría al instante, el webhook saldría antes de que se guardara
-   * el número nuevo, y el fallo aparecería tres pruebas después.
+   * The database is not rebuilt between runs, so the channel could already have
+   * been connected and that text already present. The assertion would pass
+   * instantly, the webhook would go out before the new number was saved, and
+   * the failure would appear three tests later.
    */
   await expect(whatsapp.getByRole('button', { name: 'Guardar', exact: true })).toBeHidden()
 }
 
-test('el dueño conecta WhatsApp y el bot empieza a contestar', async ({ page }) => {
+test('the owner connects WhatsApp and the bot starts answering', async ({ page }) => {
   await signIn(page, TENANTS.arepera, 'maria@elsazon.test')
 
-  await page.goto(panelOf(TENANTS.arepera) + 'canales')
+  await page.goto(dashboardOf(TENANTS.arepera) + 'canales')
   await expect(page.getByRole('heading', { name: 'WhatsApp y Telegram' })).toBeVisible()
 
-  // La tarjeta del canal, por su nombre. La siembra es aditiva y una corrida
-  // anterior pudo dejar WhatsApp ya conectado, así que se toma el botón que
-  // haya —«Conectar» o «Cambiar el token»— en vez de suponer cuál es.
+  // The channel card, by name. Seeding is additive and an earlier run may have
+  // left WhatsApp connected, so whichever button is there — "Conectar" or
+  // "Cambiar el token" — is taken rather than assumed.
   const whatsapp = page.getByRole('region', { name: 'WhatsApp' })
 
   await whatsapp.getByRole('button', { name: /Conectar|Cambiar el token/ }).click()
 
-  await whatsapp.getByLabel('Identificador del número').fill(NUMERO)
+  await whatsapp.getByLabel('Identificador del número').fill(NUMBER)
   await whatsapp.getByLabel('Token permanente').fill(`token-de-prueba-${RUN}`)
-  await whatsapp.getByLabel('Secreto del webhook').fill(SECRETO)
+  await whatsapp.getByLabel('Secreto del webhook').fill(SECRET)
   await whatsapp.getByRole('button', { name: 'Guardar', exact: true }).click()
 
-  // Se espera a que el formulario se cierre —eso sólo pasa si se guardó— y
-  // después a lo que se ve: conectado, y con la dirección que hay que pegar en
-  // la consola de Meta ya armada. Escribirla a mano y equivocarse en un
-  // carácter es una tarde perdida.
+  // It waits for the form to close — which only happens on save — and then for
+  // what is visible: connected, with the address to paste into Meta's console
+  // already assembled. Typing it by hand and getting one character wrong is an
+  // afternoon lost.
   await expect(whatsapp.getByRole('button', { name: 'Guardar', exact: true })).toBeHidden()
   await expect(whatsapp.getByText('Conectado')).toBeVisible()
   await expect(whatsapp.getByText('/webhooks/whatsapp')).toBeVisible()
 
-  // ── Llega un mensaje firmado, como lo mandaría Meta.
+  // ── A signed message arrives, as Meta would send it.
   expect(await sendWebhook(page, whatsAppBody(`wamid.${RUN}.1`))).toBe(200)
 
-  // El bot contestó con su menú, y quedó guardado lo que dijo cada uno: media
-  // conversación no sirve para nada cuando el encargado la abre.
+  // The bot answered with its menu, and what each side said was stored: half a
+  // conversation is no use when the manager opens it.
   const messages = await waitForReply(page, '¿Qué quieres hacer?')
 
   expect(messages.some((m) => m.direction === 'in')).toBe(true)
 })
 
-test('un webhook sin firma no entra', async ({ page }) => {
-  // Cualquiera en internet puede hacer un POST a esta dirección. Lo único que
-  // separa un mensaje de Meta de uno inventado es la firma.
+test('an unsigned webhook does not get in', async ({ page }) => {
+  // Anybody on the internet can POST to this address. The only thing separating
+  // a message from Meta from an invented one is the signature.
   await connectWhatsApp(page)
 
   const status = await sendWebhook(page, whatsAppBody(`wamid.${RUN}.sinfirma`), { sign: false })
@@ -240,12 +234,12 @@ test('un webhook sin firma no entra', async ({ page }) => {
   expect(status).toBe(403)
 })
 
-test('el bot enseña la carta y manda al portal a pedir', async ({ page }) => {
+test('the bot shows the menu and sends people to the portal to order', async ({ page }) => {
   await connectWhatsApp(page)
 
-  // Se siembra la sección Y su producto: el bot enseña categorías sólo si hay,
-  // y sin esto la prueba dependería de lo que dejaran otras corridas.
-  const { data: categoria } = await apiPost<{ data: { id: string } }>(
+  // The section AND its product are seeded: the bot shows categories only when
+  // there are any, and without this the test would depend on other runs.
+  const { data: category } = await apiPost<{ data: { id: string } }>(
     page,
     '/api/v1/catalog/categories',
     { name: `[e2e] Bot ${RUN}` },
@@ -254,11 +248,11 @@ test('el bot enseña la carta y manda al portal a pedir', async ({ page }) => {
   await apiPost(page, '/api/v1/catalog/products', {
     name: `[e2e] Arepa bot ${RUN}`,
     price_cents: 300,
-    category_id: categoria.id,
+    category_id: category.id,
   })
 
-  expect(await sendWebhook(page, whatsAppBody(`wamid.${RUN}.2`, { button: 'carta' }))).toBe(200)
+  expect(await sendWebhook(page, whatsAppBody(`wamid.${RUN}.2`, { button: 'catalog' }))).toBe(200)
 
-  // La carta, con sus secciones.
+  // The menu, with its sections.
   await waitForReply(page, '¿Qué te provoca?')
 })

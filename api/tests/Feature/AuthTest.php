@@ -3,25 +3,24 @@
 declare(strict_types=1);
 
 /*
- * Las tres puertas de entrada, y por qué son tres.
+ * The three ways in, and why there are three.
  *
- * El panel entra con correo y contraseña, donde hay un teclado y tiempo. La
- * caja y la cocina entran con el token del dispositivo más un PIN, porque son
- * máquinas compartidas del local y nadie escribe un correo con las manos
- * ocupadas y un cliente esperando.
+ * The dashboard signs in with email and password, where there is a keyboard and
+ * time. The till and the kitchen use a device token plus a PIN, because they
+ * are shared machines and nobody types an email with their hands full.
  */
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 beforeEach(function (): void {
-    $sufijo = Str::lower(Str::random(6));
+    $suffix = Str::lower(Str::random(6));
 
-    $this->slug = "elsazon-{$sufijo}";
+    $this->slug = "elsazon-{$suffix}";
     $this->tenant = makeTenant($this->slug);
 
-    // El contexto va ANTES de escribir cualquier fila de negocio: `WITH CHECK`
-    // rechaza un insert sin negocio en contexto, y eso es lo correcto.
+    // Context goes BEFORE writing any tenant row: `WITH CHECK` rejects an
+    // insert with no tenant in context, and that is correct.
     actingForTenant($this->tenant);
 
     enableModule($this->tenant, 'core');
@@ -29,7 +28,7 @@ beforeEach(function (): void {
     giveRole($this->tenant, $this->maria, 'owner');
 });
 
-it('el dueño entra con su correo y su contraseña', function (): void {
+it('the owner signs in with their email and password', function (): void {
     $response = $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/auth/login'), [
             'email' => 'maria@ejemplo.com',
@@ -38,8 +37,8 @@ it('el dueño entra con su correo y su contraseña', function (): void {
 
     $response->assertOk()->assertJson(['ok' => true]);
 
-    // Afirmar la CAUSA además del síntoma: que responda 200 no prueba que haya
-    // sesión. Que /me devuelva al usuario, sí.
+    // Asserting the CAUSE as well as the symptom: a 200 does not prove there is
+    // a session. `/me` returning the user does.
     $this->withHeaders(browsingAs($this->slug))
         ->getJson(urlFor($this->slug, '/api/v1/me'))
         ->assertOk()
@@ -47,29 +46,29 @@ it('el dueño entra con su correo y su contraseña', function (): void {
         ->assertJsonPath('user.isOwner', true);
 });
 
-it('el mismo correo en dos negocios entra al que corresponde al subdominio', function (): void {
-    // Éste es el motivo de que el middleware de negocio corra ANTES de la
-    // autenticación, y de que el correo sea único por negocio y no global.
-    $otroSlug = 'laesquina-'.Str::lower(Str::random(6));
-    $otro = makeTenant($otroSlug);
+it('the same email in two tenants signs into the one for the subdomain', function (): void {
+    // Why the tenant middleware runs BEFORE authentication, and why the email is
+    // unique per tenant rather than globally.
+    $otherSlug = 'laesquina-'.Str::lower(Str::random(6));
+    $other = makeTenant($otherSlug);
 
-    actingForTenant($otro);
-    enableModule($otro, 'core');
-    $pedro = makeUser($otro, 'maria@ejemplo.com', 'Pedro de La Esquina', pin: '9999');
-    giveRole($otro, $pedro, 'owner');
+    actingForTenant($other);
+    enableModule($other, 'core');
+    $pedro = makeUser($other, 'maria@ejemplo.com', 'Pedro de La Esquina', pin: '9999');
+    giveRole($other, $pedro, 'owner');
 
-    $this->withHeaders(browsingAs($otroSlug))
-        ->postJson(urlFor($otroSlug, '/api/v1/auth/login'), [
+    $this->withHeaders(browsingAs($otherSlug))
+        ->postJson(urlFor($otherSlug, '/api/v1/auth/login'), [
             'email' => 'maria@ejemplo.com',
             'password' => 'demo1234',
         ])->assertOk();
 
-    $this->withHeaders(browsingAs($otroSlug))
-        ->getJson(urlFor($otroSlug, '/api/v1/me'))
+    $this->withHeaders(browsingAs($otherSlug))
+        ->getJson(urlFor($otherSlug, '/api/v1/me'))
         ->assertJsonPath('user.name', 'Pedro de La Esquina');
 });
 
-it('una contraseña que no es, no entra', function (): void {
+it('the wrong password does not get in', function (): void {
     $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/auth/login'), [
             'email' => 'maria@ejemplo.com',
@@ -77,7 +76,7 @@ it('una contraseña que no es, no entra', function (): void {
         ])->assertStatus(422);
 });
 
-it('un usuario desactivado no entra, aunque sepa la contraseña', function (): void {
+it('a deactivated user does not get in, even knowing the password', function (): void {
     DB::table('users')->where('id', $this->maria)->update(['is_active' => false]);
 
     $this->withHeaders(browsingAs($this->slug))
@@ -87,7 +86,7 @@ it('un usuario desactivado no entra, aunque sepa la contraseña', function (): v
         ])->assertStatus(422);
 });
 
-it('la pantalla se da de alta una vez y recibe un token que NO opera', function (): void {
+it('the screen registers once and gets a token that does NOT operate', function (): void {
     $response = $this->postJson(urlFor($this->slug, '/api/v1/auth/device'), [
         'email' => 'maria@ejemplo.com',
         'password' => 'demo1234',
@@ -96,13 +95,13 @@ it('la pantalla se da de alta una vez y recibe un token que NO opera', function 
 
     $response->assertOk()->assertJsonStructure(['token', 'device']);
 
-    // Tras la petición HTTP, `ResolveTenant::terminate()` limpió el negocio de
-    // la conexión —que es justo lo que debe hacer antes de devolverla al pool—.
-    // Para poder mirar la base hay que volver a fijarlo.
+    // `ResolveTenant::terminate()` cleared the tenant from the connection, which
+    // is exactly right before returning it to the pool. To look at the database
+    // it has to be pinned again.
     actingForTenant($this->tenant);
 
-    // Su única habilidad es `device`. Esa tablet se presta y se pierde: si el
-    // token sirviera para vender o anular, perderla sería perder el negocio.
+    // Its only ability is `device`. That tablet gets lent and lost: if the token
+    // could sell or void, losing it would be losing the business.
     $abilities = DB::table('personal_access_tokens')
         ->where('tenant_id', $this->tenant)
         ->where('name', 'Cocina')
@@ -111,7 +110,7 @@ it('la pantalla se da de alta una vez y recibe un token que NO opera', function 
     expect(json_decode((string) $abilities, true))->toBe(['device']);
 });
 
-it('con el token del equipo se ve la lista de nombres, pero no los correos', function (): void {
+it('the device token shows the list of names, but not the emails', function (): void {
     $token = $this->postJson(urlFor($this->slug, '/api/v1/auth/device'), [
         'email' => 'maria@ejemplo.com',
         'password' => 'demo1234',
@@ -123,13 +122,13 @@ it('con el token del equipo se ve la lista de nombres, pero no los correos', fun
 
     $response->assertOk()->assertJsonPath('staff.0.name', 'María');
 
-    // Nunca el correo ni el hash del PIN: la lista se pinta en una pantalla
-    // que ve cualquiera que pase por el mostrador.
+    // Never the email or the PIN hash: the list is painted on a screen anyone
+    // walking past the counter can see.
     expect($response->json('staff.0'))->not->toHaveKey('email')
         ->and($response->json('staff.0'))->not->toHaveKey('pin_hash');
 });
 
-it('el PIN correcto abre el turno a nombre de la persona', function (): void {
+it('the right PIN opens the shift in the person\'s name', function (): void {
     $token = $this->postJson(urlFor($this->slug, '/api/v1/auth/device'), [
         'email' => 'maria@ejemplo.com',
         'password' => 'demo1234',
@@ -145,21 +144,20 @@ it('el PIN correcto abre el turno a nombre de la persona', function (): void {
 
     $response->assertOk()->assertJsonPath('user.name', 'María');
 
-    // Tras la petición HTTP, `ResolveTenant::terminate()` limpió el negocio de
-    // la conexión —que es justo lo que debe hacer antes de devolverla al pool—.
-    // Para poder mirar la base hay que volver a fijarlo.
+    // The tenant has to be pinned again to look at the database, after
+    // `ResolveTenant::terminate()` cleared it from the connection.
     actingForTenant($this->tenant);
 
-    // Y queda en la bitácora a nombre de María, no del token del dispositivo.
-    $entrada = DB::table('audit_log')
+    // And the audit log names María, not the device token.
+    $entry = DB::table('audit_log')
         ->where('tenant_id', $this->tenant)
         ->where('action', 'auth.pin_login')
         ->first();
 
-    expect($entrada?->user_name)->toBe('María');
+    expect($entry?->user_name)->toBe('María');
 });
 
-it('un PIN que no es, no abre nada', function (): void {
+it('the wrong PIN opens nothing', function (): void {
     $token = $this->postJson(urlFor($this->slug, '/api/v1/auth/device'), [
         'email' => 'maria@ejemplo.com',
         'password' => 'demo1234',
@@ -174,7 +172,7 @@ it('un PIN que no es, no abre nada', function (): void {
         ])->assertStatus(422);
 });
 
-it('registra la entrada y la salida en la bitácora', function (): void {
+it('records signing in and signing out in the audit log', function (): void {
     $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/auth/login'), [
             'email' => 'maria@ejemplo.com',
@@ -185,16 +183,15 @@ it('registra la entrada y la salida en la bitácora', function (): void {
         ->postJson(urlFor($this->slug, '/api/v1/auth/logout'))
         ->assertOk();
 
-    // Tras la petición HTTP, `ResolveTenant::terminate()` limpió el negocio de
-    // la conexión —que es justo lo que debe hacer antes de devolverla al pool—.
-    // Para poder mirar la base hay que volver a fijarlo.
+    // The tenant has to be pinned again to look at the database, after
+    // `ResolveTenant::terminate()` cleared it from the connection.
     actingForTenant($this->tenant);
 
-    $acciones = DB::table('audit_log')
+    $actions = DB::table('audit_log')
         ->where('tenant_id', $this->tenant)
         ->pluck('action')
         ->all();
 
-    expect($acciones)->toContain('auth.login')
-        ->and($acciones)->toContain('auth.logout');
+    expect($actions)->toContain('auth.login')
+        ->and($actions)->toContain('auth.logout');
 });

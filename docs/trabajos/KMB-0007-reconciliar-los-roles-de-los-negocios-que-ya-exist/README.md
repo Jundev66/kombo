@@ -29,8 +29,8 @@ las tres: el alta de un negocio, el seeder de demostración y los helpers de
 prueba. Y un comando la aplica a los que ya existen:
 
 ```bash
-php artisan roles:reconciliar              # todos
-php artisan roles:reconciliar --negocio=elsazon
+php artisan roles:reconcile              # todos
+php artisan roles:reconcile --tenant=elsazon
 ```
 
 Es idempotente por construcción: se apoya en los dos únicos que ya declaraba el
@@ -76,7 +76,7 @@ un borrado no es una decisión, es una fila que no está.
 
 ```bash
 make test    # RolesTest: 8 casos
-php artisan roles:reconciliar
+php artisan roles:reconcile
 ```
 
 La prueba que más vale es la del núcleo: los permisos de `core` llegan al

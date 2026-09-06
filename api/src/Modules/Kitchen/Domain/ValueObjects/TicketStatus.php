@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Modules\Kitchen\Domain\ValueObjects;
 
 /**
- * Por dónde va una comanda.
+ * Where a ticket has got to.
  *
- *   pending ──Empezar──► preparing ──Listo──► ready ──Entregado──► served
+ *   pending ──Start──► preparing ──Ready──► ready ──Delivered──► served
  *
- * Es una máquina de estados PROPIA, distinta de la del pedido. La cocina tiene
- * su ciclo de vida: un pedido cancelado porque el cliente se arrepintió no
- * borra que la comida se hizo, y esas dos verdades tienen que poder convivir.
+ * A state machine of its own, separate from the order's: an order cancelled
+ * because the customer changed their mind does not erase that the food was
+ * made, and both truths have to coexist.
  */
 enum TicketStatus: string
 {
@@ -19,18 +19,16 @@ enum TicketStatus: string
     case Preparing = 'preparing';
     case Ready = 'ready';
 
-    /** Salió de la cocina. Ya no es asunto de esta pantalla. */
+    /** It left the kitchen. No longer this screen's business. */
     case Served = 'served';
 
     /**
-     * Ya no hay que hacerla: se anuló la venta o el cliente se arrepintió.
-     *
-     * No se llega aquí desde la pantalla de cocina —el cocinero no cancela
-     * nada—, sino desde fuera, cuando se cancela el pedido.
+     * No longer needs making: the sale was voided or the customer changed their
+     * mind. Reached from outside, never from the kitchen screen.
      */
     case Cancelled = 'cancelled';
 
-    /** El siguiente paso, o null si ya no hay. */
+    /** The next step, or null if there is none. */
     public function next(): ?self
     {
         return match ($this) {
@@ -41,7 +39,7 @@ enum TicketStatus: string
         };
     }
 
-    /** Lo que dice el botón. Lo que va a pasar, no el estado al que va. */
+    /** What the button says: what will happen, not the state it goes to. */
     public function nextLabel(): ?string
     {
         return match ($this) {
@@ -52,7 +50,7 @@ enum TicketStatus: string
         };
     }
 
-    /** El título de su columna. */
+    /** Its column heading. */
     public function columnLabel(): string
     {
         return match ($this) {
@@ -65,11 +63,8 @@ enum TicketStatus: string
     }
 
     /**
-     * Las que se ven en la pantalla.
-     *
-     * Ni las servidas ni las anuladas: unas ya salieron y las otras no hay que
-     * hacerlas. Las anuladas desaparecen del tablero en el siguiente sondeo,
-     * que es justo lo que hace falta para que nadie siga con ellas.
+     * The ones visible on the screen — neither served nor cancelled. Cancelled
+     * ones vanish on the next poll, which is what stops anyone carrying on.
      */
     public function isOnScreen(): bool
     {

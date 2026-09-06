@@ -37,11 +37,11 @@ export function Badge({ children, tone = 'neutral' }: { children: ReactNode; ton
 }
 
 /**
- * Qué se ve cuando no hay nada.
+ * What is shown when there is nothing.
  *
- * Siempre con la acción al lado. Una lista vacía que sólo dice «no hay
- * productos» deja a alguien buscando dónde se crean; una que trae el botón
- * resuelve el problema en el sitio donde apareció.
+ * Always with the action alongside. An empty list that only says "no products"
+ * leaves somebody hunting for where they are created; one that carries the
+ * button solves the problem where it appeared.
  */
 export function EmptyState({
   title,
@@ -64,24 +64,22 @@ export function EmptyState({
 }
 
 /**
- * El pie de una lista que no cabe entera. **Cuántas hay, y cómo ver más.**
+ * The footer of a list that does not fit whole: how many there are, and how to
+ * see more.
  *
- * Existe porque tres pantallas cortaban en silencio: la carta enseñaba 50 de
- * 693 productos sin nada que lo sugiriera. Y cortar en silencio es el peor
- * fallo que puede tener una lista — quien la mira no sabe que le falta algo, así
- * que no busca. La cocina ya avisaba de lo que no cabía; esto es lo mismo para
- * las listas que sí se pueden seguir.
+ * It exists because three screens truncated silently — the menu showed 50 of
+ * 693 products with nothing to suggest it. Truncating silently is the worst
+ * failure a list can have: whoever looks does not know anything is missing.
  *
- * Es presentacional a propósito: no sabe nada de consultas ni de páginas. Así lo
- * usan igual el panel y la super administración, que traen sus datos de formas
- * distintas.
+ * Presentational on purpose: it knows nothing about queries or pages, so the
+ * dashboard and the platform admin use it alike.
  */
 export function ListFooter({
   shown,
   total,
   onMore,
   loading = false,
-  /** «productos», «clientes», «negocios». */
+  /** "productos", "clientes", "negocios". */
   noun,
 }: {
   shown: number

@@ -8,12 +8,10 @@ use Platform\Modules\ModuleManifest;
 use Platform\Modules\Setting;
 
 /**
- * La pantalla de comandas.
+ * The ticket board.
  *
- * **No es de núcleo**, y eso es deliberado: hay negocios de comida sin cocina
- * separada —un puesto donde el que atiende es el que cocina, una cocina oculta
- * de una sola persona— y para ellos esta pantalla sólo sería una cosa más que
- * mirar. Se enciende cuando hace falta.
+ * Not core: a stall where whoever serves is whoever cooks has no separate
+ * kitchen, and for them this screen is one more thing to look at.
  */
 final class KitchenModule extends ModuleManifest
 {
@@ -65,14 +63,12 @@ final class KitchenModule extends ModuleManifest
     {
         return [
             /*
-             * A partir de cuántos minutos una comanda «va tarde».
+             * From how many minutes a ticket is "running late".
              *
-             * Va en la configuración del negocio y viaja en la respuesta, no
-             * fijo en la pantalla: una arepera y una pizzería no tienen la
-             * misma idea de tarde, y un umbral prestado hace que el semáforo
-             * esté siempre en rojo —o nunca—, que es lo mismo que no tenerlo.
-             *
-             * Se usa cuando el producto no dice cuánto tarda.
+             * In the tenant's settings and travelling in the response rather
+             * than fixed in the screen: an arepera and a pizzeria do not share
+             * an idea of late, and a borrowed threshold makes the traffic light
+             * always red — or never.
              */
             'stale_minutes' => Setting::int(15)->min(1)->max(120),
         ];

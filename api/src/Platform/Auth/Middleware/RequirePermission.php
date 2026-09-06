@@ -12,14 +12,11 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
 /**
- * Exige TODOS los permisos indicados: `permission:catalog.manage`.
+ * Requires ALL of the listed permissions: `permission:catalog.manage`.
  *
- * Responde 403 con un mensaje que se puede leer. Al revés que `module:`, que
- * responde 404: aquí la funcionalidad existe y quien decide quién la usa es el
- * dueño del negocio, así que se dice claro en vez de fingir que no está.
- *
- * La comprobación vive en un middleware y no dentro de cada controlador para
- * que ningún módulo nuevo pueda olvidársela.
+ * Answers 403, unlike `module:` which answers 404: here the feature exists and
+ * the owner decides who uses it, so it is said plainly. It lives in middleware
+ * so a new module cannot forget it.
  */
 final class RequirePermission
 {
@@ -31,12 +28,9 @@ final class RequirePermission
             throw new UnauthorizedHttpException('Session', 'Inicia sesión para continuar.');
         }
 
-        // Un token de DISPOSITIVO no ejecuta acciones con permiso: sólo sirve
-        // para pedir la lista de nombres y validar un PIN. Vive en una tablet
-        // del local que se presta y se pierde.
-        //
-        // `tokenCan()` devuelve true para las sesiones por cookie, así que el
-        // panel y el portal no se ven afectados.
+        // A DEVICE token never executes a permissioned action: it only lists names
+        // and validates a PIN. `tokenCan()` is true for cookie sessions, so the
+        // dashboard and the portal are unaffected.
         if (! $request->user()->tokenCan('station')) {
             throw new AccessDeniedHttpException(
                 'Esta pantalla todavía no tiene a nadie dentro. Entra con tu PIN.'

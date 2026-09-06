@@ -5,20 +5,12 @@ declare(strict_types=1);
 namespace Modules\Orders\Domain\Events;
 
 /**
- * El negocio aceptó el pedido.
+ * The tenant accepted the order. This is the trigger that sends it to the
+ * kitchen; the ticket board never queries `orders` itself.
  *
- * **Éste es el disparador que manda un pedido a la cocina.** La pantalla de
- * comandas no consulta `orders` por su cuenta: escucha esto y crea su comanda.
- *
- * Es un evento y no una llamada directa porque `Orders` no puede conocer a
- * `Kitchen` —hay una prueba de arquitectura que lo impide— y porque así el
- * mismo momento puede disparar además el aviso al cliente o el descuento de
- * insumos, sin que nadie toque el módulo de pedidos.
- *
- * Lleva **todo lo que hace falta para reaccionar**. Quien escucha no vuelve a
- * consultar: si tuviera que hacerlo, acabaría importando las tablas de
- * pedidos y el acoplamiento que el evento venía a evitar volvería por la
- * puerta de atrás.
+ * An event rather than a direct call because `Orders` cannot know `Kitchen`,
+ * and it carries everything needed to react — a listener that had to query
+ * again would bring the coupling back in through the back door.
  */
 final readonly class OrderConfirmed
 {

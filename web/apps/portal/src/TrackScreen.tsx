@@ -5,21 +5,17 @@ import { shopApi, type Shop, type TrackedOrder } from './api'
 import { ShopHeader } from './ShopHeader'
 
 /**
- * Dónde va mi pedido.
+ * Where my order is.
  *
- * Esta pantalla es la razón de que exista el token público: sobrevive a que el
- * cliente cierre el navegador para ir a la aplicación del banco, apague el
- * teléfono, o vuelva mañana a ver qué pasó. Sin cuenta y sin contraseña.
+ * This screen is the reason the public token exists: it survives the customer
+ * closing the browser to visit the banking app, switching the phone off, or
+ * coming back tomorrow. No account and no password.
  *
- * Se refresca **cada 10 segundos**, y no cada 3: quien espera comida mira el
- * teléfono cada tanto, no fijamente, y cada consulta se paga en datos y en
- * batería de alguien que a lo mejor está en la calle. Ese mismo refresco es lo
- * que mantiene al día la cuenta atrás del pago, sin un temporizador de un
- * segundo que no compra nada y sí gasta.
+ * It refreshes every 10 seconds rather than every 3: somebody waiting for food
+ * glances at their phone now and then, and every request costs data and battery.
  *
- * El orden de la pantalla responde a las preguntas en el orden en que se
- * hacen: qué tengo que hacer YO (el comprobante), por dónde va, adónde va, y
- * cuánto fue.
+ * The screen's order follows the questions as they are asked: what do I have to
+ * do (the receipt), where is it, where is it going, and how much was it.
  */
 export function TrackScreen({ shop }: { shop: Shop }) {
   const { token = '' } = useParams()
@@ -40,8 +36,8 @@ export function TrackScreen({ shop }: { shop: Shop }) {
           setError(null)
         }
       } catch {
-        // No se borra lo que ya se estaba viendo: el pedido sigue existiendo
-        // aunque el teléfono haya perdido la señal un momento.
+        // What was already showing is not cleared: the order still exists even if
+        // the phone lost signal for a moment.
         if (alive) setError('Sin conexión. Seguimos intentando.')
       } finally {
         if (alive) setLoading(false)
@@ -75,16 +71,16 @@ export function TrackScreen({ shop }: { shop: Shop }) {
     )
   }
 
-  const cancelado = order.status === 'cancelled'
+  const cancelledOrder = order.status === 'cancelled'
 
   return (
-    // La pantalla se llena: el contenido crece y el pie se ancla abajo. Antes
-    // todo quedaba apelotonado arriba con medio teléfono en gris debajo.
+    // The screen fills: content grows and the footer anchors at the bottom.
+    // It used to bunch at the top with half a phone of grey below.
     <div className="flex min-h-dvh flex-col bg-[var(--surface-sunken)]">
       <ShopHeader
         shop={shop}
-        // El encabezado de ESTA página es el pedido, no la marca: es el número
-        // que el cliente lee en voz alta cuando llama a preguntar.
+        // THIS page's heading is the order, not the brand: it is the number the
+        // customer reads aloud when they call to ask.
         as="p"
         subtitle={
           <div>
@@ -96,16 +92,16 @@ export function TrackScreen({ shop }: { shop: Shop }) {
         }
       />
 
-      {/* Con tope: una columna de seguimiento a metro y medio no se lee
-          mejor, sólo separa el estado del importe. */}
+      {/* Capped: a tracking column a metre and a half wide does not read
+          better, it only separates the status from the amount. */}
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-4">
-        {/* Lo primero es lo que tiene que hacer ÉL, no lo que estamos haciendo
-            nosotros: mientras falte el comprobante, no hay pedido que seguir. */}
+        {/* First comes what THEY have to do, not what we are doing: while the
+            receipt is missing there is no order to track. */}
         {order.needsReceipt && (
           <PaymentDeadline seconds={order.expiresInSeconds} minutes={shop.paymentWindowMinutes} />
         )}
 
-        {cancelado ? (
+        {cancelledOrder ? (
           <section className="rounded-[var(--radius-lg)] bg-bad-50 p-4">
             <h2 className="font-semibold text-bad-700">Este pedido se canceló</h2>
             {order.cancellationReason != null && (
@@ -118,8 +114,9 @@ export function TrackScreen({ shop }: { shop: Shop }) {
 
         {order.needsReceipt && <ReceiptForm token={order.token} shop={shop} onDone={setOrder} />}
 
-        {/* Adónde va. El cliente es el único que puede ver que la dirección
-            está mal, y una entrega a la casa equivocada la paga el negocio. */}
+        {/* Where it is going. The customer is the only one who can see the
+            address is wrong, and a delivery to the wrong house is paid for by
+            the tenant. */}
         {order.deliveryAddress != null && (
           <section className="rounded-[var(--radius-lg)] bg-[var(--surface-raised)] p-4">
             <h2 className="text-sm font-medium text-[var(--text-muted)]">Lo llevamos a</h2>
@@ -178,9 +175,9 @@ export function TrackScreen({ shop }: { shop: Shop }) {
           </p>
         )}
 
-        {/* Un pedido que se atasca no tenía salida: la pantalla decía por
-            dónde iba y nada más. `tel:` y no WhatsApp porque el teléfono es
-            texto libre y armar un `wa.me` obliga a adivinar el código de país. */}
+        {/* An order that gets stuck had no way out: the screen said where it was
+            and nothing else. `tel:` and not WhatsApp because the phone number is
+            free text and building a `wa.me` means guessing the country code. */}
         {shop.phone != null && (
           <a
             href={`tel:${shop.phone.replace(/\s/g, '')}`}
@@ -202,39 +199,36 @@ export function TrackScreen({ shop }: { shop: Shop }) {
 }
 
 /**
- * Por dónde va, con el paso ACTUAL distinto de los que ya pasaron.
+ * Where it has got to, with the CURRENT step distinct from the past ones.
  *
- * `steps[].done` viene acumulativo del servidor, así que el paso en curso
- * llegaba marcado igual que los terminados: el cliente leía «✓ Lo estamos
- * haciendo» y no podía saber si le faltaba o ya estaba. El actual es el último
- * `done`, y se deriva aquí sin pedirle nada al servidor.
+ * `steps[].done` arrives cumulative from the server, so the step in progress
+ * came marked like the finished ones: the customer read "✓ We are making it"
+ * with no way to tell whether it was pending or done. The current one is the
+ * last `done`, derived here without asking the server for anything.
  *
- * Y cuánto lleva esperando, que es LA pregunta. No hay estimación de cuánto
- * falta porque el sistema no sabe cuánto tarda de verdad esta cocina hoy, y un
- * «5 minutos» inventado que se incumple es peor que no decir nada.
+ * And how long they have waited, which is THE question. There is no estimate of
+ * how long is left, because the system does not know how long this kitchen
+ * really takes today, and an invented "5 minutes" that is missed is worse than
+ * saying nothing.
  */
 function Progress({ order }: { order: TrackedOrder }) {
   /*
-   * Terminado lo dice el ÚLTIMO paso, no que estén todos.
+   * Finished is what the LAST step says, not that all of them are marked.
    *
-   * Los pasos pueden llegar con huecos: `ready` se marca con `ready_at`, y una
-   * venta de mostrador que se entrega directamente nunca pasa por ahí. Llegan
-   * entonces como [hecho, hecho, NO, hecho] — y con la regla ingenua «el
-   * último hecho es el actual», un pedido ya entregado se pintaba como si
-   * siguiéramos en ello, con un hueco en medio.
-   *
-   * Si está entregado, está entregado: pasó por todos aunque nadie apuntara la
-   * hora de uno.
+   * Steps can arrive with gaps: `ready` is stamped with `ready_at`, and a
+   * counter sale handed over directly never passes through it. They arrive as
+   * [done, done, NO, done] — and with the naive "the last done is the current
+   * one", a delivered order was painted as still in progress.
    */
-  const terminado = order.steps[order.steps.length - 1]?.done === true
+  const finished = order.steps[order.steps.length - 1]?.done === true
 
   /*
-   * Y mientras va en camino, hasta dónde llegó de verdad: los pasos seguidos
-   * desde el principio. Un `done` suelto detrás de un hueco no es un paso
-   * alcanzado, es un sello que se puso antes de tiempo.
+   * And while it is on the way, how far it really got: the steps followed from
+   * the start. A stray `done` after a gap is not a step reached, it is a stamp
+   * applied early.
    */
-  const avance = order.steps.findIndex((step) => !step.done)
-  const actual = terminado ? -1 : avance - 1
+  const advanceStep = order.steps.findIndex((step) => !step.done)
+  const current = finished ? -1 : advanceStep - 1
 
   return (
     <section className="rounded-[var(--radius-lg)] bg-[var(--surface-raised)] p-4">
@@ -247,31 +241,31 @@ function Progress({ order }: { order: TrackedOrder }) {
 
       <ol className="flex flex-col gap-3">
         {order.steps.map((step, i) => {
-          const enCurso = i === actual
-          // Alcanzado, no «marcado»: terminado son todos, y si no, sólo los
-          // seguidos desde el principio.
-          const hecho = (terminado || i < avance) && !enCurso
+          const inProgress = i === current
+          // Reached, not "marked": finished means all of them, otherwise only the
+          // ones followed from the start.
+          const done = (finished || i < advanceStep) && !inProgress
 
           return (
             <li key={step.key} className="flex items-center gap-3">
               <span
                 aria-hidden="true"
                 className={`grid size-7 shrink-0 place-items-center rounded-full text-sm ${
-                  hecho
+                  done
                     ? 'bg-ok-500 text-white'
-                    : enCurso
+                    : inProgress
                       ? 'bg-accent-600 text-white'
                       : 'bg-[var(--surface-sunken)] text-[var(--text-muted)]'
                 }`}
               >
-                {hecho ? '✓' : enCurso ? '●' : '·'}
+                {done ? '✓' : inProgress ? '●' : '·'}
               </span>
 
               <span
                 className={
-                  enCurso
+                  inProgress
                     ? 'font-semibold text-[var(--text-strong)]'
-                    : hecho
+                    : done
                       ? 'text-[var(--text-muted)]'
                       : 'text-[var(--text-muted)] opacity-60'
                 }
@@ -279,8 +273,8 @@ function Progress({ order }: { order: TrackedOrder }) {
                 {step.label}
               </span>
 
-              {/* Para un lector de pantalla el color no existe. */}
-              {enCurso && <span className="sr-only">— en esto vamos ahora</span>}
+              {/* To a screen reader the colour does not exist. */}
+              {inProgress && <span className="sr-only">— en esto vamos ahora</span>}
             </li>
           )
         })}
@@ -290,51 +284,52 @@ function Progress({ order }: { order: TrackedOrder }) {
 }
 
 /**
- * Cuánto le queda antes de que el pedido se cancele solo.
+ * How long before the order cancels itself.
  *
- * Es lo que faltaba y más caro salía: un pedido sin comprobante tiene
- * `expires_at`, y una tarea lo cancela cada diez minutos. El cliente no veía
- * ningún reloj — se le moría el pedido en la mano sin un aviso.
+ * What was missing and cost the most: an order with no receipt has
+ * `expires_at`, and a task cancels it every ten minutes. The customer saw no
+ * clock at all — the order died in their hand with no warning.
  *
- * Los segundos los cuenta el SERVIDOR (`expiresInSeconds`). Derivarlo de la
- * fecha en el teléfono daría un plazo equivocado justo donde más duele.
+ * The seconds are counted by the SERVER (`expiresInSeconds`). Deriving them
+ * from the date on the phone would give the wrong deadline exactly where it
+ * hurts most.
  */
 function PaymentDeadline({ seconds, minutes }: { seconds: number | null; minutes: number }) {
   if (seconds === null) {
     return (
-      <Aviso tono="warn">
+      <Notice tone="warn">
         Tienes {minutes} minutos para mandar el comprobante. Después el pedido se cancela solo.
-      </Aviso>
+      </Notice>
     )
   }
 
   if (seconds <= 0) {
-    // Ni «0 min» ni un número negativo: se dice lo que va a pasar. La tarea
-    // que lo cancela corre cada diez minutos, así que todavía puede llegar.
+    // Neither "0 min" nor a negative number: it says what is going to happen.
+    // The task that cancels runs every ten minutes, so it can still arrive.
     return (
-      <Aviso tono="bad">
+      <Notice tone="bad">
         Se te pasó el plazo del pago. Este pedido se cancela en cualquier momento — si ya pagaste,
         manda el comprobante ya o llámanos.
-      </Aviso>
+      </Notice>
     )
   }
 
-  const quedan = Math.ceil(seconds / 60)
+  const left = Math.ceil(seconds / 60)
 
   return (
-    <Aviso tono={seconds <= 300 ? 'bad' : 'warn'}>
-      {quedan === 1 ? 'Te queda menos de un minuto' : `Te quedan ${quedan} minutos`} para mandar el
+    <Notice tone={seconds <= 300 ? 'bad' : 'warn'}>
+      {left === 1 ? 'Te queda menos de un minuto' : `Te quedan ${left} minutos`} para mandar el
       comprobante. Después el pedido se cancela solo.
-    </Aviso>
+    </Notice>
   )
 }
 
-function Aviso({ tono, children }: { tono: 'warn' | 'bad'; children: React.ReactNode }) {
+function Notice({ tone, children }: { tone: 'warn' | 'bad'; children: React.ReactNode }) {
   return (
     <p
       role="status"
       className={`rounded-[var(--radius-lg)] p-4 font-medium ${
-        tono === 'bad' ? 'bg-bad-50 text-bad-700' : 'bg-warn-50 text-warn-700'
+        tone === 'bad' ? 'bg-bad-50 text-bad-700' : 'bg-warn-50 text-warn-700'
       }`}
     >
       {children}
@@ -342,7 +337,7 @@ function Aviso({ tono, children }: { tono: 'warn' | 'bad'; children: React.React
   )
 }
 
-/** «hace 7 min», con los segundos que contó el servidor. */
+/** "7 min ago", from the seconds the server counted. */
 function waitedLabel(seconds: number): string {
   if (seconds < 60) return 'ahora mismo'
 
@@ -356,11 +351,11 @@ function waitedLabel(seconds: number): string {
 }
 
 /**
- * La foto del pago móvil.
+ * The mobile-payment photo.
  *
- * `capture` no se pone a propósito: mucha gente paga desde la aplicación del
- * banco y guarda la **captura de pantalla**. Forzar la cámara le obligaría a
- * fotografiar su propia pantalla con otro teléfono.
+ * `capture` is deliberately absent: many people pay from the banking app and
+ * keep the SCREENSHOT. Forcing the camera would make them photograph their own
+ * screen with another phone.
  */
 function ReceiptForm({
   token,
@@ -400,19 +395,19 @@ function ReceiptForm({
     <section className="flex flex-col gap-3 rounded-[var(--radius-lg)] bg-[var(--surface-raised)] p-4">
       <h2 className="font-medium text-[var(--text-strong)]">Manda tu comprobante</h2>
 
-      {shop.pagoMovilDetails != null && (
+      {shop.mobilePaymentDetails != null && (
         <p className="rounded-[var(--radius-md)] bg-[var(--surface-sunken)] p-3 text-sm whitespace-pre-line text-[var(--text-default)]">
-          Paga a: {shop.pagoMovilDetails}
+          Paga a: {shop.mobilePaymentDetails}
         </p>
       )}
 
       {/*
-       * El botón de elegir archivo va en un `label` y el `input` escondido.
+       * The file picker sits in a `label` with the `input` hidden.
        *
-       * El control nativo lo pinta el navegador con SU idioma: en un teléfono
-       * en inglés decía «Choose File / No file chosen» en mitad de una pantalla
-       * en español, justo en el paso donde alguien está intentando pagar. Y de
-       * paso se puede darle la altura táctil que el resto de la pantalla tiene.
+       * The browser paints the native control in ITS language: on an
+       * English-set phone it said "Choose File / No file chosen" in the middle
+       * of a Spanish screen, right where somebody is trying to pay. It also
+       * gets the touch height the rest of the screen has.
        */}
       <Field label="Foto del pago" required error={error ?? undefined}>
         {({ id, invalid }) => (

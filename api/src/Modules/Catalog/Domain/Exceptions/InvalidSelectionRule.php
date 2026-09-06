@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Modules\Catalog\Domain\Exceptions;
 
 /**
- * La regla de un grupo de modificadores es incoherente (mínimo mayor que máximo, o un máximo de cero).
+ * A modifier group's rule is incoherent (minimum above maximum, or a maximum of
+ * zero).
  */
 final class InvalidSelectionRule extends CatalogException
 {

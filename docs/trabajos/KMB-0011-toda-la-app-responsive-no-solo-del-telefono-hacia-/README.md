@@ -4,7 +4,7 @@ titulo: Toda la app responsive, no sólo del teléfono hacia abajo
 tipo: arreglo
 estado: hecho
 fecha: 2026-08-29
-toca: [web/packages/ui/src/components/layout.tsx, web/packages/shell/src/AppShell.tsx, web/apps/panel, web/apps/portal, web/apps/admin]
+toca: [web/packages/ui/src/components/layout.tsx, web/packages/shell/src/AppShell.tsx, web/apps/dashboard, web/apps/portal, web/apps/admin]
 relacionados: [KMB-0010, KMB-0008]
 ---
 

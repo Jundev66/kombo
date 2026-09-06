@@ -7,12 +7,10 @@ namespace Modules\Orders\Domain\ValueObjects;
 use Shared\Domain\ValueObjects\Money;
 
 /**
- * Un agregado dentro de una línea del pedido: «sin cebolla», «extra queso».
+ * An add-on within a line: "no onion", "extra cheese".
  *
- * El nombre y el importe van **copiados, no referenciados**. Si mañana se
- * renombra el modificador o se borra de la carta, la comanda de hoy tiene que
- * seguir diciendo lo que se pidió — y el total de un pedido de marzo no puede
- * cambiar porque alguien tocó la carta en septiembre.
+ * Name and amount are copied, not referenced: a March order's total cannot
+ * change because somebody touched the menu in September.
  */
 final readonly class OrderLineModifier
 {
@@ -22,7 +20,7 @@ final readonly class OrderLineModifier
         public Money $priceDelta,
     ) {}
 
-    /** Puede DESCONTAR: «sin queso» a veces baja el precio. */
+    /** Can take money off: "no cheese" sometimes lowers the price. */
     public function isDiscount(): bool
     {
         return $this->priceDelta->isNegative();

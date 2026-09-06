@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 /*
- * La super administración: dar de alta, cobrar, vencer y suspender.
+ * Platform administration: sign-up, billing, expiry and suspension.
  *
- * Es la parte que decide si esto se puede vender, y la que en el proyecto
- * anterior quedó a medias: allí existía un `plan_expires_at` que no leía nadie,
- * así que un negocio que dejaba de pagar seguía operando para siempre.
+ * The part that decides whether this can be sold, and the one the previous
+ * project left half-finished: there a `plan_expires_at` nobody read let a tenant
+ * that stopped paying operate forever.
  */
 
 use App\Models\Catalog\ProductModel;
@@ -22,8 +22,8 @@ use Platform\Subscription\Subscriptions;
 use Platform\Tenancy\TenantStatus;
 
 beforeEach(function (): void {
-    // Los planes de verdad: si el helper inventara sus propios techos, las
-    // pruebas comprobarían un plan que no existe en producción.
+    // The real plans: a helper inventing its own ceilings would test a plan that
+    // does not exist in production.
     (new PlanSeeder)->run();
 
     $this->admin = PlatformUser::create([
@@ -36,8 +36,8 @@ beforeEach(function (): void {
 
 const ADMIN_HOST = 'http://admin.localhost';
 
-/** Una llamada a la super administración, desde su propio dominio. */
-function comoPlataforma(string $method, string $path, array $body = []): TestResponse
+/** A call to platform administration, from its own domain. */
+function asPlatform(string $method, string $path, array $body = []): TestResponse
 {
     return test()->withHeaders([
         'Accept' => 'application/json',
@@ -46,18 +46,18 @@ function comoPlataforma(string $method, string $path, array $body = []): TestRes
     ])->json($method, ADMIN_HOST.$path, $body);
 }
 
-function entrarComoAdmin(PlatformUser $admin): void
+function loginAsPlatformAdmin(PlatformUser $admin): void
 {
     test()->actingAs($admin, 'platform');
 }
 
-it('la super administración vive en su propio dominio, y sólo ahí', function (): void {
-    entrarComoAdmin($this->admin);
+it('platform administration lives on its own domain, and only there', function (): void {
+    loginAsPlatformAdmin($this->admin);
 
-    comoPlataforma('GET', '/api/v1/platform/tenants')->assertOk();
+    asPlatform('GET', '/api/v1/platform/tenants')->assertOk();
 
-    // La misma ruta desde el subdominio de un negocio NO EXISTE. No es que
-    // responda 403: es que ahí no hay ninguna ruta con esa dirección.
+    // The same route from a tenant's subdomain DOES NOT EXIST. Not a 403: there
+    // is simply no route at that address there.
     $tenant = makeTenant('negocio-'.Str::lower(Str::random(6)));
 
     test()->withHeaders(['Accept' => 'application/json'])
@@ -67,14 +67,14 @@ it('la super administración vive en su propio dominio, y sólo ahí', function 
     expect($tenant)->not->toBeEmpty();
 });
 
-it('sin entrar no se ve nada', function (): void {
-    comoPlataforma('GET', '/api/v1/platform/tenants')->assertUnauthorized();
-    comoPlataforma('GET', '/api/v1/platform/metrics')->assertUnauthorized();
+it('without signing in nothing is visible', function (): void {
+    asPlatform('GET', '/api/v1/platform/tenants')->assertUnauthorized();
+    asPlatform('GET', '/api/v1/platform/metrics')->assertUnauthorized();
 });
 
-it('la sesión de un negocio NO abre la super administración', function (): void {
-    // Es el fallo que hay que evitar: con el guard por defecto, la sesión del
-    // empleado de un negocio cualquiera abriría la facturación de todos.
+it('a tenant session does NOT open platform administration', function (): void {
+    // The failure to avoid: with the default guard, any tenant employee's
+    // session would open everybody's billing.
     $tenantId = makeTenant('negocio-'.Str::lower(Str::random(6)));
     actingForTenant($tenantId);
 
@@ -83,110 +83,106 @@ it('la sesión de un negocio NO abre la super administración', function (): voi
 
     test()->actingAs(User::find($userId));
 
-    comoPlataforma('GET', '/api/v1/platform/tenants')->assertUnauthorized();
+    asPlatform('GET', '/api/v1/platform/tenants')->assertUnauthorized();
 });
 
-it('dar de alta un negocio lo deja LISTO para trabajar', function (): void {
-    entrarComoAdmin($this->admin);
+it('signing a tenant up leaves it READY to work', function (): void {
+    loginAsPlatformAdmin($this->admin);
 
     $slug = 'nuevo-'.Str::lower(Str::random(6));
 
-    $respuesta = comoPlataforma('POST', '/api/v1/platform/tenants', [
+    $response = asPlatform('POST', '/api/v1/platform/tenants', [
         'name' => 'Arepera Nueva',
         'slug' => $slug,
-        'plan_code' => 'negocio',
+        'plan_code' => 'business',
         'owner_name' => 'Dueña',
         'owner_email' => 'duena@nueva.test',
         'owner_password' => 'clave-larga-123',
     ])->assertCreated();
 
-    $tenantId = $respuesta->json('data.tenant_id');
+    $tenantId = $response->json('data.tenant_id');
 
-    // Un negocio a medio crear es peor que ninguno: nadie puede entrar a
-    // arreglarlo desde dentro, porque para entrar hace falta justo lo que faltó.
+    // A half-created tenant is worse than none: nobody can get in to fix it,
+    // because getting in needs exactly what is missing.
     actingForTenant($tenantId);
 
     expect(DB::table('users')->where('email', 'duena@nueva.test')->exists())->toBeTrue()
         ->and(DB::table('roles')->where('is_owner', true)->exists())->toBeTrue()
         ->and(DB::table('tenant_modules')->where('enabled', true)->count())->toBeGreaterThan(3)
-        // Sin horario, el portal estaría CERRADO y el negocio parecería roto:
-        // la carta se ve y pedir contesta que está cerrado a cualquier hora.
+        // With no hours the portal would be CLOSED and the tenant would look broken:
+        // the menu shows and ordering says closed at any hour.
         ->and(DB::table('business_hours')->count())->toBe(7)
-        // Y con suscripción: sin fecha de vencimiento, el trabajo diario no
-        // sabe qué hacer con este negocio.
+        // And with a subscription: with no expiry date the daily job cannot judge
+        // this tenant.
         ->and(SubscriptionModel::where('tenant_id', $tenantId)->exists())->toBeTrue();
 
-    // Y la dueña puede entrar de verdad.
-    entrarComo($slug, 'duena@nueva.test', 'clave-larga-123');
+    // And the owner can really sign in.
+    loginAs($slug, 'duena@nueva.test', 'clave-larga-123');
 });
 
-it('la lista de negocios pagina y dice el nombre del plan, no su código', function (): void {
+it('the tenant list paginates and shows the plan\'s name, not its code', function (): void {
     /*
-     * Dos arreglos en una pantalla que nunca se había mirado.
+     * Two fixes on a screen nobody had looked at.
      *
-     * No tenía tope NINGUNO: se descargaban todos los negocios de la
-     * plataforma. Con dos es cómodo; el día que sean mil, la primera pantalla
-     * que abre quien administra es la que peor va.
-     *
-     * Y enseñaba `plan_code` en crudo —`negocio`, `inicial`—. Un identificador
-     * en minúsculas y en inglés en una pantalla que mira una persona es lo
-     * mismo que no haberlo traducido.
+     * It had no cap at all: every tenant on the platform was downloaded. And it
+     * showed `plan_code` raw — a lowercase identifier on a screen a person
+     * reads is the same as not translating it.
      */
-    entrarComoAdmin($this->admin);
+    loginAsPlatformAdmin($this->admin);
 
-    makeTenant('paginado-'.Str::lower(Str::random(6)), plan: 'negocio');
+    makeTenant('paginado-'.Str::lower(Str::random(6)), plan: 'business');
 
-    $lista = comoPlataforma('GET', '/api/v1/platform/tenants')->assertOk();
+    $list = asPlatform('GET', '/api/v1/platform/tenants')->assertOk();
 
-    expect($lista->json('meta.page'))->toBe(1)
-        ->and($lista->json('meta.total'))->toBeGreaterThan(0)
-        ->and($lista->json('meta.lastPage'))->toBeGreaterThan(0);
+    expect($list->json('meta.page'))->toBe(1)
+        ->and($list->json('meta.total'))->toBeGreaterThan(0)
+        ->and($list->json('meta.lastPage'))->toBeGreaterThan(0);
 
-    $planes = array_column($lista->json('data'), 'planName');
+    $plans = array_column($list->json('data'), 'planName');
 
-    expect($planes)->not->toContain('negocio')->toContain('Negocio');
+    expect($plans)->not->toContain('business')->toContain('Negocio');
 });
 
-it('el alta es TODO o NADA', function (): void {
-    entrarComoAdmin($this->admin);
+it('sign-up is ALL or NOTHING', function (): void {
+    loginAsPlatformAdmin($this->admin);
 
     $slug = 'repetido-'.Str::lower(Str::random(6));
 
-    comoPlataforma('POST', '/api/v1/platform/tenants', [
-        'name' => 'Primero', 'slug' => $slug, 'plan_code' => 'negocio',
+    asPlatform('POST', '/api/v1/platform/tenants', [
+        'name' => 'Primero', 'slug' => $slug, 'plan_code' => 'business',
         'owner_name' => 'A', 'owner_email' => 'a@x.test', 'owner_password' => 'clave-larga-123',
     ])->assertCreated();
 
-    // El mismo slug otra vez: se rechaza entero, sin dejar medio negocio.
-    comoPlataforma('POST', '/api/v1/platform/tenants', [
-        'name' => 'Segundo', 'slug' => $slug, 'plan_code' => 'negocio',
+    // The same slug again: rejected whole, leaving no half tenant.
+    asPlatform('POST', '/api/v1/platform/tenants', [
+        'name' => 'Segundo', 'slug' => $slug, 'plan_code' => 'business',
         'owner_name' => 'B', 'owner_email' => 'b@x.test', 'owner_password' => 'clave-larga-123',
     ])->assertStatus(422)->assertJsonValidationErrors('slug');
 
     expect(DB::table('tenants')->where('slug', $slug)->count())->toBe(1);
 });
 
-it('«admin» y compañía están reservados', function (): void {
-    // Que un cliente se llame `admin` no sería un error bonito de descubrir.
-    entrarComoAdmin($this->admin);
+it('"admin" and company are reserved', function (): void {
+    // A customer calling themselves `admin` would not be a pretty discovery.
+    loginAsPlatformAdmin($this->admin);
 
-    comoPlataforma('POST', '/api/v1/platform/tenants', [
-        'name' => 'Intruso', 'slug' => 'admin', 'plan_code' => 'negocio',
+    asPlatform('POST', '/api/v1/platform/tenants', [
+        'name' => 'Intruso', 'slug' => 'admin', 'plan_code' => 'business',
         'owner_name' => 'A', 'owner_email' => 'a@x.test', 'owner_password' => 'clave-larga-123',
     ])->assertStatus(422)->assertJsonValidationErrors('slug');
 });
 
-it('registrar un pago extiende el período y REACTIVA', function (): void {
-    entrarComoAdmin($this->admin);
+it('recording a payment extends the period and REACTIVATES', function (): void {
+    loginAsPlatformAdmin($this->admin);
 
     $tenantId = makeTenant('paga-'.Str::lower(Str::random(6)));
-    $subscription = app(Subscriptions::class)->start($tenantId, 'negocio');
+    $subscription = app(Subscriptions::class)->start($tenantId, 'business');
 
-    // Se venció y lo suspendieron.
+    // Expired and suspended.
     $subscription->update(['current_period_end' => now()->subDays(10), 'status' => 'suspended']);
     app(Subscriptions::class)->setTenantStatus($tenantId, TenantStatus::Suspended);
 
-    comoPlataforma('POST', "/api/v1/platform/tenants/{$tenantId}/payments", [
+    asPlatform('POST', "/api/v1/platform/tenants/{$tenantId}/payments", [
         'amount_cents' => 2500,
         'method' => 'pago_movil',
         'months' => 1,
@@ -197,43 +193,43 @@ it('registrar un pago extiende el período y REACTIVA', function (): void {
 
     expect($subscription->current_period_end->isFuture())->toBeTrue()
         ->and($subscription->status)->toBe('active')
-        // Pagar reactiva. Dejarlo para un segundo paso manual es cómo un
-        // cliente al día sigue sin poder trabajar el lunes por la mañana.
+        // Paying reactivates. Leaving it to a manual second step is how an
+        // up-to-date customer still cannot work on Monday morning.
         ->and(DB::table('tenants')->where('id', $tenantId)->value('status'))->toBe('active');
 });
 
-it('quien paga adelantado NO pierde los días que le quedaban', function (): void {
+it('whoever pays early does NOT lose the days they had left', function (): void {
     $tenantId = makeTenant('adelanta-'.Str::lower(Str::random(6)));
-    $subscription = app(Subscriptions::class)->start($tenantId, 'negocio');
+    $subscription = app(Subscriptions::class)->start($tenantId, 'business');
 
-    $vencia = now()->addDays(10);
-    $subscription->update(['current_period_end' => $vencia]);
+    $expiredAt = now()->addDays(10);
+    $subscription->update(['current_period_end' => $expiredAt]);
 
     app(Subscriptions::class)->registerPayment($subscription, 2500, 'pago_movil', months: 1);
 
-    // Un mes desde su vencimiento, no desde hoy.
+    // A month from their expiry, not from today.
     expect($subscription->refresh()->current_period_end->toDateString())
-        ->toBe($vencia->copy()->addMonth()->toDateString());
+        ->toBe($expiredAt->copy()->addMonth()->toDateString());
 });
 
-it('quien paga con retraso no compra días que ya vivió', function (): void {
+it('whoever pays late does not buy days they already lived', function (): void {
     $tenantId = makeTenant('atrasa-'.Str::lower(Str::random(6)));
-    $subscription = app(Subscriptions::class)->start($tenantId, 'negocio');
+    $subscription = app(Subscriptions::class)->start($tenantId, 'business');
 
     $subscription->update(['current_period_end' => now()->subDays(20)]);
 
     app(Subscriptions::class)->registerPayment($subscription, 2500, 'pago_movil', months: 1);
 
-    // Un mes desde HOY.
+    // A month from TODAY.
     expect($subscription->refresh()->current_period_end->toDateString())
         ->toBe(now()->addMonth()->toDateString());
 });
 
-it('el trabajo diario marca vencido, y suspende al agotarse la gracia', function (): void {
+it('the daily job marks overdue, and suspends once grace runs out', function (): void {
     $tenantId = makeTenant('vence-'.Str::lower(Str::random(6)));
-    $subscription = app(Subscriptions::class)->start($tenantId, 'negocio');
+    $subscription = app(Subscriptions::class)->start($tenantId, 'business');
 
-    // Vencido ayer, con cinco días de gracia: todavía no se suspende.
+    // Expired yesterday with five days of grace: not suspended yet.
     $subscription->update(['current_period_end' => now()->subDay(), 'grace_days' => 5]);
 
     app(Subscriptions::class)->sweep();
@@ -241,7 +237,7 @@ it('el trabajo diario marca vencido, y suspende al agotarse la gracia', function
     expect($subscription->refresh()->status)->toBe('past_due')
         ->and(DB::table('tenants')->where('id', $tenantId)->value('status'))->toBe('past_due');
 
-    // Pasada la gracia, sí.
+    // Past the grace period, yes.
     $subscription->update(['current_period_end' => now()->subDays(10)]);
 
     app(Subscriptions::class)->sweep();
@@ -250,100 +246,99 @@ it('el trabajo diario marca vencido, y suspende al agotarse la gracia', function
         ->and(DB::table('tenants')->where('id', $tenantId)->value('status'))->toBe('suspended');
 });
 
-it('pasar la escoba dos veces no adelanta ninguna suspensión', function (): void {
-    // Idempotente: correrlo dos veces el mismo día tiene que dar igual.
+it('sweeping twice brings no suspension forward', function (): void {
+    // Idempotent: running it twice in a day has to make no difference.
     $tenantId = makeTenant('escoba-'.Str::lower(Str::random(6)));
-    $subscription = app(Subscriptions::class)->start($tenantId, 'negocio');
+    $subscription = app(Subscriptions::class)->start($tenantId, 'business');
     $subscription->update(['current_period_end' => now()->subDay(), 'grace_days' => 5]);
 
-    $primera = app(Subscriptions::class)->sweep();
-    $segunda = app(Subscriptions::class)->sweep();
+    $first = app(Subscriptions::class)->sweep();
+    $second = app(Subscriptions::class)->sweep();
 
-    expect($primera['past_due'])->toBe(1)
-        ->and($segunda['past_due'])->toBe(0)
+    expect($first['past_due'])->toBe(1)
+        ->and($second['past_due'])->toBe(0)
         ->and($subscription->refresh()->status)->toBe('past_due');
 });
 
-it('un negocio suspendido LEE y EXPORTA, pero no escribe', function (): void {
+it('a suspended tenant READS and EXPORTS, but does not write', function (): void {
     /*
-     * Las dos mitades importan. Borrarle el acceso a sus propios datos a quien
-     * confió en el sistema no es una palanca de cobro aceptable: sus pedidos y
-     * su carta siguen siendo suyos aunque nos deba tres meses. Lo que se corta
-     * es seguir operando gratis.
+     * Both halves matter. Cutting somebody off from their own data is not an
+     * acceptable collection tactic: their orders and menu are still theirs even
+     * owing us three months. What is cut off is carrying on for free.
      */
-    $sufijo = Str::lower(Str::random(6));
-    $slug = "suspendido-{$sufijo}";
-    $tenantId = makeTenant($slug, plan: 'negocio');
+    $suffix = Str::lower(Str::random(6));
+    $slug = "suspendido-{$suffix}";
+    $tenantId = makeTenant($slug, plan: 'business');
 
     actingForTenant($tenantId);
-    foreach (['core', 'catalog', 'orders'] as $modulo) {
-        enableModule($tenantId, $modulo);
+    foreach (['core', 'catalog', 'orders'] as $module) {
+        enableModule($tenantId, $module);
     }
 
     $maria = makeUser($tenantId, 'maria@ejemplo.com', 'María');
     giveRole($tenantId, $maria, 'owner');
 
-    app(Subscriptions::class)->start($tenantId, 'negocio');
+    app(Subscriptions::class)->start($tenantId, 'business');
     app(Subscriptions::class)->setTenantStatus($tenantId, TenantStatus::Suspended);
 
-    entrarComo($slug, 'maria@ejemplo.com');
+    loginAs($slug, 'maria@ejemplo.com');
 
-    // Leer, sí.
+    // Reading, yes.
     test()->withHeaders(browsingAs($slug))
         ->getJson(urlFor($slug, '/api/v1/catalog/products'))
         ->assertOk();
 
-    // Escribir, no. Y con 402, no 403: 403 diría «no tienes permiso», que es
-    // mentira y manda al dueño a revisar los roles de su equipo.
+    // Writing, no. And with 402, not 403: a 403 would say "you lack permission",
+    // which is untrue and sends the owner to check their team's roles.
     test()->withHeaders(browsingAs($slug))
         ->postJson(urlFor($slug, '/api/v1/catalog/products'), ['name' => 'Algo', 'price_cents' => 100])
         ->assertStatus(402)
         ->assertJsonPath('tenantStatus', 'suspended');
 });
 
-it('la suspensión se aplica en TODAS las puertas, no en las que alguien recordó', function (): void {
-    // Es exactamente donde falló el proyecto anterior: la comprobación estaba
-    // en 2 de unos 20 controladores.
-    $sufijo = Str::lower(Str::random(6));
-    $slug = "todas-{$sufijo}";
-    $tenantId = makeTenant($slug, plan: 'negocio');
+it('suspension applies at EVERY door, not the ones somebody remembered', function (): void {
+    // Exactly where the previous project failed: the check was in 2 of some 20
+    // controllers.
+    $suffix = Str::lower(Str::random(6));
+    $slug = "todas-{$suffix}";
+    $tenantId = makeTenant($slug, plan: 'business');
 
     actingForTenant($tenantId);
-    foreach (['core', 'catalog', 'orders', 'kitchen', 'portal'] as $modulo) {
-        enableModule($tenantId, $modulo);
+    foreach (['core', 'catalog', 'orders', 'kitchen', 'portal'] as $module) {
+        enableModule($tenantId, $module);
     }
 
     $maria = makeUser($tenantId, 'maria@ejemplo.com', 'María');
     giveRole($tenantId, $maria, 'owner');
 
-    app(Subscriptions::class)->start($tenantId, 'negocio');
+    app(Subscriptions::class)->start($tenantId, 'business');
     app(Subscriptions::class)->setTenantStatus($tenantId, TenantStatus::Suspended);
 
-    entrarComo($slug, 'maria@ejemplo.com');
+    loginAs($slug, 'maria@ejemplo.com');
 
     foreach ([
         '/api/v1/orders',
         '/api/v1/catalog/categories',
         '/api/v1/exchange-rate',
-    ] as $ruta) {
+    ] as $path) {
         test()->withHeaders(browsingAs($slug))
-            ->postJson(urlFor($slug, $ruta), [])
-            ->assertStatus(402, "La puerta {$ruta} deja escribir a un negocio suspendido");
+            ->postJson(urlFor($slug, $path), [])
+            ->assertStatus(402, "La puerta {$path} deja escribir a un negocio suspendido");
     }
 
-    // Y el portal público tampoco toma pedidos: un negocio suspendido no puede
-    // seguir vendiendo.
+    // And the public portal takes no orders either: a suspended tenant cannot
+    // carry on selling.
     test()->withHeaders(['Accept' => 'application/json'])
         ->postJson(urlFor($slug, '/api/v1/portal/orders'), [])
         ->assertStatus(402);
 });
 
-it('salir funciona aunque esté suspendido', function (): void {
-    // Dejar a alguien encerrado en una sesión que no puede cerrar es de mal
-    // gusto, y además es una petición POST.
-    $sufijo = Str::lower(Str::random(6));
-    $slug = "salir-{$sufijo}";
-    $tenantId = makeTenant($slug, plan: 'negocio');
+it('signing out works even while suspended', function (): void {
+    // Leaving somebody locked in a session they cannot close is bad manners, and
+    // it is a POST anyway.
+    $suffix = Str::lower(Str::random(6));
+    $slug = "salir-{$suffix}";
+    $tenantId = makeTenant($slug, plan: 'business');
 
     actingForTenant($tenantId);
     enableModule($tenantId, 'core');
@@ -351,9 +346,9 @@ it('salir funciona aunque esté suspendido', function (): void {
     $maria = makeUser($tenantId, 'maria@ejemplo.com', 'María');
     giveRole($tenantId, $maria, 'owner');
 
-    app(Subscriptions::class)->start($tenantId, 'negocio');
+    app(Subscriptions::class)->start($tenantId, 'business');
 
-    entrarComo($slug, 'maria@ejemplo.com');
+    loginAs($slug, 'maria@ejemplo.com');
 
     app(Subscriptions::class)->setTenantStatus($tenantId, TenantStatus::Suspended);
 
@@ -362,161 +357,160 @@ it('salir funciona aunque esté suspendido', function (): void {
         ->assertOk();
 });
 
-it('la ficha de un negocio dice su uso contra los techos del plan', function (): void {
-    entrarComoAdmin($this->admin);
+it('a tenant\'s record shows its usage against the plan ceilings', function (): void {
+    loginAsPlatformAdmin($this->admin);
 
-    $tenantId = makeTenant('uso-'.Str::lower(Str::random(6)), plan: 'inicial');
-    app(Subscriptions::class)->start($tenantId, 'inicial');
+    $tenantId = makeTenant('uso-'.Str::lower(Str::random(6)), plan: 'starter');
+    app(Subscriptions::class)->start($tenantId, 'starter');
 
     actingForTenant($tenantId);
     enableModule($tenantId, 'catalog');
     makeUser($tenantId, 'alguien@ejemplo.com', 'Alguien');
 
-    $respuesta = comoPlataforma('GET', "/api/v1/platform/tenants/{$tenantId}")->assertOk();
+    $response = asPlatform('GET', "/api/v1/platform/tenants/{$tenantId}")->assertOk();
 
-    expect($respuesta->json('data.usage.users.used'))->toBe(1)
-        // El plan inicial admite 2 usuarios.
-        ->and($respuesta->json('data.usage.users.max'))->toBe(2)
-        ->and($respuesta->json('data.subscription.currentPeriodEnd'))->not->toBeNull();
+    expect($response->json('data.usage.users.used'))->toBe(1)
+        // The starter plan allows 2 users.
+        ->and($response->json('data.usage.users.max'))->toBe(2)
+        ->and($response->json('data.subscription.currentPeriodEnd'))->not->toBeNull();
 });
 
-it('el modo soporte MIRA y queda escrito', function (): void {
-    entrarComoAdmin($this->admin);
+it('support mode LOOKS and is written down', function (): void {
+    loginAsPlatformAdmin($this->admin);
 
-    $tenantId = makeTenant('soporte-'.Str::lower(Str::random(6)), plan: 'negocio');
+    $tenantId = makeTenant('soporte-'.Str::lower(Str::random(6)), plan: 'business');
 
     actingForTenant($tenantId);
     enableModule($tenantId, 'catalog');
     ProductModel::create(['name' => 'Reina Pepiada', 'price_cents' => 300]);
 
-    comoPlataforma('GET', "/api/v1/platform/tenants/{$tenantId}/support")
+    asPlatform('GET', "/api/v1/platform/tenants/{$tenantId}/support")
         ->assertOk()
         ->assertJsonPath('data.products', 1);
 
-    // Entrar en casa de un cliente sin que quede rastro es lo que no se hace.
-    // Y esta bitácora se le puede enseñar a él.
-    $registro = DB::table('platform_audit_log')
+    // Walking into a customer's house leaving no trace is the thing you do not
+    // do. And this log can be shown to them.
+    $registry = DB::table('platform_audit_log')
         ->where('tenant_id', $tenantId)
         ->where('action', 'support_access')
         ->first();
 
-    expect($registro)->not->toBeNull()
-        ->and($registro->platform_user_name)->toBe('Administración');
+    expect($registry)->not->toBeNull()
+        ->and($registry->platform_user_name)->toBe('Administración');
 });
 
-it('cambiar el plan no le apaga módulos a quien ya los usa', function (): void {
-    // Apagarle la caja a un cliente en mitad del almuerzo porque alguien editó
-    // un plan sería el peor efecto secundario posible.
-    entrarComoAdmin($this->admin);
+it('changing the plan does not switch modules off for whoever already uses them', function (): void {
+    // Taking a customer's till away mid-lunch because somebody edited a plan
+    // would be the worst possible side effect.
+    loginAsPlatformAdmin($this->admin);
 
-    $tenantId = makeTenant('plan-'.Str::lower(Str::random(6)), plan: 'negocio');
-    app(Subscriptions::class)->start($tenantId, 'negocio');
+    $tenantId = makeTenant('plan-'.Str::lower(Str::random(6)), plan: 'business');
+    app(Subscriptions::class)->start($tenantId, 'business');
 
     actingForTenant($tenantId);
     enableModule($tenantId, 'counter');
 
-    comoPlataforma('POST', "/api/v1/platform/tenants/{$tenantId}/plan", ['plan_code' => 'inicial'])
+    asPlatform('POST', "/api/v1/platform/tenants/{$tenantId}/plan", ['plan_code' => 'starter'])
         ->assertOk();
 
     actingForTenant($tenantId);
 
-    expect(DB::table('tenants')->where('id', $tenantId)->value('plan_code'))->toBe('inicial')
+    expect(DB::table('tenants')->where('id', $tenantId)->value('plan_code'))->toBe('starter')
         ->and(DB::table('tenant_modules')->where('module_code', 'counter')->where('enabled', true)->exists())
         ->toBeTrue();
 });
 
-it('las métricas cuentan lo que hay', function (): void {
-    entrarComoAdmin($this->admin);
+it('the metrics count what is there', function (): void {
+    loginAsPlatformAdmin($this->admin);
 
-    $tenantId = makeTenant('metrica-'.Str::lower(Str::random(6)), plan: 'negocio');
-    app(Subscriptions::class)->start($tenantId, 'negocio');
+    $tenantId = makeTenant('metrica-'.Str::lower(Str::random(6)), plan: 'business');
+    app(Subscriptions::class)->start($tenantId, 'business');
 
-    $respuesta = comoPlataforma('GET', '/api/v1/platform/metrics')->assertOk();
+    $response = asPlatform('GET', '/api/v1/platform/metrics')->assertOk();
 
-    expect($respuesta->json('data.tenants.active'))->toBeGreaterThan(0)
-        ->and($respuesta->json('data.mrrCents'))->toBeGreaterThanOrEqual(0)
-        ->and($respuesta->json('data.ordersThisMonth'))->toBeGreaterThanOrEqual(0);
+    expect($response->json('data.tenants.active'))->toBeGreaterThan(0)
+        ->and($response->json('data.mrrCents'))->toBeGreaterThanOrEqual(0)
+        ->and($response->json('data.ordersThisMonth'))->toBeGreaterThanOrEqual(0);
 });
 
-it('el alta queda en la bitácora de la plataforma', function (): void {
-    entrarComoAdmin($this->admin);
+it('sign-up lands in the platform audit log', function (): void {
+    loginAsPlatformAdmin($this->admin);
 
     $slug = 'bitacora-'.Str::lower(Str::random(6));
 
-    $tenantId = comoPlataforma('POST', '/api/v1/platform/tenants', [
-        'name' => 'Con bitácora', 'slug' => $slug, 'plan_code' => 'negocio',
+    $tenantId = asPlatform('POST', '/api/v1/platform/tenants', [
+        'name' => 'Con bitácora', 'slug' => $slug, 'plan_code' => 'business',
         'owner_name' => 'A', 'owner_email' => "a-{$slug}@x.test", 'owner_password' => 'clave-larga-123',
     ])->json('data.tenant_id');
 
-    $registro = DB::table('platform_audit_log')->where('tenant_id', $tenantId)->first();
+    $registry = DB::table('platform_audit_log')->where('tenant_id', $tenantId)->first();
 
-    expect($registro?->action)->toBe('tenant.created')
-        // El NOMBRE además del identificador: el día que ese administrador deje
-        // la empresa, el registro tiene que seguir diciendo quién fue.
-        ->and($registro?->platform_user_name)->toBe('Administración');
+    expect($registry?->action)->toBe('tenant.created')
+        // The NAME as well as the id: the day that administrator leaves, the record
+        // still has to say who it was.
+        ->and($registry?->platform_user_name)->toBe('Administración');
 });
 
-it('el alta con el mismo correo del dueño en otro negocio SÍ vale', function (): void {
-    // Es la mitad del sentido de ser multi-negocio: la misma persona puede
-    // tener dos locales, y entra a cada uno por su subdominio.
-    entrarComoAdmin($this->admin);
+it('signing up with an owner email already used in another tenant IS allowed', function (): void {
+    // Half the point of being multi-tenant: the same person can run two shops,
+    // entering each through its own subdomain.
+    loginAsPlatformAdmin($this->admin);
 
-    $correo = 'misma-'.Str::lower(Str::random(6)).'@duena.test';
-    $negocios = [];
+    $email = 'misma-'.Str::lower(Str::random(6)).'@duena.test';
+    $tenants = [];
 
-    foreach (['uno', 'dos'] as $cual) {
-        $negocios[] = comoPlataforma('POST', '/api/v1/platform/tenants', [
-            'name' => "Local {$cual}",
-            'slug' => "local-{$cual}-".Str::lower(Str::random(6)),
-            'plan_code' => 'negocio',
+    foreach (['uno', 'dos'] as $which) {
+        $tenants[] = asPlatform('POST', '/api/v1/platform/tenants', [
+            'name' => "Local {$which}",
+            'slug' => "local-{$which}-".Str::lower(Str::random(6)),
+            'plan_code' => 'business',
             'owner_name' => 'Dueña',
-            'owner_email' => $correo,
+            'owner_email' => $email,
             'owner_password' => 'clave-larga-123',
         ])->assertCreated()->json('data');
     }
 
     /*
-     * Se comprueba ENTRANDO en cada negocio, uno por uno.
+     * Checked by ENTERING each tenant, one at a time.
      *
-     * Contar `users` desde fuera daría cero, y estaría bien: la tabla lleva
-     * RLS, así que sin negocio en contexto no hay ninguna fila. Esa es la
-     * garantía, no un estorbo — y una prueba que la esquivara con SQL de
-     * superusuario dejaría de comprobar lo que dice comprobar.
+     * Counting `users` from outside would give zero, and rightly: the table is
+     * under RLS. That is the guarantee, not an obstacle — and a test that
+     * sidestepped it with superuser SQL would stop checking what it claims to.
      */
-    foreach ($negocios as $negocio) {
-        actingForTenant($negocio['tenant_id']);
+    foreach ($tenants as $tenant) {
+        actingForTenant($tenant['tenant_id']);
 
-        expect(DB::table('users')->where('email', $correo)->count())->toBe(1);
+        expect(DB::table('users')->where('email', $email)->count())->toBe(1);
 
-        // Y entra de verdad, cada una a la suya.
-        entrarComo($negocio['slug'], $correo, 'clave-larga-123');
+        // And each really signs into her own.
+        loginAs($tenant['slug'], $email, 'clave-larga-123');
     }
 });
 
-it('se avisa antes de cortar, y sólo una vez por vencimiento', function (): void {
+it('a warning goes out before cutting off, and only once per expiry', function (): void {
     /*
-     * Cortarle a alguien sin haberle avisado es la forma más rápida de perder
-     * un cliente que sí iba a pagar. Y avisar todos los días es cómo se
-     * consigue que dejen de leerse los avisos.
+     * Cutting somebody off without warning is the fastest way to lose a
+     * customer who was going to pay. And warning every day is how warnings stop
+     * being read.
      */
     $tenantId = makeTenant('avisa-'.Str::lower(Str::random(6)));
-    $subscription = app(Subscriptions::class)->start($tenantId, 'negocio');
+    $subscription = app(Subscriptions::class)->start($tenantId, 'business');
 
     $subscription->update(['current_period_end' => now()->addDays(7)->setTime(12, 0)]);
 
-    $primera = app(Subscriptions::class)->dueForWarning();
+    $first = app(Subscriptions::class)->dueForWarning();
 
-    expect(collect($primera)->pluck('tenant_id'))->toContain($tenantId);
+    expect(collect($first)->pluck('tenant_id'))->toContain($tenantId);
 
-    // La segunda pasada del mismo día no vuelve a avisar.
-    $segunda = app(Subscriptions::class)->dueForWarning();
+    // The second pass of the same day does not warn again.
+    $second = app(Subscriptions::class)->dueForWarning();
 
-    expect(collect($segunda)->pluck('tenant_id'))->not->toContain($tenantId);
+    expect(collect($second)->pluck('tenant_id'))->not->toContain($tenantId);
 });
 
-it('a quien le quedan diez días todavía no se le avisa', function (): void {
+it('somebody with ten days left is not warned yet', function (): void {
     $tenantId = makeTenant('lejos-'.Str::lower(Str::random(6)));
-    $subscription = app(Subscriptions::class)->start($tenantId, 'negocio');
+    $subscription = app(Subscriptions::class)->start($tenantId, 'business');
 
     $subscription->update(['current_period_end' => now()->addDays(10)]);
 
@@ -524,15 +518,14 @@ it('a quien le quedan diez días todavía no se le avisa', function (): void {
         ->not->toContain($tenantId);
 });
 
-it('dos clientes detrás del proxy no comparten el cubo de intentos', function (): void {
+it('two customers behind the proxy do not share an attempt bucket', function (): void {
     /*
-     * El fallo que esto fija: detrás de Cloudflare, sin confiar en el proxy,
-     * Laravel ve la IP del proxy en TODAS las peticiones. Los limitadores
-     * cuentan por IP, así que el primer cliente que se equivoque de contraseña
-     * deja fuera a los demás — una denegación de servicio hecha por accidente,
-     * entre clientes que no se conocen.
+     * The failure this pins: behind Cloudflare without trusting the proxy,
+     * Laravel sees the proxy's IP on every request. Limiters count per IP, so
+     * the first customer to mistype a password locks everyone else out — a
+     * denial of service by accident, between customers who have never met.
      */
-    $intentar = fn (string $ip): TestResponse => test()->withHeaders([
+    $attempt = fn (string $ip): TestResponse => test()->withHeaders([
         'Accept' => 'application/json',
         'X-Forwarded-For' => $ip,
     ])->postJson(ADMIN_HOST.'/api/v1/platform/auth/login', [
@@ -540,13 +533,13 @@ it('dos clientes detrás del proxy no comparten el cubo de intentos', function (
         'password' => 'la-que-no-es',
     ]);
 
-    // Cinco fallos desde una IP la dejan fuera.
-    foreach (range(1, 5) as $intento) {
-        $intentar('203.0.113.10')->assertStatus(422);
+    // Five failures from one IP lock it out.
+    foreach (range(1, 5) as $attemptNo) {
+        $attempt('203.0.113.10')->assertStatus(422);
     }
 
-    expect($intentar('203.0.113.10')->json('errors.email.0'))->toContain('Demasiados intentos');
+    expect($attempt('203.0.113.10')->json('errors.email.0'))->toContain('Demasiados intentos');
 
-    // Y otro cliente, desde otra IP, entra sin problema.
-    expect($intentar('198.51.100.20')->json('errors.email.0'))->toContain('no entran');
+    // And another customer, from another IP, signs in fine.
+    expect($attempt('198.51.100.20')->json('errors.email.0'))->toContain('no entran');
 });

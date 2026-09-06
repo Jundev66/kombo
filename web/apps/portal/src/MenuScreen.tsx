@@ -7,14 +7,14 @@ import { ProductSheet } from './ProductSheet'
 import { ShopHeader } from './ShopHeader'
 
 /**
- * La carta, en el teléfono de alguien que tiene hambre.
+ * The menu, on the phone of somebody who is hungry.
  *
- * **Foto grande y precio grande.** No es decoración: en comida se elige con los
- * ojos, y una lista de nombres en gris vende bastante menos que la foto de la
+ * Big photo and big price. Not decoration: with food people choose with their
+ * eyes, and a list of grey names sells considerably less than a photo of the
  * arepa.
  *
- * Y una sola acción abajo, fija, siempre en el mismo sitio: ver el pedido. El
- * pulgar la alcanza sin mirar.
+ * And one action at the bottom, fixed, always in the same place: see the order.
+ * The thumb reaches it without looking.
  */
 export function MenuScreen({ shop, menu, cart }: { shop: Shop; menu: Menu; cart: Cart }) {
   const [category, setCategory] = useState<string | null>(null)
@@ -38,8 +38,8 @@ export function MenuScreen({ shop, menu, cart }: { shop: Shop; menu: Menu; cart:
             {shop.isOpen ? (
               <span className="font-medium text-ok-700">Abierto ahora</span>
             ) : (
-              // Se dice arriba del todo, antes de que arme el pedido. No al
-              // final, cuando ya eligió tres cosas.
+              // Said at the very top, before they build an order. Not at the end, once
+              // they have already chosen three things.
               <span className="font-medium text-bad-500">Cerrado ahora mismo</span>
             )}
             {shop.exchangeRate != null && (
@@ -69,11 +69,11 @@ export function MenuScreen({ shop, menu, cart }: { shop: Shop; menu: Menu; cart:
       </ShopHeader>
 
       {/*
-       * De aquí abajo, con tope de ancho y centrado.
+       * From here down, capped and centred.
        *
-       * Sin él, en un portátil cada producto era una franja de metro y medio
-       * con dos palabras en la esquina: la maqueta del teléfono estirada, que
-       * es la otra forma de no ser responsive.
+       * Without it, on a laptop each product was a metre-and-a-half band with
+       * two words in the corner: the phone layout stretched, which is the other
+       * way of not being responsive.
        */}
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
       {menu.categories.length > 0 && (
@@ -91,12 +91,11 @@ export function MenuScreen({ shop, menu, cart }: { shop: Shop; menu: Menu; cart:
       )}
 
       {/*
-       * En rejilla y con la foto ARRIBA a partir de tablet.
+       * A grid, with the photo ON TOP from tablet up.
        *
-       * En comida se elige con los ojos: es el principio número uno del sistema
-       * visual, y en el teléfono ya se cumplía con la miniatura al lado. En una
-       * pantalla ancha hay sitio para que la foto sea la protagonista de
-       * verdad, que es como se ve cualquier carta.
+       * With food people choose with their eyes — principle number one of the
+       * visual system. On the phone the thumbnail alongside already satisfies
+       * it; on a wide screen there is room for the photo to really lead.
        */}
       <ul className="grid grid-cols-1 gap-3 pb-4 sm:grid-cols-2 lg:grid-cols-3">
         {visible.map((product) => (
@@ -107,13 +106,13 @@ export function MenuScreen({ shop, menu, cart }: { shop: Shop; menu: Menu; cart:
               className="flex h-full w-full items-center gap-3 rounded-[var(--radius-lg)] bg-[var(--surface-raised)] p-3 text-left shadow-[var(--shadow-card)] active:bg-[var(--surface-sunken)] sm:flex-col sm:items-stretch"
             >
               {/*
-               * Sin foto va un hueco del mismo tamaño, no nada.
+               * With no photo there is a placeholder of the same size, not
+               * nothing.
                *
-               * En rejilla, una tarjeta sin foto al lado de una con foto se
-               * estira para igualar la altura y deja un cajón blanco con dos
-               * líneas arriba — parece rota. El hueco gris es el mismo recurso
-               * que ya usa la carta del panel, y de paso deja claro que a ese
-               * producto le falta la foto: es lo que más vende.
+               * In a grid, a card without a photo next to one with a photo
+               * stretches to match the height and leaves a white box with two
+               * lines at the top — it looks broken. The grey placeholder also
+               * makes clear that product is missing the photo.
                */}
               {product.photoUrl != null ? (
                 <img
@@ -159,9 +158,8 @@ export function MenuScreen({ shop, menu, cart }: { shop: Shop; menu: Menu; cart:
       )}
       </div>
 
-      {/* La barra del pedido: aparece sólo cuando hay algo, fija abajo, con el
-          total siempre visible. Que el cliente sepa cuánto lleva sin tener que
-          entrar a mirar. */}
+      {/* The order bar: it appears only when there is something, fixed at the
+          bottom, with the total always visible. */}
       {cart.count > 0 && (
         <div className="fixed inset-x-0 bottom-0 border-t border-[var(--surface-border)] bg-[var(--surface-raised)] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <Link to="/carrito" className="mx-auto block max-w-lg">

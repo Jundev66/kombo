@@ -8,13 +8,11 @@ use Modules\Kitchen\Domain\ValueObjects\TicketStatus;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 /**
- * Esa comanda no puede pasar de ahí a allá.
+ * That ticket cannot go from here to there.
  *
- * **409, no 422**: los datos están bien formados, lo que pasa es que la
- * comanda ya no está donde la pantalla creía. Casi siempre porque el otro
- * cocinero la movió mientras tanto.
- *
- * Por eso el mensaje dice que recargue el tablero, no que corrija algo.
+ * 409, not 422: the data is well formed, the ticket is simply no longer where
+ * the screen thought — usually because the other cook moved it. Hence the
+ * message says to reload the board, not to correct something.
  */
 final class InvalidKitchenTransition extends ConflictHttpException
 {

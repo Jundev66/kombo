@@ -5,15 +5,13 @@ declare(strict_types=1);
 namespace Platform\Audit;
 
 /**
- * Quién hizo algo, cuando no coincide con quién autenticó la petición.
+ * Who did something, when that is not who authenticated the request.
  *
- * Pasa constantemente en el local: la caja está autenticada con el token del
- * DISPOSITIVO, pero quien acaba de cobrar es Ana, que puso su PIN. La bitácora
- * tiene que decir «Ana», no «tablet del mostrador».
+ * It happens constantly: the till is authenticated with the DEVICE token, but
+ * whoever took payment is Ana, who entered her PIN. The log has to say "Ana".
  *
- * Es un tipo propio y no dos argumentos sueltos porque el identificador y el
- * nombre no tienen sentido por separado: uno sin el otro da una bitácora que o
- * no se puede leer, o no se puede rastrear.
+ * A type rather than two loose arguments: an id without a name cannot be read,
+ * and a name without an id cannot be traced.
  */
 final readonly class Actor
 {

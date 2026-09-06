@@ -15,11 +15,11 @@ use Illuminate\Validation\ValidationException;
 use Platform\Subscription\PlatformAudit;
 
 /**
- * La puerta de la super administración.
+ * The platform administration door.
  *
- * Guard aparte del de los negocios: estar dentro de un negocio no deja entrar
- * aquí, ni al revés. Y **sólo responde en `admin.dominio`** — la ruta ni
- * siquiera existe en el subdominio de un cliente.
+ * A separate guard from the tenants': being inside a tenant does not get you in
+ * here, or the other way round. And it only answers on `admin.domain` — the
+ * route does not exist on a customer's subdomain.
  */
 final class PlatformAuthController
 {
@@ -33,15 +33,13 @@ final class PlatformAuthController
         ]);
 
         /*
-         * Freno por correo Y por origen.
-         *
-         * Esta puerta abre la facturación de todos los clientes: cinco intentos
-         * es de sobra para alguien que sabe su contraseña, y muy poco para
-         * quien las está probando.
+         * Throttled by email AND by origin. This door opens every customer's
+         * billing: five attempts is plenty for someone who knows their
+         * password, and very few for someone trying them.
          */
-        $clave = 'platform-login:'.Str::lower($data['email']).'|'.$request->ip();
+        $password = 'platform-login:'.Str::lower($data['email']).'|'.$request->ip();
 
-        if (RateLimiter::tooManyAttempts($clave, 5)) {
+        if (RateLimiter::tooManyAttempts($password, 5)) {
             throw ValidationException::withMessages([
                 'email' => 'Demasiados intentos. Espera un momento.',
             ]);
@@ -50,24 +48,22 @@ final class PlatformAuthController
         $user = PlatformUser::where('email', $data['email'])->first();
 
         /*
-         * El hash se compara AUNQUE el usuario no exista.
-         *
-         * Si no, la respuesta tarda distinto según el correo exista o no, y esa
-         * diferencia de milisegundos es suficiente para averiguar quiénes somos.
+         * The hash is compared even when the user does not exist, or response
+         * time would reveal which addresses are registered.
          */
         $ok = Hash::check($data['password'], $user?->password ?? '$2y$12$'.str_repeat('x', 53));
 
         if ($user === null || ! $ok || ! $user->is_active) {
-            RateLimiter::hit($clave, 300);
+            RateLimiter::hit($password, 300);
 
-            // Un solo mensaje para los tres fallos: no revelar cuál de las tres
-            // cosas acertó quien lo intenta.
+            // One message for all three failures: never reveal which of the three the
+            // caller got right.
             throw ValidationException::withMessages([
                 'email' => 'Ese correo y esa contraseña no entran.',
             ]);
         }
 
-        RateLimiter::clear($clave);
+        RateLimiter::clear($password);
 
         Auth::guard('platform')->login($user, remember: false);
         $request->session()->regenerate();
@@ -83,8 +79,8 @@ final class PlatformAuthController
     {
         $user = Auth::guard('platform')->user();
 
-        // Responde también SIN sesión: la pantalla de entrada necesita saber
-        // que está en la super administración antes de que nadie entre.
+        // Answers WITHOUT a session too: the entry screen needs to know it is on
+        // platform administration before anyone signs in.
         return response()->json([
             'data' => $user instanceof PlatformUser ? self::asArray($user) : null,
         ]);

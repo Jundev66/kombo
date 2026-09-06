@@ -7,8 +7,8 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace=@kombo/portal --workspace=@kombo/caja --workspace=@kombo/panel --workspace=@kombo/kds --workspace=@kombo/admin",
-    "typecheck": "tsc -p apps/portal && tsc -p apps/caja && tsc -p apps/panel && tsc -p apps/kds && tsc -p apps/admin",
+    "build": "npm run build --workspace=@kombo/portal --workspace=@kombo/pos --workspace=@kombo/dashboard --workspace=@kombo/kds --workspace=@kombo/admin",
+    "typecheck": "tsc -p apps/portal && tsc -p apps/pos && tsc -p apps/dashboard && tsc -p apps/kds && tsc -p apps/admin",
     "size": "node scripts/check-bundle-size.mjs"
   },
   "devDependencies": {

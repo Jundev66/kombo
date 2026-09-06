@@ -7,11 +7,10 @@ namespace Platform\Tenancy\Exceptions;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * El subdominio no corresponde a ningún negocio.
+ * The subdomain matches no tenant.
  *
- * **404 y no 403**, deliberadamente. Un 403 confirmaría que ese negocio existe,
- * y eso convierte el sistema en un directorio de clientes que cualquiera puede
- * recorrer probando subdominios.
+ * 404 and not 403: a 403 would confirm the tenant exists, turning the system
+ * into a customer directory anyone can walk by trying subdomains.
  */
 final class TenantNotFound extends NotFoundHttpException
 {

@@ -18,29 +18,12 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * El equipo del negocio.
+ * The tenant's team.
  *
- * Cuatro reglas que no son burocracia, son cosas que pasan:
- *
- * **El techo del plan se valida AQUÍ**, al crear. Es el único sitio donde
- * significa algo: un límite que sólo se enseña en una pantalla de
- * administración no es un límite, es una decoración.
- *
- * **No se borra a nadie: se desactiva.** Un usuario borrado se lleva por
- * delante quién confirmó aquel pedido y quién autorizó aquella anulación. Deja
- * de entrar, y lo que hizo sigue diciendo su nombre.
- *
- * **Siempre queda un dueño.** Quitarle el rol al último dejaría un negocio que
- * nadie puede configurar, y desde dentro no hay forma de arreglarlo.
- *
- * **Nadie se desactiva a sí mismo.** Es el clic que deja a alguien fuera de su
- * propio negocio un viernes por la tarde.
- *
- * **El dueño lo nombra el dueño.** El encargado maneja al equipo —da de alta al
- * cocinero nuevo, le pone un PIN, da de baja al que se fue—, pero no asciende a
- * nadie a dueño ni toca la cuenta de uno. Sin la segunda mitad de esa frase la
- * primera no vale nada: `update()` acepta `password`, así que poder editar a un
- * dueño es poder quedarse con el negocio.
+ * Four rules that are not bureaucracy: the plan ceiling is enforced here, on
+ * create; nobody is deleted, only deactivated, so old orders keep their names;
+ * there is always one active owner left; and only an owner appoints — or edits
+ * — another owner, because `update()` accepts `password`.
  */
 final class TeamController
 {
@@ -54,7 +37,7 @@ final class TeamController
     {
         $users = User::with('roles')->orderBy('name')->get();
 
-        $limite = $this->capabilities->get()->limits->maxUsers;
+        $limit = $this->capabilities->get()->limits->maxUsers;
 
         return response()->json([
             'data' => $users->map(fn (User $user): array => [
@@ -65,16 +48,16 @@ final class TeamController
                 'isOwner' => $user->isOwner(),
                 'roleCode' => $user->roles->first()?->code,
                 'roleName' => $user->roles->first()?->name,
-                // Sin PIN no puede entrar a la caja ni a la cocina, y eso hay
-                // que verlo de un vistazo cuando alguien dice «no me deja».
+                // Without a PIN they cannot reach the till or the kitchen, and that has to
+                // be visible at a glance when someone says "it won't let me in".
                 'hasPin' => $user->pin_hash !== null,
                 'lastLoginAt' => $user->last_login_at?->toAtomString(),
             ])->all(),
 
             'meta' => [
                 'active' => $users->where('is_active', true)->count(),
-                // `null` es ILIMITADO, nunca cero.
-                'maxUsers' => $limite,
+                // `null` is UNLIMITED, never zero.
+                'maxUsers' => $limit,
                 'roles' => $this->availableRoles(),
             ],
         ]);
@@ -87,8 +70,7 @@ final class TeamController
             'email' => ['required', 'email', 'max:160'],
             'password' => ['required', 'string', 'min:8', 'max:100'],
             'role_code' => ['required', 'string'],
-            // Cuatro dígitos, y opcional: sólo lo necesita quien va a entrar a
-            // la caja o a la cocina.
+            // Four digits, and optional: only needed to reach the till or the kitchen.
             'pin' => ['nullable', 'digits:4'],
         ]);
 
@@ -102,9 +84,8 @@ final class TeamController
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
-                // Sin `Hash::make`: el modelo castea los dos como `hashed` y
-                // hashear aquí guardaría el hash de un hash — nadie entraría, y
-                // el fallo no diría por qué.
+                // No `Hash::make`: the model casts both as `hashed`, and hashing here would
+                // store a hash of a hash — nobody could sign in and nothing would say why.
                 'password' => $data['password'],
                 'pin_hash' => $data['pin'] ?? null,
                 'is_active' => true,
@@ -138,7 +119,7 @@ final class TeamController
             'name' => ['sometimes', 'string', 'max:120'],
             'password' => ['sometimes', 'string', 'min:8', 'max:100'],
             'role_code' => ['sometimes', 'string'],
-            // Cadena vacía = quitarle el PIN.
+            // Empty string removes the PIN.
             'pin' => ['sometimes', 'nullable'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
@@ -158,23 +139,23 @@ final class TeamController
                 $this->assertNotLastOwner($user);
             }
 
-            // Reactivar a alguien también ocupa una plaza del plan.
+            // Reactivating someone also takes a seat in the plan.
             if ($data['is_active'] === true && ! $user->is_active) {
                 $this->assertRoomInPlan();
             }
         }
 
-        $cambios = [];
+        $changes = [];
 
-        foreach (['name', 'is_active'] as $campo) {
-            if (array_key_exists($campo, $data)) {
-                $cambios[$campo] = $data[$campo];
+        foreach (['name', 'is_active'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $changes[$field] = $data[$field];
             }
         }
 
         if (isset($data['password'])) {
-            // Sin `Hash::make`: lo castea el modelo.
-            $cambios['password'] = $data['password'];
+            // No `Hash::make`: the model casts it.
+            $changes['password'] = $data['password'];
         }
 
         if (array_key_exists('pin', $data)) {
@@ -190,12 +171,12 @@ final class TeamController
                 };
             }
 
-            $cambios['pin_hash'] = $pin === null || $pin === '' ? null : (string) $pin;
+            $changes['pin_hash'] = $pin === null || $pin === '' ? null : (string) $pin;
         }
 
-        DB::transaction(function () use ($user, $cambios, $data): void {
-            if ($cambios !== []) {
-                $user->update($cambios);
+        DB::transaction(function () use ($user, $changes, $data): void {
+            if ($changes !== []) {
+                $user->update($changes);
             }
 
             if (isset($data['role_code'])) {
@@ -203,8 +184,7 @@ final class TeamController
 
                 $role = $this->roleOrFail($data['role_code']);
 
-                // Un rol por persona: dos roles con permisos que se solapan es
-                // una pregunta sin respuesta clara cuando algo no se puede.
+                // One role per person: overlapping roles make "why can't I?" unanswerable.
                 DB::table('role_user')->where('user_id', $user->getKey())->delete();
 
                 DB::table('role_user')->insert([
@@ -228,7 +208,7 @@ final class TeamController
         return response()->json(['data' => ['id' => $user->getKey()]]);
     }
 
-    /** Dar de baja: se desactiva, no se borra. */
+    /** Deactivates rather than deletes. */
     public function destroy(string $id): JsonResponse
     {
         $user = User::with('roles')->find($id) ?? throw new NotFoundHttpException('Esa persona no está en tu equipo.');
@@ -250,30 +230,27 @@ final class TeamController
     }
 
     /**
-     * Los roles que este negocio puede repartir.
-     *
-     * Salen del catálogo base, no de una lista escrita en la pantalla: así el
-     * día que aparezca un rol nuevo, aparece solo.
+     * The roles this tenant may hand out, taken from the base catalog so a new
+     * one appears on its own.
      *
      * @return list<array<string, string>>
      */
     private function availableRoles(): array
     {
-        $existentes = DB::table('roles')->pluck('code')->all();
-        $puedeNombrarDuenos = $this->actorIsOwner();
+        $existingOnes = DB::table('roles')->pluck('code')->all();
+        $canAppointOwners = $this->actorIsOwner();
 
         return collect(RoleCatalog::all())
-            ->filter(fn (array $_, string $code): bool => in_array($code, $existentes, true))
-            // Al encargado no se le ofrece «Dueño». Enseñar una opción que el
-            // servidor va a rechazar es peor que no enseñarla: se descubre
-            // después de rellenar el formulario entero.
-            ->filter(fn (array $rol): bool => $puedeNombrarDuenos || ! $rol['is_owner'])
-            ->map(fn (array $rol, string $code): array => ['code' => $code, 'name' => $rol['name']])
+            ->filter(fn (array $_, string $code): bool => in_array($code, $existingOnes, true))
+            // A manager is not offered "Owner": showing an option the server will
+            // reject is worse than hiding it — you find out after filling the form.
+            ->filter(fn (array $role): bool => $canAppointOwners || ! $role['is_owner'])
+            ->map(fn (array $role, string $code): array => ['code' => $code, 'name' => $role['name']])
             ->values()
             ->all();
     }
 
-    /** Quien está haciendo la petición, ¿es dueño? */
+    /** Is the caller an owner? */
     private function actorIsOwner(): bool
     {
         $actor = auth()->user();
@@ -281,17 +258,12 @@ final class TeamController
         return $actor instanceof User && $actor->isOwner();
     }
 
-    /**
-     * Sólo un dueño nombra a otro dueño.
-     *
-     * El encargado tiene `users.manage` para llevar al equipo, no para
-     * repartirse el negocio.
-     */
+    /** Only an owner appoints another owner. */
     private function assertCanAssignRole(string $code): void
     {
-        $catalogo = RoleCatalog::all()[$code] ?? null;
+        $catalog = RoleCatalog::all()[$code] ?? null;
 
-        if ($catalogo === null || $catalogo['is_owner'] === false || $this->actorIsOwner()) {
+        if ($catalog === null || $catalog['is_owner'] === false || $this->actorIsOwner()) {
             return;
         }
 
@@ -305,12 +277,10 @@ final class TeamController
     }
 
     /**
-     * La cuenta de un dueño sólo la toca un dueño.
+     * An owner's account is only touched by an owner.
      *
-     * Es la otra mitad de la regla de arriba, y sin ella la primera es
-     * decorativa: `update()` acepta `password`, así que un encargado que pueda
-     * editar al dueño le cambia la clave y entra como él. No hacía falta
-     * ascenderse a nada.
+     * The other half of the rule above, and without it the first is decorative:
+     * `update()` accepts `password`.
      */
     private function assertCanTouchOwner(User $user): void
     {
@@ -335,21 +305,16 @@ final class TeamController
             };
     }
 
-    /**
-     * El techo del plan.
-     *
-     * Se cuentan sólo los ACTIVOS: alguien dado de baja hace tres meses no
-     * puede seguir ocupando una plaza que se paga.
-     */
+    /** The plan ceiling. Only ACTIVE users count towards it. */
     private function assertRoomInPlan(): void
     {
-        $limite = $this->capabilities->get()->limits->maxUsers;
+        $limit = $this->capabilities->get()->limits->maxUsers;
 
-        if ($limite === null) {
+        if ($limit === null) {
             return;
         }
 
-        if (User::where('is_active', true)->count() >= $limite) {
+        if (User::where('is_active', true)->count() >= $limit) {
             throw new class('Tu plan llega hasta aquí. Para sumar a alguien más, hay que subir de plan.') extends UserError
             {
                 public function field(): ?string
@@ -362,8 +327,8 @@ final class TeamController
 
     private function assertEmailIsFree(string $email): void
     {
-        // Dentro de ESTE negocio. El mismo correo en dos negocios es normal:
-        // la misma persona puede tener dos locales.
+        // Within THIS tenant. The same email in two tenants is normal: one person
+        // can run two shops.
         if (User::where('email', $email)->exists()) {
             throw new class('Ya hay alguien con ese correo en tu equipo.') extends UserError
             {
@@ -383,11 +348,10 @@ final class TeamController
     }
 
     /**
-     * Siempre queda un dueño.
+     * There is always one owner left.
      *
-     * Un negocio sin dueño activo es un negocio que nadie puede configurar, y
-     * desde dentro no hay forma de arreglarlo: haría falta que alguien entrara
-     * por la base de datos.
+     * A tenant with no active owner cannot be configured, and there is no way
+     * to fix it from the inside.
      */
     private function assertNotLastOwner(User $user): void
     {
@@ -395,22 +359,22 @@ final class TeamController
             return;
         }
 
-        $otros = User::where('is_active', true)
+        $others = User::where('is_active', true)
             ->where('id', '!=', $user->getKey())
             ->get()
-            ->filter(fn (User $otro): bool => $otro->isOwner())
+            ->filter(fn (User $other): bool => $other->isOwner())
             ->count();
 
-        if ($otros === 0) {
+        if ($others === 0) {
             throw new class('Tiene que quedar al menos un dueño activo.') extends UserError {};
         }
     }
 
-    private function assertNotLastOwnerIfLosingIt(User $user, string $nuevoRol): void
+    private function assertNotLastOwnerIfLosingIt(User $user, string $newRole): void
     {
-        $catalogo = RoleCatalog::all()[$nuevoRol] ?? null;
+        $catalog = RoleCatalog::all()[$newRole] ?? null;
 
-        if ($catalogo !== null && $catalogo['is_owner'] === false) {
+        if ($catalog !== null && $catalog['is_owner'] === false) {
             $this->assertNotLastOwner($user);
         }
     }

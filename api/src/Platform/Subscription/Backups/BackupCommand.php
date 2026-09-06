@@ -10,144 +10,131 @@ use Platform\Subscription\PlatformAudit;
 use Symfony\Component\Process\Process;
 
 /**
- * El respaldo diario.
+ * The daily backup: a database dump and a tar of `storage/app`.
  *
- * Dos archivos, y hacen falta LOS DOS:
+ * Both are needed. Restoring only the database leaves every delivery note
+ * pointing at a payment receipt that no longer exists — and the receipt is
+ * exactly what gets looked at when a customer says they paid.
  *
- *   …-base.dump          la base de datos
- *   …-archivos.tar.gz    `storage/app` — comprobantes de pago y fotos
- *
- * Restaurar sólo la base deja todas las notas de entrega apuntando a un
- * comprobante que ya no existe. Y el comprobante es justo lo que se mira cuando
- * un cliente dice que sí pagó.
- *
- * Se guardan en el servidor Y fuera de él. Una copia que vive en la misma
- * máquina que los datos protege del error humano —alguien borró algo— pero no
- * del incendio: el día que se pierde la máquina, se pierde con el respaldo
- * dentro.
- *
- * Y todo queda escrito en `platform_audit_log`, salga bien o salga mal. Un
- * respaldo que falla en silencio es peor que no tener respaldo: con el segundo
- * al menos nadie se confía.
+ * Kept on the server AND off it, and logged to `platform_audit_log` either way:
+ * a backup that fails silently is worse than none, because people trust it.
  */
 final class BackupCommand extends Command
 {
-    protected $signature = 'respaldos:hacer
-        {--sin-nube : No subir a S3, sólo dejar la copia en el servidor}
-        {--conservar=14 : Cuántas copias locales se guardan}';
+    protected $signature = 'backups:run
+        {--no-cloud : No subir a S3, sólo dejar la copia en el servidor}
+        {--keep=14 : Cuántas copias locales se guardan}';
 
     protected $description = 'Respalda la base de datos y los archivos subidos, en el servidor y fuera de él';
 
     public function handle(DatabaseDump $dump, PlatformAudit $audit): int
     {
-        $carpeta = (string) config('kombo.backups.path');
+        $folder = (string) config('kombo.backups.path');
 
-        if (! is_dir($carpeta) && ! mkdir($carpeta, 0o750, true) && ! is_dir($carpeta)) {
-            return $this->fracaso($audit, "No se pudo crear la carpeta de respaldos: {$carpeta}");
+        if (! is_dir($folder) && ! mkdir($folder, 0o750, true) && ! is_dir($folder)) {
+            return $this->failure($audit, "No se pudo crear la carpeta de respaldos: {$folder}");
         }
 
-        // Ordenable como texto: es lo que hace que la rotación de más abajo sea
-        // un `sort` y no una consulta de fechas.
-        $marca = now()->format('Y-m-d_His');
+        // Sortable as text: that is what makes the rotation below a `sort` rather
+        // than a date query.
+        $brand = now()->format('Y-m-d_His');
 
-        $base = $carpeta.'/'.$marca.'-base.dump';
-        $archivos = $carpeta.'/'.$marca.'-archivos.tar.gz';
+        $base = $folder.'/'.$brand.'-base.dump';
+        $files = $folder.'/'.$brand.'-archivos.tar.gz';
 
         if (($error = $dump->toFile($base)) !== null) {
-            return $this->fracaso($audit, 'Falló el volcado de la base: '.$error);
+            return $this->failure($audit, 'Falló el volcado de la base: '.$error);
         }
 
-        if (($error = $this->empaquetarArchivos($archivos)) !== null) {
-            return $this->fracaso($audit, 'Falló el empaquetado de archivos: '.$error);
+        if (($error = $this->packFiles($files)) !== null) {
+            return $this->failure($audit, 'Falló el empaquetado de archivos: '.$error);
         }
 
-        $this->info('Base:     '.basename($base).'  ('.$this->peso($base).')');
-        $this->info('Archivos: '.basename($archivos).'  ('.$this->peso($archivos).')');
+        $this->info('Base:     '.basename($base).'  ('.$this->weight($base).')');
+        $this->info('Archivos: '.basename($files).'  ('.$this->weight($files).')');
 
-        $subidos = $this->subirALaNube($base, $archivos);
+        $uploaded = $this->uploadToCloud($base, $files);
 
-        if ($subidos === false) {
+        if ($uploaded === false) {
             /*
-             * El fallo de la subida NO borra la copia local: es peor quedarse
-             * sin nada que quedarse con una copia en el sitio equivocado. Pero
-             * sí sale con error, porque un respaldo que lleva dos semanas sin
-             * salir del servidor tiene que verse.
+             * A failed upload does NOT delete the local copy — better a copy
+             * in the wrong place than nothing. It does exit with an error,
+             * because a backup that has not left the server in two weeks has
+             * to be visible.
              */
-            return $this->fracaso($audit, 'La copia local está hecha, pero la subida fuera del servidor falló.', [
+            return $this->failure($audit, 'La copia local está hecha, pero la subida fuera del servidor falló.', [
                 'base' => basename($base),
-                'archivos' => basename($archivos),
+                'archivos' => basename($files),
             ]);
         }
 
-        $borradas = $this->rotar($carpeta, max(1, (int) $this->option('conservar')));
+        $deletedRows = $this->rotate($folder, max(1, (int) $this->option('keep')));
 
         $audit->record('backup.made', null, [
             'base' => basename($base),
-            'archivos' => basename($archivos),
-            'bytes' => (int) filesize($base) + (int) filesize($archivos),
-            'fuera_del_servidor' => $subidos,
-            'copias_borradas' => $borradas,
+            'archivos' => basename($files),
+            'bytes' => (int) filesize($base) + (int) filesize($files),
+            'fuera_del_servidor' => $uploaded,
+            'copias_borradas' => $deletedRows,
         ]);
 
-        $this->info($subidos ? 'Subido fuera del servidor.' : 'Sólo copia local (no hay S3 configurado).');
+        $this->info($uploaded ? 'Subido fuera del servidor.' : 'Sólo copia local (no hay S3 configurado).');
 
         return self::SUCCESS;
     }
 
     /**
-     * `storage/app` entero: `private/` (comprobantes) y `public/` (fotos).
+     * All of `storage/app`: `private/` (receipts) and `public/` (photos).
      *
-     * Con `-C` para que dentro del tar las rutas sean `private/…` y `public/…`
-     * y no `/var/www/api/storage/app/private/…`. Un tar con rutas absolutas se
-     * restaura donde él quiere, no donde uno le dice.
+     * With `-C` so paths inside the tar are relative. A tar with absolute paths
+     * restores where it likes, not where you tell it.
      */
-    private function empaquetarArchivos(string $destino): ?string
+    private function packFiles(string $destination): ?string
     {
-        $raiz = storage_path('app');
+        $root = storage_path('app');
 
-        foreach (['private', 'public'] as $subcarpeta) {
-            if (! is_dir($raiz.'/'.$subcarpeta)) {
-                mkdir($raiz.'/'.$subcarpeta, 0o755, true);
+        foreach (['private', 'public'] as $subfolder) {
+            if (! is_dir($root.'/'.$subfolder)) {
+                mkdir($root.'/'.$subfolder, 0o755, true);
             }
         }
 
-        $proceso = new Process(
-            ['tar', '-czf', $destino, '-C', $raiz, 'private', 'public'],
+        $process = new Process(
+            ['tar', '-czf', $destination, '-C', $root, 'private', 'public'],
             timeout: 900.0,
         );
 
-        $proceso->run();
+        $process->run();
 
-        return $proceso->isSuccessful()
+        return $process->isSuccessful()
             ? null
-            : (trim($proceso->getErrorOutput()) ?: 'tar terminó con código '.$proceso->getExitCode());
+            : (trim($process->getErrorOutput()) ?: 'tar terminó con código '.$process->getExitCode());
     }
 
     /**
-     * @return bool|null true subido · null no hay nube configurada · false falló
+     * @return bool|null true uploaded · null no cloud configured · false failed
      */
-    private function subirALaNube(string $base, string $archivos): ?bool
+    private function uploadToCloud(string $base, string $files): ?bool
     {
-        if ($this->option('sin-nube') === true || blank(config('filesystems.disks.s3.bucket'))) {
+        if ($this->option('no-cloud') === true || blank(config('filesystems.disks.s3.bucket'))) {
             return null;
         }
 
-        $disco = Storage::disk('s3');
+        $disk = Storage::disk('s3');
 
-        foreach ([$base, $archivos] as $ruta) {
-            $puntero = fopen($ruta, 'r');
+        foreach ([$base, $files] as $path) {
+            $pointer = fopen($path, 'r');
 
-            if ($puntero === false) {
+            if ($pointer === false) {
                 return false;
             }
 
-            // En streaming: un volcado de varios cientos de megas leído entero
-            // en memoria tumba el contenedor, y justo en la máquina modesta
-            // donde más falta hace que el respaldo salga.
-            $ok = $disco->writeStream('respaldos/'.basename($ruta), $puntero);
+            // Streamed: a few hundred megabytes read whole into memory takes down the
+            // container, on exactly the modest machine where the backup matters most.
+            $ok = $disk->writeStream('backups/'.basename($path), $pointer);
 
-            if (is_resource($puntero)) {
-                fclose($puntero);
+            if (is_resource($pointer)) {
+                fclose($pointer);
             }
 
             if ($ok === false) {
@@ -159,50 +146,46 @@ final class BackupCommand extends Command
     }
 
     /**
-     * Deja las $conservar copias más recientes y borra las demás.
+     * Keeps the $keep most recent copies and deletes the rest.
      *
-     * Sin esto el disco se llena, y un disco lleno no es sólo que no haya
-     * respaldo: es que PostgreSQL deja de aceptar escrituras y el negocio no
-     * puede cobrar.
-     *
-     * Se cuentan los VOLCADOS, y de cada uno se arrastra su tar. Contar
-     * archivos sueltos dejaría parejas rotas — la base de un día con los
-     * archivos de otro.
+     * A full disk is not just a missing backup: PostgreSQL stops accepting
+     * writes and the shop cannot take payment. DUMPS are counted, each dragging
+     * its tar along, so no broken pairs are left.
      */
-    private function rotar(string $carpeta, int $conservar): int
+    private function rotate(string $folder, int $keep): int
     {
-        $volcados = glob($carpeta.'/*-base.dump') ?: [];
-        sort($volcados);
+        $dumps = glob($folder.'/*-base.dump') ?: [];
+        sort($dumps);
 
-        $sobran = array_slice($volcados, 0, max(0, count($volcados) - $conservar));
-        $borradas = 0;
+        $extra = array_slice($dumps, 0, max(0, count($dumps) - $keep));
+        $deletedRows = 0;
 
-        foreach ($sobran as $volcado) {
-            $pareja = str_replace('-base.dump', '-archivos.tar.gz', $volcado);
+        foreach ($extra as $dump) {
+            $pair = str_replace('-base.dump', '-archivos.tar.gz', $dump);
 
-            @unlink($volcado);
-            @unlink($pareja);
-            $borradas++;
+            @unlink($dump);
+            @unlink($pair);
+            $deletedRows++;
         }
 
-        return $borradas;
+        return $deletedRows;
     }
 
     /**
-     * @param  array<string, mixed>  $detalles
+     * @param  array<string, mixed>  $details
      */
-    private function fracaso(PlatformAudit $audit, string $motivo, array $detalles = []): int
+    private function failure(PlatformAudit $audit, string $reason, array $details = []): int
     {
-        $audit->record('backup.failed', null, ['motivo' => $motivo] + $detalles);
+        $audit->record('backup.failed', null, ['motivo' => $reason] + $details);
 
-        $this->error($motivo);
+        $this->error($reason);
 
         return self::FAILURE;
     }
 
-    private function peso(string $ruta): string
+    private function weight(string $path): string
     {
-        $bytes = (int) filesize($ruta);
+        $bytes = (int) filesize($path);
 
         return $bytes >= 1_048_576
             ? round($bytes / 1_048_576, 1).' MB'

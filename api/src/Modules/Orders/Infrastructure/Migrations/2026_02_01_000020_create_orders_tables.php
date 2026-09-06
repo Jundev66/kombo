@@ -8,34 +8,30 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * Los pedidos: lo que se vende, cómo se paga y por dónde va.
+ * The orders: what is sold, how it is paid for and where it has got to.
  */
 return new class extends Migration
 {
     public function up(): void
     {
         TenantSchema::create('orders', function (Blueprint $table): void {
-            // Correlativo del negocio. Es el número que se grita en el
-            // mostrador y el que aparece en la comanda, así que es corto y no
-            // el uuid.
+            // The tenant's sequence number: the one shouted across the counter and
+            // printed on the ticket, so it is short and not the uuid.
             $table->bigInteger('number');
 
             /*
-             * El token con el que el CLIENTE sigue su pedido, sin cuenta.
-             *
-             * Es un secreto de capacidad: quien lo tiene, ve ese pedido y
-             * ninguno más. Hace falta porque la pantalla de pago tiene que
-             * sobrevivir a que cierre el navegador para ir a la aplicación del
-             * banco y vuelva.
+             * The token the CUSTOMER follows their order with, without an
+             * account. A capability secret: whoever holds it sees that order
+             * and no other. The payment screen has to survive the browser
+             * closing to visit the banking app and coming back.
              */
             $table->string('public_token', 32);
 
             $table->string('status')->default('placed');
             $table->string('service_type')->default('takeaway');
 
-            // Por dónde entró: el portal, un bot, o el mostrador. Sirve para
-            // saber qué canal trae negocio, que es una de las primeras cosas
-            // que un dueño quiere saber.
+            // Where it came in: portal, bot, or counter. Which channel brings business
+            // is one of the first things an owner wants to know.
             $table->string('channel')->default('counter');
 
             $table->string('customer_name')->nullable();
@@ -47,8 +43,8 @@ return new class extends Migration
             $table->bigInteger('total_cents')->default(0);
             $table->char('currency', 3)->default('USD');
 
-            // La tasa CONGELADA. Sin esto, un pedido de marzo cambiaría de
-            // importe en bolívares cada mañana.
+            // The FROZEN rate, or a March order's bolívar amount would change every
+            // morning.
             $table->decimal('exchange_rate', 18, 6)->nullable();
 
             $table->bigInteger('paid_cents')->default(0);
@@ -58,12 +54,9 @@ return new class extends Migration
             $table->text('cancellation_reason')->nullable();
 
             /*
-             * Bloqueo optimista DE VERDAD.
-             *
-             * La caja y la pantalla de cocina tocan el mismo pedido a la vez.
-             * Sin esto, quien guarda segundo pisa lo que hizo el primero y
-             * nadie se entera. El UPDATE lleva `where state_version = ?`: si no
-             * afecta ninguna fila, es que alguien se adelantó.
+             * Real optimistic locking. The till and the kitchen screen touch
+             * the same order at once; without this, whoever saves second
+             * overwrites the first and nobody finds out.
              */
             $table->integer('state_version')->default(0);
 
@@ -80,19 +73,19 @@ return new class extends Migration
             TenantSchema::uniquePerTenant($table, ['number'], 'uq_orders_tenant_number');
             TenantSchema::uniquePerTenant($table, ['public_token'], 'uq_orders_tenant_token');
 
-            // Sirve exacto al tablero del panel y a la pantalla de cocina, que
-            // preguntan «los abiertos, del más viejo al más nuevo».
+            // Serves exactly the dashboard board and the kitchen screen: "the open
+            // ones, oldest to newest".
             TenantSchema::index($table, ['status', 'placed_at'], 'idx_orders_tenant_status_placed');
         });
 
         TenantSchema::create('order_items', function (Blueprint $table): void {
             TenantSchema::references($table, 'order_id', 'orders', onDelete: 'cascade');
 
-            // El producto puede desaparecer de la carta; el pedido no.
+            // The product may disappear from the menu; the order may not.
             TenantSchema::references($table, 'product_id', 'products', nullable: true, onDelete: 'set null');
 
-            // COPIADOS, no referenciados. Un ticket de hace seis meses debe
-            // decir lo que decía cuando se imprimió.
+            // COPIED, not referenced. A ticket from six months ago must say what it
+            // said when it was printed.
             $table->string('product_name');
             $table->bigInteger('unit_price_cents');
 
@@ -117,12 +110,9 @@ return new class extends Migration
         });
 
         /*
-         * VARIAS filas por pedido, y ése es todo el punto.
-         *
-         * Aquí se cobra mezclado: tres dólares en efectivo y el resto en
-         * bolívares por pago móvil. Con una sola columna `payment_method` eso
-         * no se puede representar, y el cajero acaba anotando la mitad en el
-         * campo de observaciones.
+         * SEVERAL rows per order, and that is the point: people pay in a mix —
+         * some cash, the rest by mobile transfer. One `payment_method` column
+         * cannot represent that, and the cashier ends up using the notes field.
          */
         TenantSchema::create('order_payments', function (Blueprint $table): void {
             TenantSchema::references($table, 'order_id', 'orders', onDelete: 'cascade');
@@ -131,15 +121,15 @@ return new class extends Migration
             $table->bigInteger('amount_cents');
             $table->char('currency', 3)->default('USD');
 
-            // La tasa de ESE pago. Si el cliente paga en dos veces y la tasa
-            // cambió entre medias, cada pago vale lo que valía cuando se hizo.
+            // THAT payment's rate: paying in two goes across a rate change means each
+            // payment is worth what it was worth then.
             $table->decimal('exchange_rate', 18, 6)->nullable();
 
             $table->string('reference')->nullable();
             $table->string('receipt_url')->nullable();
 
-            // El pago móvil se CONFIRMA a mano: el dueño mira el comprobante y
-            // dice que sí. No hay API bancaria que preguntar.
+            // Mobile payment is confirmed by hand: the owner looks at the receipt and
+            // says yes. There is no banking API to ask.
             $table->string('status')->default('pending_review');
             $table->uuid('confirmed_by')->nullable();
             $table->timestampTz('confirmed_at')->nullable();

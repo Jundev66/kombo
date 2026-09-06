@@ -16,15 +16,14 @@ use Modules\Orders\Domain\ValueObjects\ServiceType;
 use Platform\Audit\AuditLogger;
 
 /**
- * Una venta de mostrador, de principio a fin.
+ * A counter sale, start to finish.
  *
- * El cliente está delante y ya pagó, así que aquí no hay nada que esperar: el
- * pedido nace, se confirma —y con eso **entra directo a la cocina**—, se
- * registran los pagos y se emite la nota. Todo en una transacción: media venta
- * guardada es peor que ninguna.
+ * The customer is standing there and has paid, so nothing waits: the order is
+ * created, confirmed (which sends it to the kitchen), the payments recorded and
+ * the note issued — all in one transaction, because half a sale saved is worse
+ * than none.
  *
- * Lo que este caso de uso NO hace, a propósito: abrir turno, cerrar caja ni
- * cuadrar el efectivo. Eso es otra fase y otra conversación.
+ * It deliberately does not open shifts, close the till or reconcile cash.
  */
 final class CompleteSale
 {
@@ -53,7 +52,7 @@ final class CompleteSale
         return $this->db->transaction(function () use (
             $items, $payments, $serviceType, $customerName, $customerTaxId, $notes
         ): array {
-            // Los precios salen del catálogo. La caja manda qué y cuántos.
+            // Prices come from the catalog. The till says what and how many.
             $order = $this->placeOrder->execute(
                 items: $items,
                 serviceType: $serviceType,
@@ -62,8 +61,8 @@ final class CompleteSale
                 notes: $notes,
             );
 
-            // Confirmar es lo que manda la comanda a la cocina. En el mostrador
-            // no hay nada que revisar antes: el cliente está ahí y ya pagó.
+            // Confirming is what sends the ticket to the kitchen. At the counter there
+            // is nothing to review first.
             $order = $this->advanceOrder->execute($order->id, OrderStatus::Confirmed);
 
             foreach ($payments as $payment) {
@@ -72,10 +71,9 @@ final class CompleteSale
                     method: $payment['method'],
                     amountCents: $payment['amount_cents'],
                     reference: $payment['reference'] ?? null,
-                    // El cajero mira la notificación del pago móvil en su
-                    // teléfono antes de entregar la comida. Dejarlo esperando
-                    // revisión imprimiría una nota diciendo que el cliente aún
-                    // debe, con el cliente ya saliendo por la puerta.
+                    // The cashier checks the mobile-payment notification before handing over
+                    // the food. Leaving it pending would print a note saying the customer
+                    // still owes money, with them already walking out the door.
                     verifiedInPerson: true,
                 );
             }

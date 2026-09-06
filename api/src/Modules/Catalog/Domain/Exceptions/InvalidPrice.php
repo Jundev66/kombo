@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Modules\Catalog\Domain\Exceptions;
 
 /**
- * Un precio negativo. Un modificador SÍ puede descontar; un producto no puede costar menos que nada.
+ * A negative price. A modifier MAY take money off; a product cannot cost less
+ * than nothing.
  */
 final class InvalidPrice extends CatalogException
 {

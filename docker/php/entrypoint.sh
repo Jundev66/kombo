@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# Lo que pasa cada vez que arranca un contenedor de la API.
+# What happens every time an API container starts.
 #
-# El orden importa, y hay una decisión de fondo: **sólo el proceso web migra**.
-# Si migraran también la cola y el planificador, tres contenedores arrancando a
-# la vez correrían las mismas migraciones en paralelo — y dos `ALTER TABLE`
-# simultáneos sobre la misma tabla es cómo se rompe una base en un despliegue.
+# The order matters, and there is an underlying decision: only the web process
+# migrates. If the queue and the scheduler migrated too, three containers
+# starting at once would run the same migrations in parallel — and two
+# simultaneous `ALTER TABLE`s on one table is how a database breaks on deploy.
 set -euo pipefail
 
 esperar_a_postgres() {
@@ -32,25 +32,25 @@ esperar_a_postgres
 
 if [ "${1:-}" = "php-fpm" ]; then
     echo "→ Migrando…"
-    # Como DUEÑO del esquema: `kombo_app` no puede crear tablas, y ésa es
-    # exactamente la garantía que hace que RLS signifique algo.
+    # As the schema OWNER: `kombo_app` cannot create tables, and that is exactly
+    # the guarantee that makes RLS mean something.
     php artisan migrate --database=pgsql_owner --force
 
     echo "→ Enlazando el almacenamiento público…"
-    # Sin esto, las fotos de los productos se suben y no se ven.
+    # Without this, product photos upload and are not visible.
     php artisan storage:link || true
 
     echo "→ Cacheando configuración y rutas…"
-    # Es lo que más rinde en una máquina lenta después de opcache. Seguro de
-    # hacer aquí porque no hay una sola llamada a `env()` fuera de `config/`
-    # —hay una prueba que lo vigila—: con la configuración cacheada, `env()`
-    # devuelve null y el fallo aparece lejos de la causa.
+    # The biggest win on a slow machine after opcache. Safe here because there is
+    # not a single `env()` call outside `config/` — a test watches for it — and
+    # with the config cached, `env()` returns null and the failure shows up far
+    # from its cause.
     php artisan config:cache
     php artisan route:cache
     php artisan view:cache
 else
-    # La cola y el planificador esperan a que el proceso web haya migrado.
-    # Arrancar con un esquema a medias es peor que arrancar tarde.
+    # The queue and the scheduler wait for the web process to have migrated.
+    # Starting on a half-applied schema is worse than starting late.
     echo "→ Esperando a que las migraciones estén hechas…"
 
     until php artisan migrate:status --database=pgsql_owner 2>/dev/null | grep -q "Ran"; do

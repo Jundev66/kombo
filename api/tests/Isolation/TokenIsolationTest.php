@@ -3,24 +3,23 @@
 declare(strict_types=1);
 
 /*
- * Un token de un negocio NO sirve en otro.
+ * One tenant's token does NOT work in another.
  *
- * Con la tabla de tokens que trae Sanctum, esto sería falso: no tiene
- * `tenant_id` y nadie lo comprueba, así que el token de la tablet de una
- * arepera abriría la caja de la pizzería de al lado. Por eso hay una tabla
- * propia, de negocio y con RLS.
+ * With Sanctum's own tokens table this would be false: it has no `tenant_id`
+ * and nobody checks it, so a tablet token from one shop would open the till
+ * next door. Hence our own table, tenant-scoped and under RLS.
  *
- * El detalle bonito es que no hace falta escribir la comprobación: el token
- * ajeno no es que esté prohibido, es que **la consulta no lo encuentra**.
+ * The nice part is that no check has to be written: the foreign token is not
+ * forbidden, the query simply does not find it.
  */
 
 use Illuminate\Support\Str;
 
 beforeEach(function (): void {
-    $sufijo = Str::lower(Str::random(6));
+    $suffix = Str::lower(Str::random(6));
 
-    $this->arepera = "elsazon-{$sufijo}";
-    $this->pizzeria = "laesquina-{$sufijo}";
+    $this->arepera = "elsazon-{$suffix}";
+    $this->pizzeria = "laesquina-{$suffix}";
 
     $areperaId = makeTenant($this->arepera);
     actingForTenant($areperaId);
@@ -34,31 +33,31 @@ beforeEach(function (): void {
     $pedro = makeUser($pizzeriaId, 'pedro@ejemplo.com', 'Pedro', pin: '5678');
     giveRole($pizzeriaId, $pedro, 'owner');
 
-    // Un token de dispositivo de la arepera.
-    $this->tokenDeLaArepera = $this->postJson(urlFor($this->arepera, '/api/v1/auth/device'), [
+    // A device token from the arepera.
+    $this->areperaToken = $this->postJson(urlFor($this->arepera, '/api/v1/auth/device'), [
         'email' => 'maria@ejemplo.com',
         'password' => 'demo1234',
         'device' => 'Cocina',
     ])->json('token');
 });
 
-it('el token de un negocio funciona en su propio negocio', function (): void {
-    $this->withHeader('Authorization', "Bearer {$this->tokenDeLaArepera}")
+it('a tenant\'s token works in its own tenant', function (): void {
+    $this->withHeader('Authorization', "Bearer {$this->areperaToken}")
         ->getJson(urlFor($this->arepera, '/api/v1/auth/staff'))
         ->assertOk()
         ->assertJsonPath('staff.0.name', 'María');
 });
 
-it('el token de un negocio NO sirve en otro negocio', function (): void {
-    // Mismo token, otro subdominio. Para la pizzería ese token no existe.
-    $this->withHeader('Authorization', "Bearer {$this->tokenDeLaArepera}")
+it('a tenant\'s token does NOT work in another tenant', function (): void {
+    // Same token, another subdomain. For the pizzeria it does not exist.
+    $this->withHeader('Authorization', "Bearer {$this->areperaToken}")
         ->getJson(urlFor($this->pizzeria, '/api/v1/auth/staff'))
         ->assertUnauthorized();
 });
 
-it('sin token no se ve ni la lista de nombres', function (): void {
-    // La lista de quién trabaja aquí no es pública: dice cuánta gente hay, cómo
-    // se llaman y qué rol tienen.
+it('without a token not even the list of names is visible', function (): void {
+    // Who works here is not public: it says how many people there are, their
+    // names and their roles.
     $this->getJson(urlFor($this->arepera, '/api/v1/auth/staff'))
         ->assertUnauthorized();
 });

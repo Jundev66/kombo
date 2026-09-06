@@ -1,36 +1,26 @@
 import type { UserSummary } from '@kombo/api-client'
 
 /**
- * «Esta pantalla la está manejando el dueño desde su sesión, no un turno.»
+ * "This screen is being run by the owner from their session, not a shift."
  *
- * Existe por dos razones, y la segunda importa más que la primera.
+ * Two reasons, and the second matters more. First: the owner has to be able to
+ * open their own till to supervise, without registering the device and typing a
+ * PIN right after signing into the dashboard.
  *
- * **La primera**: el dueño tiene que poder abrir su propia caja para
- * supervisar. Pedirle el alta del aparato y un PIN cuando acaba de entrar al
- * panel con su contraseña es hacerle demostrar tres veces quién es.
+ * Second: this already happened, silently. Sanctum prefers the session cookie
+ * over the token, so on a machine where somebody left the dashboard open, the
+ * cashier typed their PIN and everything ran in the OWNER's name with nothing
+ * saying so. The banner turns that trap into a visible fact — the screen names
+ * whoever is really operating, because `/me` says so and not the stored token.
  *
- * **La segunda**: esto ya pasaba, sólo que en silencio. Sanctum prefiere la
- * cookie de sesión al token, así que en una máquina donde alguien dejó el panel
- * abierto, el cajero tecleaba su PIN y **todo se ejecutaba a nombre del dueño**
- * sin que nada lo dijera. El síntoma era un permiso que debería faltar y no
- * faltaba. La banda convierte esa trampa en un hecho visible: la pantalla dice
- * quién está operando de verdad, porque lo dice `/me` y no el token guardado.
- *
- * Va en ámbar y no en gris a propósito. No es un adorno: es la advertencia de
- * que lo que se venda aquí lleva ESTE nombre. Y ámbar y no rojo porque no es un
- * fallo —el rojo está reservado para lo que salió mal—, es un «ojo con esto».
- *
- * El mismo par de colores que el aviso de la cocina, que se lee de lejos y
- * funciona igual sobre el tema claro de la caja que sobre el oscuro de allí.
+ * Amber rather than red: it is not a failure, it is a "mind this".
  */
 export function SupervisionBanner({ user, onLeave }: { user: UserSummary; onLeave: () => void }) {
   return (
     <div
       role="status"
-      // Con nombre: en esta pantalla hay más de una región `status` —el aviso
-      // de que la carta está cargando es otra— y sin nombre son
-      // indistinguibles, tanto para un lector de pantalla como para quien
-      // escribe una prueba.
+      // Named: this screen has more than one `status` region, and without names
+      // they are indistinguishable to a screen reader and to a test.
       aria-label="Supervisión"
       className="flex shrink-0 items-center gap-3 bg-warn-500 px-4 py-2 text-sm text-ink-900"
     >
@@ -41,8 +31,8 @@ export function SupervisionBanner({ user, onLeave }: { user: UserSummary; onLeav
         {user.roleName != null && ` (${user.roleName})`}
       </p>
 
-      {/* No dice «Salir»: no hay turno que cerrar. Quien llegó aquí desde el
-          panel espera volver al panel, no quedarse en una pantalla vacía. */}
+      {/* Not "Sign out": there is no shift to close. Whoever arrived here from
+          the dashboard expects to go back to it. */}
       <button
         type="button"
         onClick={onLeave}

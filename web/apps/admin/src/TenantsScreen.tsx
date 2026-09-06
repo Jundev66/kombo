@@ -18,26 +18,26 @@ import { useState } from 'react'
 import { PAYMENT_METHODS, platform, type TenantRow } from './api'
 
 /**
- * Los negocios, y lo único que importa de cada uno de un vistazo: **cuántos
- * días le quedan**.
+ * The tenants, and the only thing that matters at a glance: how many days they
+ * have left.
  *
- * En negativo, cuántos lleva vencido. Es la cifra que contesta «¿a quién hay
- * que llamar hoy?» sin abrir nada.
+ * Negative means days overdue. It is the figure that answers "who do I have to
+ * call today?" without opening anything.
  */
 export function TenantsScreen({ onOpen }: { onOpen: (id: string) => void }) {
-  const [buscar, setBuscar] = useState('')
-  const [estado, setEstado] = useState('')
-  const [creando, setCreando] = useState(false)
+  const [search, setSearch] = useState('')
+  const [status, setEstado] = useState('')
+  const [creating, setCreating] = useState(false)
 
-  // Por páginas: la lista no tenía tope ninguno y se descargaba entera.
+  // Paginated: the list had no cap at all and downloaded whole.
   const tenants = useInfiniteQuery({
-    queryKey: ['tenants', buscar, estado],
-    queryFn: ({ pageParam }) => platform.tenants({ buscar, estado, page: pageParam }),
+    queryKey: ['tenants', search, status],
+    queryFn: ({ pageParam }) => platform.tenants({ search, status, page: pageParam }),
     initialPageParam: 1,
     getNextPageParam: (last) => (hasMore(last.meta) ? last.meta.page + 1 : undefined),
   })
 
-  const visibles = tenants.data?.pages.flatMap((p) => p.data) ?? []
+  const visible = tenants.data?.pages.flatMap((p) => p.data) ?? []
   const total = tenants.data?.pages[0]?.meta.total ?? 0
 
   return (
@@ -48,7 +48,7 @@ export function TenantsScreen({ onOpen }: { onOpen: (id: string) => void }) {
 
         <div className="flex-1" />
 
-        <Button onClick={() => setCreando(true)}>Dar de alta</Button>
+        <Button onClick={() => setCreating(true)}>Dar de alta</Button>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -58,9 +58,9 @@ export function TenantsScreen({ onOpen }: { onOpen: (id: string) => void }) {
               <Input
                 id={id}
                 type="search"
-                value={buscar}
+                value={search}
                 placeholder="Nombre o dirección"
-                onChange={(e) => setBuscar(e.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
               />
             )}
           </Field>
@@ -69,7 +69,7 @@ export function TenantsScreen({ onOpen }: { onOpen: (id: string) => void }) {
         <div className="w-48">
           <Field label="Estado">
             {({ id }) => (
-              <Select id={id} value={estado} onChange={(e) => setEstado(e.target.value)}>
+              <Select id={id} value={status} onChange={(e) => setEstado(e.target.value)}>
                 <option value="">Todos</option>
                 <option value="trial">En prueba</option>
                 <option value="active">Al día</option>
@@ -81,16 +81,16 @@ export function TenantsScreen({ onOpen }: { onOpen: (id: string) => void }) {
         </div>
       </div>
 
-      {creando && <NewTenantForm onDone={() => setCreando(false)} />}
+      {creating && <NewTenantForm onDone={() => setCreating(false)} />}
 
       {tenants.isLoading && <Spinner />}
 
-      {visibles.length === 0 && !tenants.isLoading && (
+      {visible.length === 0 && !tenants.isLoading && (
         <EmptyState title="No hay negocios con ese filtro" description="Prueba con otro estado." />
       )}
 
-      <CardGrid columnas={2}>
-        {visibles.map((tenant) => (
+      <CardGrid columns={2}>
+        {visible.map((tenant) => (
           <li key={tenant.id}>
             <Card className="flex flex-wrap items-center gap-3 p-4">
               <button
@@ -113,7 +113,7 @@ export function TenantsScreen({ onOpen }: { onOpen: (id: string) => void }) {
       </CardGrid>
 
       <ListFooter
-        shown={visibles.length}
+        shown={visible.length}
         total={total}
         noun="negocios"
         loading={tenants.isFetchingNextPage}
@@ -124,27 +124,27 @@ export function TenantsScreen({ onOpen }: { onOpen: (id: string) => void }) {
 }
 
 /**
- * Cuántos días quedan, dicho como se dice.
+ * How many days are left, said the way it is said.
  *
- * «Vence en 3 días» y «vencido hace 12» no son la misma información con signo
- * distinto: la primera es un recordatorio y la segunda una llamada pendiente.
+ * "Expires in 3 days" and "overdue by 12" are not the same information with a
+ * different sign: the first is a reminder, the second a pending call.
  */
 function Expiry({ tenant }: { tenant: TenantRow }) {
   if (tenant.daysLeft === null) return null
 
-  const dias = tenant.daysLeft
+  const days = tenant.daysLeft
 
   return (
     <span
       className={`tabular text-sm ${
-        dias < 0 ? 'font-medium text-bad-500' : dias <= 7 ? 'text-warn-700' : 'text-[var(--text-muted)]'
+        days < 0 ? 'font-medium text-bad-500' : days <= 7 ? 'text-warn-700' : 'text-[var(--text-muted)]'
       }`}
     >
-      {/* «días», no «d». Esta pantalla no tiene problema de sitio, y la
-          abreviatura obliga a traducirla mentalmente cada vez. */}
-      {dias < 0
-        ? `vencido hace ${plural(Math.abs(dias), 'día', 'días')}`
-        : `vence en ${plural(dias, 'día', 'días')}`}
+      {/* "días", not "d". This screen has no space problem, and the
+          abbreviation makes you translate it mentally every time. */}
+      {days < 0
+        ? `vencido hace ${plural(Math.abs(days), 'día', 'días')}`
+        : `vence en ${plural(days, 'día', 'días')}`}
     </span>
   )
 }
@@ -160,15 +160,15 @@ function NewTenantForm({ onDone }: { onDone: () => void }) {
 
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
-  const [planCode, setPlanCode] = useState('negocio')
+  const [planCode, setPlanCode] = useState('business')
   const [ownerName, setOwnerName] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
   const [ownerPassword, setOwnerPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const planes = useQuery({ queryKey: ['plans'], queryFn: () => platform.plans() })
+  const plans = useQuery({ queryKey: ['plans'], queryFn: () => platform.plans() })
 
-  const crear = useMutation({
+  const create = useMutation({
     mutationFn: () =>
       platform.createTenant({
         name,
@@ -203,8 +203,8 @@ function NewTenantForm({ onDone }: { onDone: () => void }) {
               value={name}
               onChange={(e) => {
                 setName(e.target.value)
-                // La dirección se propone sola desde el nombre: escribirla dos
-                // veces es una oportunidad de escribirla mal.
+                // The address is proposed from the name: typing it twice is a chance to
+                // type it wrong.
                 if (slug === '') return
               }}
             />
@@ -225,7 +225,7 @@ function NewTenantForm({ onDone }: { onDone: () => void }) {
         <Field label="Plan" required>
           {({ id }) => (
             <Select id={id} value={planCode} onChange={(e) => setPlanCode(e.target.value)}>
-              {planes.data?.data.map((plan) => (
+              {plans.data?.data.map((plan) => (
                 <option key={plan.code} value={plan.code}>
                   {plan.name} · {formatUsd(plan.priceCents)}
                 </option>
@@ -268,15 +268,15 @@ function NewTenantForm({ onDone }: { onDone: () => void }) {
           Mejor no
         </Button>
 
-        <Button disabled={crear.isPending} onClick={() => crear.mutate()}>
-          {crear.isPending ? 'Dando de alta…' : 'Dar de alta'}
+        <Button disabled={create.isPending} onClick={() => create.mutate()}>
+          {create.isPending ? 'Dando de alta…' : 'Dar de alta'}
         </Button>
       </div>
     </Card>
   )
 }
 
-/** Registrar un pago: lo que extiende el período. */
+/** Recording a payment: what extends the period. */
 export function PaymentForm({ tenantId, onDone }: { tenantId: string; onDone: () => void }) {
   const queryClient = useQueryClient()
 
@@ -285,7 +285,7 @@ export function PaymentForm({ tenantId, onDone }: { tenantId: string; onDone: ()
   const [months, setMonths] = useState('1')
   const [reference, setReference] = useState('')
 
-  const registrar = useMutation({
+  const logIt = useMutation({
     mutationFn: () =>
       platform.registerPayment(tenantId, {
         amount_cents: Math.round(Number(amount.replace(',', '.')) * 100),
@@ -350,8 +350,8 @@ export function PaymentForm({ tenantId, onDone }: { tenantId: string; onDone: ()
           Mejor no
         </Button>
 
-        <Button disabled={registrar.isPending || amount === ''} onClick={() => registrar.mutate()}>
-          {registrar.isPending ? 'Anotando…' : 'Anotar el pago'}
+        <Button disabled={logIt.isPending || amount === ''} onClick={() => logIt.mutate()}>
+          {logIt.isPending ? 'Anotando…' : 'Anotar el pago'}
         </Button>
       </div>
     </div>

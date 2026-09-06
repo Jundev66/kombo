@@ -3,8 +3,9 @@
 declare(strict_types=1);
 
 /*
- * Los pedidos por HTTP: que el precio lo ponga el servidor, que el recorrido
- * completo funcione, y que dos personas tocando el mismo pedido no se pisen.
+ * Orders over HTTP: that the server sets the price, that the whole journey
+ * works, and that two people touching the same order do not overwrite each
+ * other.
  */
 
 use App\Models\Catalog\ModifierGroupModel;
@@ -14,10 +15,10 @@ use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 
 beforeEach(function (): void {
-    $sufijo = Str::lower(Str::random(6));
+    $suffix = Str::lower(Str::random(6));
 
-    $this->slug = "elsazon-{$sufijo}";
-    $this->tenant = makeTenant($this->slug, plan: 'negocio');
+    $this->slug = "elsazon-{$suffix}";
+    $this->tenant = makeTenant($this->slug, plan: 'business');
 
     actingForTenant($this->tenant);
     enableModule($this->tenant, 'core');
@@ -29,35 +30,34 @@ beforeEach(function (): void {
 
     $this->arepa = ProductModel::create(['name' => 'Reina Pepiada', 'price_cents' => 300]);
 
-    $grupo = ModifierGroupModel::create(['name' => 'Extras', 'min_choices' => 0, 'max_choices' => 3]);
-    $this->extraQueso = $grupo->modifiers()->create(['name' => 'Extra queso', 'price_delta_cents' => 50]);
-    $this->sinQueso = $grupo->modifiers()->create(['name' => 'Sin queso', 'price_delta_cents' => -50]);
+    $group = ModifierGroupModel::create(['name' => 'Extras', 'min_choices' => 0, 'max_choices' => 3]);
+    $this->extraQueso = $group->modifiers()->create(['name' => 'Extra queso', 'price_delta_cents' => 50]);
+    $this->sinQueso = $group->modifiers()->create(['name' => 'Sin queso', 'price_delta_cents' => -50]);
 });
 
-function pedir(string $slug, array $body): TestResponse
+function placeOrder(string $slug, array $body): TestResponse
 {
     return test()->withHeaders(browsingAs($slug))
         ->postJson(urlFor($slug, '/api/v1/orders'), $body);
 }
 
-function avanzar(string $slug, string $id, string $estado): TestResponse
+function advance(string $slug, string $id, string $status): TestResponse
 {
     return test()->withHeaders(browsingAs($slug))
-        ->postJson(urlFor($slug, "/api/v1/orders/{$id}/advance"), ['status' => $estado]);
+        ->postJson(urlFor($slug, "/api/v1/orders/{$id}/advance"), ['status' => $status]);
 }
 
-it('el precio lo pone el SERVIDOR, aunque el cliente mande otro', function (): void {
-    // Es la regla que gobierna todo este módulo. Sin ella, un navegador
-    // manipulado se cobraría lo que quisiera y sólo se notaría al cuadrar el
-    // mes.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('the SERVER sets the price, whatever the client sends', function (): void {
+    // The rule that governs this module. Without it a tampered browser would
+    // charge itself whatever it liked, and it would only show at month end.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $response = pedir($this->slug, [
+    $response = placeOrder($this->slug, [
         'items' => [[
             'product_id' => $this->arepa->id,
             'quantity' => 2,
-            // Un cliente malicioso mandando su propio precio. Se ignora: el
-            // endpoint ni siquiera lo acepta.
+            // A malicious client sending its own price. Ignored: the endpoint does not
+            // even accept it.
             'price_cents' => 1,
             'unit_price_cents' => 1,
         ]],
@@ -68,11 +68,11 @@ it('el precio lo pone el SERVIDOR, aunque el cliente mande otro', function (): v
         ->assertJsonPath('data.items.0.unitPriceCents', 300);
 });
 
-it('los agregados se cobran por unidad', function (): void {
-    // Dos arepas con extra queso llevan el extra dos veces.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('add-ons are charged per unit', function (): void {
+    // Two arepas with extra cheese carry the extra twice.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    pedir($this->slug, [
+    placeOrder($this->slug, [
         'items' => [[
             'product_id' => $this->arepa->id,
             'quantity' => 2,
@@ -84,19 +84,19 @@ it('los agregados se cobran por unidad', function (): void {
         ->assertJsonPath('data.items.0.modifiers.0.name', 'Extra queso');
 });
 
-it('un agregado puede descontar', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('an add-on can take money off', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    pedir($this->slug, [
+    placeOrder($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1, 'modifier_ids' => [$this->sinQueso->id]]],
     ])->assertCreated()->assertJsonPath('data.totalCents', 250);
 });
 
-it('el nombre y el precio quedan COPIADOS: cambiar la carta no mueve un pedido viejo', function (): void {
-    // Un ticket de hace seis meses debe decir lo que decía cuando se imprimió.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('name and price are COPIED: changing the menu does not move an old order', function (): void {
+    // A ticket from six months ago must say what it said when it was printed.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $id = pedir($this->slug, [
+    $id = placeOrder($this->slug, [
         'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
     ])->json('data.id');
 
@@ -109,91 +109,91 @@ it('el nombre y el precio quedan COPIADOS: cambiar la carta no mueve un pedido v
         ->assertJsonPath('data.totalCents', 300);
 });
 
-it('no se puede pedir algo que ya no está en la carta', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('something no longer on the menu cannot be ordered', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
     actingForTenant($this->tenant);
     $this->arepa->update(['is_active' => false]);
 
-    pedir($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])
+    placeOrder($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])
         ->assertStatus(422);
 });
 
-it('el recorrido completo: recibido → confirmado → listo → entregado', function (): void {
-    // Éste es el criterio de salida de la fase.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('the whole journey: placed → confirmed → ready → delivered', function (): void {
+    // This is the phase's exit criterion.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $id = pedir($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])
+    $id = placeOrder($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])
         ->assertJsonPath('data.status', 'placed')
         ->json('data.id');
 
-    avanzar($this->slug, $id, 'confirmed')->assertOk()->assertJsonPath('data.isInKitchen', true);
-    avanzar($this->slug, $id, 'preparing')->assertOk();
-    avanzar($this->slug, $id, 'ready')->assertOk()->assertJsonPath('data.isInKitchen', false);
-    avanzar($this->slug, $id, 'delivered')
+    advance($this->slug, $id, 'confirmed')->assertOk()->assertJsonPath('data.isInKitchen', true);
+    advance($this->slug, $id, 'preparing')->assertOk();
+    advance($this->slug, $id, 'ready')->assertOk()->assertJsonPath('data.isInKitchen', false);
+    advance($this->slug, $id, 'delivered')
         ->assertOk()
         ->assertJsonPath('data.status', 'delivered')
         ->assertJsonPath('data.isOpen', false);
 });
 
-it('no se puede saltar la cocina', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('the kitchen cannot be skipped', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $id = pedir($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])->json('data.id');
+    $id = placeOrder($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])->json('data.id');
 
-    avanzar($this->slug, $id, 'confirmed')->assertOk();
+    advance($this->slug, $id, 'confirmed')->assertOk();
 
-    // 409 y no 422: los datos están bien, lo que pasa es que ese salto no
-    // existe. El mensaje pide recargar.
-    avanzar($this->slug, $id, 'delivered')->assertStatus(409);
+    // 409 and not 422: the data is fine, that jump simply does not exist. The
+    // message asks for a reload.
+    advance($this->slug, $id, 'delivered')->assertStatus(409);
 });
 
-it('el bloqueo optimista rechaza a quien llega con la versión vieja', function (): void {
-    // La caja y la pantalla de cocina miran el mismo pedido y pulsan casi a la
-    // vez todos los días. Sin esto, quien guarda segundo pisa lo del primero y
-    // NADIE se entera.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('optimistic locking rejects whoever arrives with the old version', function (): void {
+    // The till and the kitchen screen look at the same order and tap almost at
+    // once every day. Without this, whoever saves second overwrites the first
+    // and NOBODY finds out.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $id = pedir($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])->json('data.id');
-
-    actingForTenant($this->tenant);
-    $versionInicial = (int) DB::table('orders')->where('id', $id)->value('state_version');
-
-    // Primera persona: confirma. La versión avanza.
-    avanzar($this->slug, $id, 'confirmed')->assertOk();
+    $id = placeOrder($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])->json('data.id');
 
     actingForTenant($this->tenant);
-    expect((int) DB::table('orders')->where('id', $id)->value('state_version'))->toBe($versionInicial + 1);
+    $initialVersion = (int) DB::table('orders')->where('id', $id)->value('state_version');
 
-    // Segunda persona: tenía la pantalla cargada de ANTES, así que su escritura
-    // lleva la versión vieja. Es exactamente el UPDATE que hace el caso de uso,
-    // y no afecta ninguna fila — que es como se entera de que llegó tarde.
-    $afectadas = DB::table('orders')
+    // First person: confirms. The version advances.
+    advance($this->slug, $id, 'confirmed')->assertOk();
+
+    actingForTenant($this->tenant);
+    expect((int) DB::table('orders')->where('id', $id)->value('state_version'))->toBe($initialVersion + 1);
+
+    // Second person: their screen was loaded BEFORE, so their write carries the
+    // old version. Exactly the UPDATE the use case makes, affecting no rows —
+    // which is how it learns it arrived late.
+    $affected = DB::table('orders')
         ->where('id', $id)
-        ->where('state_version', $versionInicial)
+        ->where('state_version', $initialVersion)
         ->update(['status' => 'cancelled']);
 
-    expect($afectadas)->toBe(0);
+    expect($affected)->toBe(0);
 
-    // Y el pedido sigue donde lo dejó la primera persona.
+    // And the order stays where the first person left it.
     expect(DB::table('orders')->where('id', $id)->value('status'))->toBe('confirmed');
 });
 
-it('repetir el mismo paso no es un error', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('repeating the same step is not an error', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $id = pedir($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])->json('data.id');
+    $id = placeOrder($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])->json('data.id');
 
-    avanzar($this->slug, $id, 'confirmed')->assertOk();
-    avanzar($this->slug, $id, 'confirmed')->assertOk();
+    advance($this->slug, $id, 'confirmed')->assertOk();
+    advance($this->slug, $id, 'confirmed')->assertOk();
 });
 
-it('se cobra mezclado: parte en efectivo y el resto en pago móvil', function (): void {
-    // Es como se cobra aquí. Con una sola columna `payment_method` esto no se
-    // representa y el cajero acaba anotando la mitad en observaciones.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('payment comes in a mix: part cash and the rest by mobile transfer', function (): void {
+    // How payment works here. One `payment_method` column cannot represent it,
+    // and the cashier ends up using the notes field.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $id = pedir($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 2]]])
+    $id = placeOrder($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 2]]])
         ->json('data.id');   // total: 600
 
     $this->withHeaders(browsingAs($this->slug))
@@ -205,30 +205,30 @@ it('se cobra mezclado: parte en efectivo y el resto en pago móvil', function ()
         ->assertJsonPath('data.paymentStatus', 'partial')
         ->assertJsonPath('data.outstandingCents', 300);
 
-    // El pago móvil entra esperando revisión: no hay API bancaria que
-    // preguntar, alguien mira el comprobante.
-    $pago = $this->withHeaders(browsingAs($this->slug))
+    // Mobile payment arrives pending review: there is no banking API to ask,
+    // somebody looks at the receipt.
+    $payment = $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, "/api/v1/orders/{$id}/payments"), [
             'method' => 'pago_movil', 'amount_cents' => 300, 'reference' => '004512',
         ])->assertOk();
 
-    // Todavía debe 300: el pago móvil no cuenta hasta que se confirma.
-    $pago->assertJsonPath('data.outstandingCents', 300);
+    // They still owe 300: mobile payment does not count until confirmed.
+    $payment->assertJsonPath('data.outstandingCents', 300);
 
-    $pagoId = collect($pago->json('data.payments'))->firstWhere('method', 'pago_movil')['id'];
+    $paymentId = collect($payment->json('data.payments'))->firstWhere('method', 'pago_movil')['id'];
 
     $this->withHeaders(browsingAs($this->slug))
-        ->postJson(urlFor($this->slug, "/api/v1/orders/{$id}/payments/{$pagoId}/confirm"))
+        ->postJson(urlFor($this->slug, "/api/v1/orders/{$id}/payments/{$paymentId}/confirm"))
         ->assertOk()
         ->assertJsonPath('data.paidCents', 600)
         ->assertJsonPath('data.paymentStatus', 'paid')
         ->assertJsonPath('data.outstandingCents', 0);
 });
 
-it('cancelar exige un motivo y queda en la bitácora', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('cancelling requires a reason and lands in the audit log', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $id = pedir($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])->json('data.id');
+    $id = placeOrder($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])->json('data.id');
 
     $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, "/api/v1/orders/{$id}/cancel"), [])
@@ -243,17 +243,17 @@ it('cancelar exige un motivo y queda en la bitácora', function (): void {
 
     actingForTenant($this->tenant);
 
-    $entrada = DB::table('audit_log')->where('action', 'orders.cancelled')->first();
-    expect($entrada?->reason)->toBe('El cliente se arrepintió');
+    $entry = DB::table('audit_log')->where('action', 'orders.cancelled')->first();
+    expect($entry?->reason)->toBe('El cliente se arrepintió');
 });
 
-it('un pedido entregado no se puede cancelar', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('a delivered order cannot be cancelled', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $id = pedir($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])->json('data.id');
+    $id = placeOrder($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])->json('data.id');
 
-    foreach (['confirmed', 'preparing', 'ready', 'delivered'] as $estado) {
-        avanzar($this->slug, $id, $estado)->assertOk();
+    foreach (['confirmed', 'preparing', 'ready', 'delivered'] as $status) {
+        advance($this->slug, $id, $status)->assertOk();
     }
 
     $this->withHeaders(browsingAs($this->slug))
@@ -261,52 +261,51 @@ it('un pedido entregado no se puede cancelar', function (): void {
         ->assertStatus(409);
 });
 
-it('el tablero muestra sólo los pedidos vivos, del más viejo primero', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('the board shows only live orders, oldest first', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $viejo = pedir($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])->json('data.id');
-    $nuevo = pedir($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])->json('data.id');
+    $old = placeOrder($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])->json('data.id');
+    $newOne = placeOrder($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])->json('data.id');
 
-    foreach (['confirmed', 'preparing', 'ready', 'delivered'] as $estado) {
-        avanzar($this->slug, $nuevo, $estado)->assertOk();
+    foreach (['confirmed', 'preparing', 'ready', 'delivered'] as $status) {
+        advance($this->slug, $newOne, $status)->assertOk();
     }
 
-    $tablero = $this->withHeaders(browsingAs($this->slug))
+    $board = $this->withHeaders(browsingAs($this->slug))
         ->getJson(urlFor($this->slug, '/api/v1/orders'))
         ->assertOk()
         ->json('data');
 
-    expect(collect($tablero)->pluck('id')->all())->toBe([$viejo]);
+    expect(collect($board)->pluck('id')->all())->toBe([$old]);
 });
 
-it('cada pedido lleva su número, y no se repite', function (): void {
-    // Es el número que se grita en el mostrador: dos pedidos con el mismo
-    // número son dos clientes recogiendo la comida del otro.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('every order carries its number, and it never repeats', function (): void {
+    // It is the number shouted across the counter: two orders with the same
+    // number are two customers collecting each other's food.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $numeros = [];
+    $numbers = [];
     for ($i = 0; $i < 3; $i++) {
-        $numeros[] = pedir($this->slug, [
+        $numbers[] = placeOrder($this->slug, [
             'items' => [['product_id' => $this->arepa->id, 'quantity' => 1]],
         ])->json('data.number');
     }
 
-    expect($numeros)->toBe([1, 2, 3]);
+    expect($numbers)->toBe([1, 2, 3]);
 });
 
-it('la cocina no puede tomar pedidos', function (): void {
+it('the kitchen cannot take orders', function (): void {
     $carlos = makeUser($this->tenant, 'carlos@ejemplo.com', 'Carlos', pin: '4567');
     giveRole($this->tenant, $carlos, 'kitchen');
 
-    entrarComo($this->slug, 'carlos@ejemplo.com');
+    loginAs($this->slug, 'carlos@ejemplo.com');
 
-    pedir($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])
+    placeOrder($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])
         ->assertForbidden();
 });
 
-it('la tasa del día queda congelada en el pedido', function (): void {
-    // Sin esto, el importe en bolívares de un pedido de marzo cambiaría cada
-    // mañana.
+it('the rate of the day is frozen into the order', function (): void {
+    // Without this, a March order's bolívar amount would change every morning.
     actingForTenant($this->tenant);
     DB::table('exchange_rates')->insert([
         'id' => (string) Str::uuid7(),
@@ -318,9 +317,9 @@ it('la tasa del día queda congelada en el pedido', function (): void {
         'updated_at' => now(),
     ]);
 
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    pedir($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])
+    placeOrder($this->slug, ['items' => [['product_id' => $this->arepa->id, 'quantity' => 1]]])
         ->assertCreated()
         ->assertJsonPath('data.exchangeRate', 36.5);
 });

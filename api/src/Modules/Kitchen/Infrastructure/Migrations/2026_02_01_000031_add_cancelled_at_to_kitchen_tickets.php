@@ -7,12 +7,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Una comanda también puede terminar cancelada.
+ * A ticket can also end up cancelled — the customer changes their mind, or the
+ * till voids the sale with the arepa already on the griddle.
  *
- * Pasa a diario: el cliente se arrepiente, o en la caja anulan la venta con la
- * arepa ya en la plancha. La comanda no se borra —hubo materia prima de por
- * medio y el dueño va a querer saber cuánta se perdió— pero sale del tablero,
- * y como todos los demás pasos, éste sella su hora.
+ * It is not deleted (stock was involved) but comes off the board, and like
+ * every other step it stamps its time.
  */
 return new class extends Migration
 {

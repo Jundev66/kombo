@@ -11,16 +11,13 @@ use Illuminate\Support\Str;
 use Platform\Tenancy\TenantContext;
 
 /**
- * La bitácora. **Sólo inserta.**
+ * The audit log. Insert only.
  *
- * No hay método para actualizar ni para borrar, y no por disciplina: el
- * usuario con el que conecta la aplicación tiene INSERT y SELECT sobre
- * `audit_log` y nada más. Aunque alguien escribiera aquí un `update`, la base
- * lo rechazaría.
+ * Not by discipline: the application's database user has INSERT and SELECT on
+ * `audit_log` and nothing else, so even an `update` written here is refused.
  *
- * Se registra para dos conversaciones que ocurren de verdad: «falta dinero en
- * la caja» y «yo no anulé ese pedido». Las dos se resuelven mal sin saber
- * quién, cuándo y con la autorización de quién.
+ * It exists for two conversations that really happen: "the till is short" and
+ * "I did not void that order".
  */
 final class AuditLogger
 {
@@ -55,9 +52,8 @@ final class AuditLogger
             'id' => (string) Str::uuid7(),
             'tenant_id' => $this->context->id(),
 
-            // El actor explícito gana sobre quien autenticó la petición: en la
-            // caja, el token es del dispositivo y quien opera es la persona
-            // que puso su PIN.
+            // An explicit actor beats whoever authenticated the request: at the till
+            // the token is the device's and the operator is whoever entered their PIN.
             'user_id' => $actor?->userId ?? $user?->getAuthIdentifier(),
             'user_name' => $actor?->userName ?? $user?->name,
 

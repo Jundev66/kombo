@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 /*
- * Los canales son la puerta donde el aislamiento importa más y donde es más
- * fácil de romper: el negocio no se resuelve por subdominio sino por lo que
- * trae el cuerpo de un webhook que cualquiera puede mandar.
+ * Channels are where isolation matters most and is easiest to break: the tenant
+ * is resolved not from a subdomain but from the body of a webhook anyone can
+ * send.
  */
 
 use App\Models\Channels\ChannelAccountModel;
@@ -18,42 +18,42 @@ use Illuminate\Support\Str;
 use Modules\Channels\Infrastructure\Services\ChannelRouter;
 
 beforeEach(function (): void {
-    $sufijo = Str::lower(Str::random(6));
+    $suffix = Str::lower(Str::random(6));
 
-    $this->arepera = makeTenant("elsazon-{$sufijo}");
-    $this->pizzeria = makeTenant("laesquina-{$sufijo}");
+    $this->arepera = makeTenant("elsazon-{$suffix}");
+    $this->pizzeria = makeTenant("laesquina-{$suffix}");
 
-    $this->numeros = [];
+    $this->numbers = [];
 
-    foreach ([$this->arepera => 'Arepera', $this->pizzeria => 'Pizzería'] as $negocio => $nombre) {
-        actingForTenant($negocio);
+    foreach ([$this->arepera => 'Arepera', $this->pizzeria => 'Pizzería'] as $tenant => $name) {
+        actingForTenant($tenant);
 
-        $numero = '5551'.random_int(100000, 999999);
-        $this->numeros[$negocio] = $numero;
+        $number = '5551'.random_int(100000, 999999);
+        $this->numbers[$tenant] = $number;
 
         ChannelAccountModel::create([
             'channel' => 'whatsapp',
-            'external_id' => $numero,
-            'webhook_secret' => "secreto-de-{$nombre}",
-            'credentials' => ['access_token' => "token-de-{$nombre}"],
+            'external_id' => $number,
+            'webhook_secret' => "secreto-de-{$name}",
+            'credentials' => ['access_token' => "token-de-{$name}"],
         ]);
 
         $conversation = ConversationModel::create([
             'channel' => 'whatsapp',
             'external_chat_id' => '58414'.random_int(1000000, 9999999),
-            'customer_name' => "Cliente de {$nombre}",
+            'customer_name' => "Cliente de {$name}",
         ]);
 
         $conversation->messages()->create([
             'direction' => 'in',
-            'content' => "Mensaje para {$nombre}",
+            'content' => "Mensaje para {$name}",
         ]);
 
-        app(ChannelRouter::class)->register('whatsapp', $numero, $negocio);
+        app(ChannelRouter::class)->register('whatsapp', $number, $tenant);
     }
 });
 
-it('cada negocio ve sólo sus conversaciones', function (): void {
+it('each tenant sees only its own conversations', function (): void {
     actingForTenant($this->arepera);
     expect(ConversationModel::pluck('customer_name')->all())->toBe(['Cliente de Arepera']);
 
@@ -61,46 +61,46 @@ it('cada negocio ve sólo sus conversaciones', function (): void {
     expect(ConversationModel::pluck('customer_name')->all())->toBe(['Cliente de Pizzería']);
 });
 
-it('los mensajes de un chat ajeno tampoco se ven', function (): void {
+it('another tenant\'s chat messages are not visible either', function (): void {
     actingForTenant($this->arepera);
 
     expect(MessageModel::count())->toBe(1)
         ->and(MessageModel::first()?->content)->toBe('Mensaje para Arepera');
 });
 
-it('las credenciales de un negocio no existen para otro', function (): void {
-    // Es lo más grave que podría filtrarse de este módulo: con ese token se le
-    // escribe a todos los clientes del vecino en su nombre.
+it('one tenant\'s credentials do not exist for another', function (): void {
+    // The worst thing this module could leak: with that token you write to
+    // every one of the neighbour's customers in their name.
     actingForTenant($this->pizzeria);
 
     expect(ChannelAccountModel::count())->toBe(1)
         ->and(ChannelAccountModel::first()?->credential('access_token'))->toBe('token-de-Pizzería');
 });
 
-it('un número de WhatsApp resuelve a UN solo negocio', function (): void {
+it('a WhatsApp number resolves to ONE tenant only', function (): void {
     $router = app(ChannelRouter::class);
 
-    expect($router->tenantFor('whatsapp', $this->numeros[$this->arepera]))->toBe($this->arepera)
-        ->and($router->tenantFor('whatsapp', $this->numeros[$this->pizzeria]))->toBe($this->pizzeria)
-        // Y uno que no es de nadie no resuelve a ninguno, en vez de al primero
-        // que aparezca.
+    expect($router->tenantFor('whatsapp', $this->numbers[$this->arepera]))->toBe($this->arepera)
+        ->and($router->tenantFor('whatsapp', $this->numbers[$this->pizzeria]))->toBe($this->pizzeria)
+        // And one that belongs to nobody resolves to nobody, rather than to
+        // whichever turns up first.
         ->and($router->tenantFor('whatsapp', '000000000000'))->toBeNull();
 });
 
-it('el mismo número no puede darse de alta en dos negocios', function (): void {
-    // Sin el único global, un negocio podría reclamar el número de otro y
-    // empezar a recibir sus mensajes.
+it('the same number cannot be registered in two tenants', function (): void {
+    // Without the global unique index, a tenant could claim another's number
+    // and start receiving their messages.
     expect(fn () => DB::table('channel_routes')->insert([
         'id' => (string) Str::uuid7(),
         'channel' => 'whatsapp',
-        'external_id' => $this->numeros[$this->arepera],
+        'external_id' => $this->numbers[$this->arepera],
         'tenant_id' => $this->pizzeria,
         'created_at' => now(),
         'updated_at' => now(),
     ]))->toThrow(QueryException::class);
 });
 
-it('sin negocio en contexto no se ve ninguna conversación', function (): void {
+it('with no tenant in context no conversation is visible', function (): void {
     withoutTenant();
 
     expect(DB::table('conversations')->count())->toBe(0)
@@ -108,7 +108,7 @@ it('sin negocio en contexto no se ve ninguna conversación', function (): void {
         ->and(DB::table('channel_accounts')->count())->toBe(0);
 });
 
-it('no se puede colar una conversación en el chat de otro negocio', function (): void {
+it('a conversation cannot be slipped into another tenant\'s chat', function (): void {
     actingForTenant($this->arepera);
 
     expect(fn () => DB::table('conversations')->insert([
@@ -123,16 +123,16 @@ it('no se puede colar una conversación en el chat de otro negocio', function ()
     ]))->toThrow(QueryException::class);
 });
 
-it('la guía de webhooks NO guarda credenciales', function (): void {
+it('the webhook phone book stores NO credentials', function (): void {
     /*
-     * `channel_routes` es tabla de plataforma: se lee sin negocio en contexto,
-     * así que no lleva RLS. Por eso sólo puede contener lo justo para saber de
-     * quién es un número — si aquí hubiera un token, estaría al alcance de
-     * cualquier consulta que se olvide de filtrar.
+     * `channel_routes` is a platform table, read with no tenant in context and
+     * therefore without RLS. That is why it may hold only enough to know whose
+     * a number is — a token here would be within reach of any query that
+     * forgets to filter.
      */
-    $columnas = DB::getSchemaBuilder()->getColumnListing('channel_routes');
+    $columns = DB::getSchemaBuilder()->getColumnListing('channel_routes');
 
-    expect($columnas)->not->toContain('credentials')
+    expect($columns)->not->toContain('credentials')
         ->not->toContain('webhook_secret')
         ->toContain('tenant_id');
 });

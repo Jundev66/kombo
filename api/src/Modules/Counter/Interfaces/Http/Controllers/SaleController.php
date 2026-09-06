@@ -12,11 +12,9 @@ use Modules\Orders\Domain\ValueObjects\ServiceType;
 use Modules\Orders\Interfaces\Http\Resources\OrderResource;
 
 /**
- * Cobrar en el mostrador.
- *
- * Una sola llamada: lo que se llevó y cómo pagó. El servidor arma el pedido,
- * lo manda a la cocina, registra los pagos y devuelve la nota lista para
- * imprimir.
+ * Taking payment at the counter: one call with what they took and how they
+ * paid. The server assembles the order, sends it to the kitchen, records the
+ * payments and returns the note ready to print.
  */
 final class SaleController
 {
@@ -30,8 +28,8 @@ final class SaleController
             'items.*.modifier_ids.*' => ['uuid'],
             'items.*.notes' => ['nullable', 'string', 'max:300'],
 
-            // Varios pagos: aquí se cobra mezclado y con uno solo no se
-            // representa.
+            // Several payments: people pay in a mix here, and one alone cannot
+            // represent it.
             'payments' => ['required', 'array', 'min:1'],
             'payments.*.method' => ['required', 'string', 'in:cash_usd,cash_bs,pago_movil,transfer,zelle,card,binance'],
             'payments.*.amount_cents' => ['required', 'integer', 'min:1'],
@@ -43,8 +41,7 @@ final class SaleController
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
-        // No se acepta ningún importe de línea ni total: los precios los pone
-        // el servidor, siempre.
+        // No line amount or total is accepted: the server sets the prices, always.
         ['order' => $order, 'note' => $note] = $completeSale->execute(
             items: $data['items'],
             payments: $data['payments'],

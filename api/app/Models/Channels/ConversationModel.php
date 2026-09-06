@@ -11,7 +11,7 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Un hilo con un cliente.
+ * A thread with a customer.
  */
 #[Fillable([
     'channel', 'external_chat_id', 'customer_name', 'customer_phone',
@@ -36,10 +36,9 @@ class ConversationModel extends Model
     /**
      * @return HasMany<MessageModel, $this>
      *
-     * Se ordena por `created_at` **y por `id`**: las marcas de tiempo se
-     * guardan con precisión de segundos, y dos mensajes del mismo segundo
-     * —que es exactamente lo que pasa cuando el bot contesta— empatan. El
-     * uuid7 desempata bien porque lleva el tiempo dentro.
+     * Ordered by `created_at` AND by `id`: timestamps have second precision, and
+     * two messages in the same second — what happens when the bot replies — tie.
+     * The uuid7 breaks the tie correctly because it carries the time inside.
      */
     public function messages(): HasMany
     {

@@ -2,24 +2,24 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { kitchen, type Ticket } from './api'
 
 /**
- * Las comandas de la pantalla.
+ * The screen's tickets.
  *
- * **Por sondeo cada 5 segundos, no por websocket.** Un websocket implica
- * conexiones abiertas, reconexión, latidos y un estado más que puede quedarse
- * pegado sin que nadie lo note. Una tablet de cocina con wifi malo se recupera
- * sola de un sondeo; de un socket caído, no. Y cinco segundos de retraso en
- * una cocina no los nota nadie.
+ * Polled every 5 seconds rather than over a websocket. A socket means open
+ * connections, reconnection, heartbeats and one more piece of state that can
+ * stick without anyone noticing. A kitchen tablet on bad wifi recovers from a
+ * poll on its own; from a dropped socket it does not. And five seconds of lag
+ * in a kitchen is unnoticeable.
  */
 export function useKitchen() {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [staleMinutes, setStaleMinutes] = useState(15)
-  // Cuántas comandas vivas no caben en la pantalla. Si no es cero, se dice.
+  // How many live tickets do not fit on screen. If not zero, it is said.
   const [hidden, setHidden] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Cuándo se recibió la última respuesta. El cronómetro le suma los segundos
-  // transcurridos desde entonces, así que no depende del reloj de la tablet.
+  // When the last response arrived. The stopwatch adds the seconds since, so
+  // it does not depend on the tablet's clock.
   const fetchedAt = useRef(Date.now())
   const [, tick] = useState(0)
 
@@ -34,11 +34,11 @@ export function useKitchen() {
       fetchedAt.current = Date.now()
     } catch {
       /*
-       * Si falla, NO se borra la pantalla.
+       * On failure the screen is NOT cleared.
        *
-       * Una cocina sin conexión sigue teniendo esos pedidos en la plancha.
-       * Vaciar la lista porque el wifi parpadeó sería hacer perder comandas
-       * que están físicamente ahí.
+       * A kitchen with no connection still has those orders on the griddle.
+       * Emptying the list because the wifi blinked would lose tickets that are
+       * physically there.
        */
       setError('Sin conexión')
     } finally {
@@ -50,8 +50,7 @@ export function useKitchen() {
     void load()
 
     const polling = setInterval(() => void load(), 5_000)
-    // Un tick local cada segundo, sólo para que el cronómetro no salte de
-    // cinco en cinco. No consulta nada.
+    // A local tick every second, only so the stopwatch does not jump in fives.
     const clock = setInterval(() => tick((n) => n + 1), 1_000)
 
     return () => {
@@ -61,11 +60,11 @@ export function useKitchen() {
   }, [load])
 
   /**
-   * Avanza una comanda, pintando el cambio ANTES de la respuesta.
+   * Advances a ticket, painting the change BEFORE the response.
    *
-   * Tocar «Listo» y que no pase nada medio segundo significa tocarlo otra vez,
-   * y en una cocina eso es lo que ocurre. Si el servidor dice que no, la
-   * siguiente consulta lo devuelve a su sitio.
+   * Tapping "Ready" and seeing nothing for half a second means tapping it
+   * again, and in a kitchen that is what happens. If the server says no, the
+   * next poll puts it back.
    */
   const advance = useCallback(
     async (ticket: Ticket) => {
@@ -88,7 +87,7 @@ export function useKitchen() {
     [load],
   )
 
-  /** Cuánto lleva esperando, ahora mismo. */
+  /** How long it has been waiting, right now. */
   const waitedSeconds = useCallback(
     (ticket: Ticket): number =>
       ticket.waitingSeconds + Math.floor((Date.now() - fetchedAt.current) / 1000),
@@ -96,10 +95,10 @@ export function useKitchen() {
   )
 
   /**
-   * ¿Va tarde?
+   * Is it running late?
    *
-   * Se usa el tiempo del PRODUCTO si se conoce —una parrilla no es una arepa—
-   * y el umbral del negocio como red de seguridad cuando no.
+   * The PRODUCT's time is used when known — a grill is not an arepa — with the
+   * tenant's threshold as a safety net when it is not.
    */
   const isLate = useCallback(
     (ticket: Ticket): boolean =>
@@ -110,7 +109,7 @@ export function useKitchen() {
   return { tickets, hidden, loading, error, advance, waitedSeconds, isLate }
 }
 
-/** «4:32» — minutos y segundos, que es como se cuenta en una cocina. */
+/** "4:32" — minutes and seconds, which is how a kitchen counts. */
 export function formatWait(seconds: number): string {
   const minutes = Math.floor(seconds / 60)
 

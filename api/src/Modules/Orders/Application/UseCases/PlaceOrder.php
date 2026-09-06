@@ -22,15 +22,12 @@ use Platform\Tenancy\TenantContext;
 use Shared\Domain\ValueObjects\Money;
 
 /**
- * Tomar un pedido.
+ * Taking an order.
  *
- * **La regla que gobierna este caso de uso: los identificadores vienen del
- * cliente, los precios NO.**
- *
- * Quien arma el pedido —el portal, el bot, la caja— manda qué producto y
- * cuántos. Cuánto cuesta se resuelve aquí, contra la carta, siempre. Sin eso,
- * un navegador manipulado se cobraría lo que quisiera, y el fallo sólo se
- * notaría al cuadrar el mes.
+ * The rule that governs this use case: ids come from the client, prices do NOT.
+ * The portal, the bot and the till send which product and how many; what it
+ * costs is resolved here against the menu, always. Without that, a tampered
+ * browser charges itself whatever it likes and it shows up at month end.
  */
 final class PlaceOrder
 {
@@ -62,8 +59,8 @@ final class PlaceOrder
     ): OrderModel {
         $lines = $this->resolveLines($items);
 
-        // El dominio valida antes de tocar la base: que haya algo que cobrar,
-        // que las cantidades tengan sentido, y calcula los totales.
+        // The domain validates before the database is touched: something to charge
+        // for, sensible quantities, and the totals.
         $order = Order::place(
             id: (string) Str::uuid7(),
             serviceType: $serviceType,
@@ -83,7 +80,7 @@ final class PlaceOrder
             $model->id = $order->id;
             $model->fill([
                 'number' => $this->nextNumber(),
-                // 22 caracteres base64url ≈ 128 bits: no se adivina probando.
+                // 22 base64url characters ≈ 128 bits: not guessable by trying.
                 'public_token' => Str::random(22),
                 'status' => $order->status()->value,
                 'service_type' => $order->serviceType()->value,
@@ -92,20 +89,20 @@ final class PlaceOrder
                 'customer_phone' => $customerPhone,
                 'delivery_address' => $deliveryAddress,
                 'delivery_zone_id' => $deliveryZoneId,
-                // COPIADO: un pedido de hace dos meses tiene que decir a qué
-                // barrio fue aunque la zona ya no exista.
+                // COPIED: an order from two months ago has to say which neighbourhood it
+                // went to even if the zone no longer exists.
                 'delivery_zone_name' => $deliveryZoneName,
                 'subtotal_cents' => $order->subtotal()->cents,
                 'delivery_fee_cents' => $order->deliveryFee()->cents,
                 'total_cents' => $order->total()->cents,
                 'currency' => 'USD',
-                // La tasa se CONGELA aquí. Sin esto, el importe en bolívares
-                // de un pedido de marzo cambiaría cada mañana.
+                // The rate is FROZEN here, or a March order's bolívar amount would change
+                // every morning.
                 'exchange_rate' => $rate,
                 'notes' => $order->notes(),
                 'placed_at' => $order->stampedAt('placed_at'),
-                // Sólo lo llevan los que esperan un pago. Un pedido ya pagado
-                // no caduca.
+                // Only orders awaiting payment carry it. An already-paid order does not
+                // expire.
                 'expires_at' => $expiresAt,
                 'created_by' => auth()->id(),
             ]);
@@ -114,8 +111,8 @@ final class PlaceOrder
             foreach ($order->lines() as $index => $line) {
                 $item = $model->items()->create([
                     'product_id' => $line->productId,
-                    // COPIADOS. Un ticket de hace seis meses debe decir lo que
-                    // decía cuando se imprimió.
+                    // COPIED. A ticket from six months ago must say what it said when it was
+                    // printed.
                     'product_name' => $line->productName,
                     'unit_price_cents' => $line->unitPrice->cents,
                     'quantity' => $line->quantity,
@@ -145,11 +142,8 @@ final class PlaceOrder
             $model->refresh();
 
             /*
-             * Entró un pedido.
-             *
-             * Por evento, como todo lo demás: `Orders` no sabe quién escucha.
-             * Hoy lo oye el módulo de clientes para llevar su cuenta; mañana
-             * podría oírlo otro sin tocar esto.
+             * An order came in. By event, like everything else: `Orders` does
+             * not know who is listening.
              */
             $this->events->dispatch(new OrderPlaced(
                 tenantId: $this->context->id(),
@@ -161,24 +155,22 @@ final class PlaceOrder
                 customerPhone: $model->customer_phone,
             ));
 
-            // Se devuelve releído: columnas como `payment_status` las pone la
-            // base con su valor por defecto, y un modelo a medio llenar obliga
-            // a quien lo recibe a adivinar cuáles faltan.
+            // Returned re-read: columns like `payment_status` come from database
+            // defaults, and a half-filled model makes the caller guess which.
             return $model;
         });
     }
 
     /**
-     * De lo que mandó el cliente a líneas con precios de verdad.
+     * From what the client sent to lines with real prices.
      *
      * @param  list<array{product_id: string, quantity: int, modifier_ids?: list<string>, notes?: string|null}>  $items
      * @return list<OrderLine>
      */
     private function resolveLines(array $items): array
     {
-        // Dos consultas para todo el pedido, no dos por línea. En una máquina
-        // modesta, ese detalle es la diferencia entre cobrar en medio segundo
-        // o en cinco.
+        // Two queries for the whole order, not two per line. On a modest machine
+        // that is the difference between half a second and five.
         $productIds = array_values(array_unique(array_column($items, 'product_id')));
         $modifierIds = array_values(array_unique(array_merge(
             ...array_map(static fn (array $i): array => $i['modifier_ids'] ?? [], $items),
@@ -193,9 +185,8 @@ final class PlaceOrder
             $product = $products[$item['product_id']] ?? null;
 
             if ($product === null || ! $product->isSellable($item['quantity'])) {
-                // El mismo mensaje para «no existe», «lo sacaron de la carta» y
-                // «se acabó»: para quien pide son la misma cosa, y distinguirlo
-                // sólo sirve para que alguien deduzca qué hay en la base.
+                // The same message for "gone", "off the menu" and "sold out": to whoever
+                // is ordering they are the same thing.
                 throw new ProductNotSellable($product?->name);
             }
 
@@ -204,9 +195,9 @@ final class PlaceOrder
             foreach ($item['modifier_ids'] ?? [] as $modifierId) {
                 $modifier = $modifiers[$modifierId] ?? null;
 
-                // Un modificador inactivo se IGNORA en silencio en vez de
-                // tumbar el pedido: quitar un extra de la carta no puede
-                // reventarle la pantalla a quien lo tenía en el carrito.
+                // An inactive modifier is ignored silently rather than failing the order:
+                // taking an extra off the menu cannot break the screen of somebody who
+                // already had it in their basket.
                 if ($modifier === null || ! $modifier->isActive) {
                     continue;
                 }
@@ -221,7 +212,7 @@ final class PlaceOrder
             $lines[] = new OrderLine(
                 productId: $product->id,
                 productName: $product->name,
-                // DEL CATÁLOGO, nunca de lo que llegó en la petición.
+                // FROM THE CATALOG, never from what arrived in the request.
                 unitPrice: $product->price,
                 quantity: $item['quantity'],
                 modifiers: $chosen,
@@ -233,21 +224,16 @@ final class PlaceOrder
     }
 
     /**
-     * El siguiente número del negocio.
+     * The tenant's next order number.
      *
-     * Dos cajas cobrando a la vez no pueden sacar el mismo número: ése es el
-     * que se grita en el mostrador, y repetirlo son dos clientes recogiendo la
-     * comida del otro.
+     * Two tills taking payment at once cannot draw the same number: it is the
+     * one shouted across the counter, and repeating it means two customers
+     * collecting each other's food.
      *
-     * Se usa un **cerrojo consultivo por negocio**, no `for update` sobre la
-     * tabla, por dos razones: PostgreSQL no admite `FOR UPDATE` junto a una
-     * función de agregado como `max()`, y bloquear la última fila no serviría
-     * cuando la tabla está vacía —justo el primer pedido del día, que es
-     * cuando dos cajas arrancan a la vez—.
-     *
-     * El cerrojo se suelta solo al terminar la transacción. Y por si acaso,
-     * detrás está el único `(tenant_id, number)`: si algo fallara, la base
-     * rechaza el insert en vez de duplicar el número.
+     * An advisory lock per tenant rather than `for update`: PostgreSQL does not
+     * allow `FOR UPDATE` with `max()`, and locking the last row is no use on an
+     * empty table — the first order of the day, when two tills start at once.
+     * The unique `(tenant_id, number)` sits behind it either way.
      */
     private function nextNumber(): int
     {

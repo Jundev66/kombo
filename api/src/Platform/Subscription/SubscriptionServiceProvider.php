@@ -14,11 +14,11 @@ use Platform\Subscription\Http\CreatePlatformAdminCommand;
 use Platform\Subscription\Http\SweepSubscriptionsCommand;
 
 /**
- * El cobro, enganchado al reloj.
+ * Billing, wired to the clock.
  *
- * Acordarse del planificador el día del despliegue es el fallo clásico: los
- * vencimientos sencillamente no pasan y nadie se entera hasta que un cliente
- * lleva cuatro meses sin pagar y sigue trabajando.
+ * Remembering the scheduler on deployment day is the classic failure: expiries
+ * simply do not happen, and nobody notices until a customer is four months
+ * behind and still working.
  */
 final class SubscriptionServiceProvider extends ServiceProvider
 {
@@ -38,31 +38,24 @@ final class SubscriptionServiceProvider extends ServiceProvider
     {
         $this->app->booted(function (): void {
             /*
-             * Una vez al día, temprano.
-             *
-             * A las 3 de la mañana en el huso del servidor: ningún negocio de
-             * comida está cobrando a esa hora, así que nadie se encuentra la
-             * suspensión en mitad de un almuerzo.
+             * Once a day, at 3am server time: no food business is taking
+             * payment then, so nobody meets a suspension mid-lunch.
              */
             $schedule = $this->app->make(Schedule::class);
 
-            $schedule->command('suscripciones:revisar')
+            $schedule->command('subscriptions:check')
                 ->dailyAt('03:00')
                 ->withoutOverlapping();
 
             /*
-             * El respaldo, a las 3:40.
+             * The backup at 3:40, after the sweep rather than alongside it:
+             * `pg_dump` and the sweep competing for the same disk on a modest
+             * machine makes both take twice as long.
              *
-             * Después de la revisión y no a la vez: `pg_dump` y el barrido
-             * compitiendo por el mismo disco en una máquina modesta hacen que
-             * los dos tarden el doble. Y a esa hora no hay ningún negocio de
-             * comida cobrando, así que el volcado no le quita entradas y
-             * salidas a nadie.
-             *
-             * `runInBackground` NO se pone: si el respaldo de ayer todavía
-             * está corriendo, el de hoy tiene que esperar, no arrancar encima.
+             * `runInBackground` is deliberately not set: if yesterday's backup
+             * is still running, today's waits rather than piling on.
              */
-            $schedule->command('respaldos:hacer')
+            $schedule->command('backups:run')
                 ->dailyAt('03:40')
                 ->withoutOverlapping(120);
         });

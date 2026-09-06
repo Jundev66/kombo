@@ -12,25 +12,19 @@ use Modules\Channels\Domain\ValueObjects\IncomingMessage;
 use Modules\Channels\Domain\ValueObjects\Reply;
 
 /**
- * Telegram, por su Bot API.
+ * Telegram, through its Bot API. Different limits, hence a different adapter:
  *
- * Aquí los límites son otros, y por eso el adaptador es otro:
- *
- *   - **El teclado es libre.** Ocho opciones caben en un mensaje, en dos
- *     columnas. Recortarlas a tres porque WhatsApp no da para más sería
- *     empobrecer este canal sin ninguna razón.
- *   - **`callback_data` no pasa de 64 BYTES.** Y falla de la peor manera: la
- *     API acepta el mensaje y el botón sencillamente no hace nada. Por eso los
- *     identificadores del motor son cortos por construcción, y aquí se
- *     comprueba antes de mandar.
- *   - **La firma no es HMAC**: es una cabecera con un secreto que uno mismo
- *     eligió al dar de alta el webhook.
+ * - The keyboard is free — eight options fit in one message, and cutting them
+ *   to three because WhatsApp cannot manage more would impoverish this channel.
+ * - `callback_data` stops at 64 BYTES, and fails silently: the API accepts the
+ *   message and the button does nothing. Checked here before sending.
+ * - The signature is not HMAC but a header carrying a secret you chose.
  */
 final class TelegramChannel implements MessagingChannel
 {
     private const API = 'https://api.telegram.org';
 
-    /** Dos por fila: lo que se lee de un vistazo en un teléfono. */
+    /** Two per row: what reads at a glance on a phone. */
     private const COLUMNS = 2;
 
     private const MAX_CALLBACK_BYTES = 64;
@@ -55,8 +49,8 @@ final class TelegramChannel implements MessagingChannel
             return;
         }
 
-        // Todo en UN mensaje, con el teclado entero. Partirlo en tandas de tres
-        // sería traer aquí un límite que este canal no tiene.
+        // All in ONE message, with the whole keyboard: splitting into batches of
+        // three would import a limit this channel does not have.
         $this->call('sendMessage', [
             'chat_id' => $chatId,
             'text' => $reply->text,
@@ -82,7 +76,7 @@ final class TelegramChannel implements MessagingChannel
      */
     public function parse(array $payload): array
     {
-        // Un botón tocado llega como `callback_query`, no como mensaje.
+        // A tapped button arrives as a `callback_query`, not as a message.
         if (isset($payload['callback_query'])) {
             $callback = $payload['callback_query'];
             $chat = $callback['message']['chat'] ?? [];
@@ -98,8 +92,7 @@ final class TelegramChannel implements MessagingChannel
         $message = $payload['message'] ?? null;
 
         if ($message === null) {
-            // Ediciones, mensajes de canal, gente que entra a un grupo. Nada
-            // que contestar.
+            // Edits, channel posts, people joining a group. Nothing to answer.
             return [];
         }
 
@@ -141,9 +134,9 @@ final class TelegramChannel implements MessagingChannel
 
         foreach ($reply->options as $option) {
             if (! $option->fitsEverywhere()) {
-                // No se manda un botón que no va a funcionar: Telegram lo
-                // aceptaría y al tocarlo no pasaría nada, que es el fallo más
-                // difícil de diagnosticar que tiene este canal.
+                // A button that will not work is not sent: Telegram would accept it and
+                // tapping it would do nothing, the hardest failure this channel has to
+                // diagnose.
                 Log::warning('Opción descartada: callback_data pasa de 64 bytes', [
                     'id' => $option->id,
                     'bytes' => strlen($option->id),
@@ -179,7 +172,7 @@ final class TelegramChannel implements MessagingChannel
         $response = Http::timeout(10)->asForm()->post(self::API."/bot{$token}/{$method}", $params);
 
         if ($response->failed()) {
-            // Como en WhatsApp: el aviso es un extra, la comida es el producto.
+            // As on WhatsApp: the notice is an extra, the food is the product.
             Log::warning('Telegram rechazó un mensaje', [
                 'account' => $this->account->id,
                 'method' => $method,

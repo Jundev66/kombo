@@ -7,11 +7,10 @@ namespace Platform\Modules\Exceptions;
 use RuntimeException;
 
 /**
- * Se pidió un módulo que no existe en esta versión del sistema.
+ * A module was requested that does not exist in this version.
  *
- * Es un error de programación, no de negocio: significa que alguien escribió
- * un código de módulo a mano y se equivocó, o que se borró una carpeta sin
- * quitar su línea de `config/modules.php`.
+ * A programming error, not a business one: a hand-typed module code, or a
+ * directory deleted without removing its `config/modules.php` line.
  */
 final class UnknownModule extends RuntimeException
 {

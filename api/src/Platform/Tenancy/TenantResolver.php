@@ -9,22 +9,18 @@ use Illuminate\Database\ConnectionInterface;
 use Platform\Tenancy\Exceptions\TenantNotFound;
 
 /**
- * Del host de la petición al negocio.
+ * From the request host to the tenant: `elsazon.kombo.app` → slug `elsazon`.
  *
- * `elsazon.kombo.app` → el negocio con slug `elsazon`.
- *
- * Es la primera cosa que ocurre en cada petición, así que va cacheada: sin
- * caché es una consulta por petición, y con un bot de WhatsApp mandando
- * mensajes eso se nota.
+ * The first thing on every request, so it is cached: uncached it is one query
+ * per request, and a WhatsApp bot sending messages makes that noticeable.
  */
 final class TenantResolver
 {
     /**
-     * Subdominios que la plataforma se reserva.
+     * Subdomains the platform reserves.
      *
-     * Sin esta lista, alguien podría registrar un negocio llamado `admin` y
-     * quedarse con la dirección de la super administración. No es hipotético:
-     * es lo primero que probaría cualquiera que quisiera hacer daño.
+     * Without this list, somebody could register a tenant called `admin` and
+     * take over the platform administration address.
      *
      * @var list<string>
      */
@@ -43,16 +39,16 @@ final class TenantResolver
     ) {}
 
     /**
-     * El slug que hay en un host, o null si ahí no hay negocio.
+     * The slug in a host, or null when there is no tenant there.
      *
-     * Devolver null no es un error: es lo que pasa en el dominio raíz (donde
-     * vive el registro de negocios nuevos) y en `admin.` (la plataforma).
+     * Null is not an error: it is the root domain (where sign-up lives) and
+     * `admin.` (the platform).
      */
     public function slugFromHost(string $host): ?string
     {
         $host = strtolower(trim($host));
 
-        // Quitar el puerto: `elsazon.localhost:8010`.
+        // Strip the port: `elsazon.localhost:8010`.
         if (str_contains($host, ':')) {
             $host = explode(':', $host, 2)[0];
         }
@@ -65,7 +61,7 @@ final class TenantResolver
 
         $slug = substr($host, 0, -strlen($suffix));
 
-        // Vacío, o un subdominio anidado (`algo.elsazon.kombo.app`): no.
+        // Empty, or a nested subdomain (`something.elsazon.kombo.app`): no.
         if ($slug === '' || str_contains($slug, '.')) {
             return null;
         }
@@ -94,9 +90,8 @@ final class TenantResolver
             ->first();
 
         if ($row === null) {
-            // La AUSENCIA no se cachea a propósito: un negocio que acaba de
-            // darse de alta tiene que poder entrar en el acto, no dentro de
-            // una hora.
+            // ABSENCE is deliberately not cached: a tenant that has just signed up has
+            // to be able to get in immediately, not in an hour.
             throw new TenantNotFound($slug);
         }
 
@@ -108,11 +103,11 @@ final class TenantResolver
     }
 
     /**
-     * Hay que llamarlo al cambiar el plan, el estado o el nombre de un negocio.
+     * Call on changing a tenant's plan, status or name.
      *
-     * Si se olvida, el síntoma engaña de la peor manera: `/me` responde bien
-     * —viene de caché— y todas las consultas devuelven cero filas, porque RLS
-     * está filtrando por un identificador que ya no existe.
+     * Forget it and the symptom misleads badly: `/me` answers correctly (from
+     * cache) while every query returns zero rows, because RLS is filtering by
+     * an id that no longer exists.
      */
     public function forget(string $slug): void
     {

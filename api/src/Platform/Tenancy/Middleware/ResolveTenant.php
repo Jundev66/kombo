@@ -14,16 +14,14 @@ use Platform\Tenancy\TenantResolver;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Lo primero que pasa en cada petición: averiguar de qué negocio es.
+ * The first thing on every request: work out which tenant it is for.
  *
- * Va antepuesto a los grupos `web` y `api`, y **antes de la autenticación**.
- * El orden no es casual: así el usuario se busca DENTRO del negocio ya
- * resuelto, y el mismo correo en dos negocios entra al que corresponde al
- * subdominio, sin un campo extra en el formulario de login.
+ * Prepended to the `web` and `api` groups, and before authentication, so the
+ * user is looked up INSIDE the resolved tenant and the same email in two
+ * tenants signs into the right one.
  *
- * Si el host no lleva negocio (el dominio raíz, o `admin.`) la petición sigue
- * sin contexto. Eso es correcto: ahí viven el registro de negocios nuevos y la
- * super administración, que es cross-tenant por definición.
+ * A host with no tenant (the root domain, or `admin.`) carries on without
+ * context: that is where sign-up and platform administration live.
  */
 final class ResolveTenant
 {
@@ -42,9 +40,9 @@ final class ResolveTenant
             return $next($request);
         }
 
-        // Lanza TenantNotFound (404) si no existe. Nunca cae a un negocio por
-        // defecto: un fallo de configuración que sirviera los datos de otro
-        // sería mucho peor que una página de error.
+        // Throws TenantNotFound (404) when there is none. It never falls back to a
+        // default tenant: serving another tenant's data would be far worse than an
+        // error page.
         $tenant = $this->resolver->bySlug($slug);
 
         if (! $tenant->status->allowsAccess()) {
@@ -56,11 +54,10 @@ final class ResolveTenant
         $this->context->set($tenant);
         $this->guard->apply($tenant->id);
 
-        // Los guards de autenticación memorizan al usuario, y las capacidades
-        // memorizan el resultado de resolverlas. Las dos memorias valen POR
-        // PETICIÓN: sin esto, en un proceso persistente (Octane, un worker) la
-        // siguiente petición podría verse con el usuario y los permisos de la
-        // anterior — y de otro negocio.
+        // Auth guards memoise the user and capabilities memoise their result. Both
+        // are good for ONE request: without this, a persistent process (Octane, a
+        // worker) could serve the next request with the previous user, from
+        // another tenant.
         Auth::forgetGuards();
         $this->capabilities->reset();
 
@@ -68,10 +65,10 @@ final class ResolveTenant
     }
 
     /**
-     * Limpia la conexión antes de devolverla al pool.
+     * Cleans the connection before it returns to the pool.
      *
-     * Junto con el listener de TransactionBeginning, es lo que impide que una
-     * conexión reutilizada arrastre el negocio de la petición anterior.
+     * With the TransactionBeginning listener, this is what stops a reused
+     * connection carrying the previous request's tenant.
      */
     public function terminate(Request $request, Response $response): void
     {

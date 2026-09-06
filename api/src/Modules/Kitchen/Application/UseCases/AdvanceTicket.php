@@ -12,17 +12,15 @@ use Platform\Audit\AuditLogger;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Mover una comanda al siguiente paso.
+ * Moving a ticket to the next step. Three rules, all from watching a real
+ * kitchen:
  *
- * Tres reglas, y las tres salen de mirar cómo funciona una cocina de verdad:
- *
- * 1. **Repetir el mismo paso NO es error.** Dos cocineros tocando «Listo» a la
- *    vez no pueden hacer saltar un mensaje rojo en mitad del servicio.
- * 2. **Sólo hacia adelante y sólo un paso.** Un toque accidental que devuelva
- *    a «por hacer» una comanda ya entregada hace que se prepare dos veces.
- *    Corregir de verdad es cosa del encargado, desde el panel.
- * 3. **Cada paso sella su hora.** De ahí sale «cuánto tardamos», que es la
- *    única forma de saber si el semáforo está bien calibrado.
+ * 1. Repeating the same step is not an error — two cooks tapping "Ready" at
+ *    once cannot raise a red message mid-service.
+ * 2. Forwards only, one step at a time; a stray tap must not send a delivered
+ *    ticket back to "to do" and get the food made twice.
+ * 3. Every step stamps its time, which is where "how long did we take" and the
+ *    traffic light's calibration come from.
  */
 final class AdvanceTicket
 {
@@ -35,7 +33,7 @@ final class AdvanceTicket
 
         $from = $ticket->status;
 
-        // Idempotente: el mismo paso otra vez devuelve la comanda tal cual.
+        // Idempotent: the same step again returns the ticket unchanged.
         if ($from === $to) {
             return $ticket;
         }
@@ -59,7 +57,7 @@ final class AdvanceTicket
             entityId: $ticketId,
             before: ['status' => $from->value],
             after: ['status' => $to->value],
-            // A nombre de quien puso su PIN, no del token de la tablet.
+            // In the name of whoever entered their PIN, not the tablet's token.
             actor: $byName === null ? null : new Actor((string) auth()->id(), $byName),
         );
 

@@ -12,18 +12,14 @@ use Modules\Orders\Application\UseCases\CancelOrder;
 use Platform\Audit\AuthorizedBy;
 
 /**
- * Anular una venta de mostrador.
+ * Voiding a counter sale. One operation, not two.
  *
- * **Es una sola operación, no dos.** Anular la nota y dejar el pedido vivo
- * dejaría una venta cobrada sin papel; cancelar el pedido y dejar la nota
- * dejaría un papel que respalda algo que ya no existe. Y como la base sólo
- * admite una nota por pedido, tampoco hay forma de volver a emitirla: anular
- * el documento es, necesariamente, anular la venta.
+ * Voiding the note alone leaves a paid sale with no paperwork; cancelling the
+ * order alone leaves paperwork backing nothing. With one note per order and no
+ * reissue, voiding the document is necessarily voiding the sale.
  *
- * Lo que NO hace: devolver el dinero. Los pagos quedan registrados como lo que
- * fueron, y lo que se le devuelve al cliente en la mano no lo sabe el sistema.
- * Fingir un reverso automático sería inventarse un movimiento de caja que aquí
- * no se lleva.
+ * It does not refund: what is handed back to the customer is not something the
+ * system knows about, and faking a reversal would invent a cash movement.
  */
 final class VoidSale
 {
@@ -39,16 +35,16 @@ final class VoidSale
     public function execute(string $orderId, string $reason, ?AuthorizedBy $authorizedBy = null): array
     {
         return $this->db->transaction(function () use ($orderId, $reason, $authorizedBy): array {
-            // Se busca ANTES de cancelar: después de anular el pedido, quien
-            // mire esta nota tiene que poder ver por qué.
+            // Fetched BEFORE cancelling: afterwards, whoever looks at this note has to
+            // be able to see why.
             $note = DeliveryNoteModel::where('order_id', $orderId)->first();
 
-            // Cancela primero: si el pedido ya está entregado, el dominio lo
-            // impide y la nota no llega a tocarse.
+            // Cancels first: an already-delivered order is refused by the domain and
+            // the note is never touched.
             $order = $this->cancelOrder->execute($orderId, $reason, $authorizedBy);
 
             if ($note !== null) {
-                // No libera el número. La siguiente venta toma el siguiente.
+                // The number is not released. The next sale takes the next one.
                 $note = $this->notes->void((string) $note->id, $reason);
             }
 

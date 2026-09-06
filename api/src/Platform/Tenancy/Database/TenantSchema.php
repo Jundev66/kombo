@@ -10,43 +10,35 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Cómo se crea una tabla de negocio, para que sea imposible hacerlo mal.
+ * How a tenant table is created, so that getting it wrong is impossible.
  *
- * El aislamiento entre negocios no se sostiene con buenas intenciones ni con
- * revisiones de código. Se sostiene con cuatro cosas en CADA tabla:
- *
- *   1. Columna `tenant_id`.
- *   2. Row Level Security activado Y FORZADO.
- *   3. Una política `tenant_isolation` que filtra por el negocio en contexto.
- *   4. Índices que empiezan por `tenant_id` y claves foráneas COMPUESTAS.
- *
- * Acordarse de las cuatro, en cada migración, para siempre, no es un plan.
- * Por eso existe esta clase: se llama a `create()` y las cuatro salen solas.
- * Y por si alguien crea una tabla a mano, `SchemaGuardTest` recorre el
- * catálogo de PostgreSQL y falla si encuentra una que se saltó la regla.
+ * Isolation rests on four things in EVERY table: a `tenant_id` column, RLS
+ * enabled AND forced, a `tenant_isolation` policy, and indexes that start with
+ * `tenant_id` with COMPOSITE foreign keys. Remembering all four in every
+ * migration, forever, is not a plan — `create()` does them. And if someone
+ * hand-rolls a table, `SchemaGuardTest` walks the PostgreSQL catalog and fails.
  */
 final class TenantSchema
 {
     /**
-     * El nombre del parámetro de sesión de PostgreSQL donde vive el negocio en
-     * curso. Lo escribe TenantDatabaseGuard y lo lee la política de RLS.
+     * The PostgreSQL session parameter holding the current tenant. Written by
+     * TenantDatabaseGuard, read by the RLS policy.
      */
     public const GUC = 'app.tenant_id';
 
     /**
-     * Tablas que NO llevan `tenant_id` y por tanto no llevan RLS.
+     * Tables with no `tenant_id`, and therefore no RLS.
      *
-     * Son de dos clases: las de infraestructura de Laravel, y las de la
-     * plataforma —que se consultan ANTES de saber de qué negocio hablamos, así
-     * que filtrar por negocio sería un problema de huevo y gallina—.
+     * Two kinds: Laravel's infrastructure, and the platform's own — queried
+     * BEFORE we know which tenant we are talking about.
      *
-     * Esta lista es explícita a propósito. Añadir algo aquí debería doler un
-     * poco: es declarar que esa tabla queda fuera del aislamiento.
+     * Explicit on purpose. Adding to this list should sting a little: it
+     * declares that the table sits outside isolation.
      *
      * @var list<string>
      */
     public const PLATFORM_TABLES = [
-        // Infraestructura de Laravel
+        // Laravel infrastructure
         'migrations',
         'cache',
         'cache_locks',
@@ -56,7 +48,7 @@ final class TenantSchema
         'sessions',
         'password_reset_tokens',
 
-        // Plataforma: se consultan sin contexto de negocio
+        // Platform: queried with no tenant in context
         'plans',
         'plan_modules',
         'tenants',
@@ -67,22 +59,17 @@ final class TenantSchema
         'platform_audit_log',
 
         /*
-         * La guía telefónica de los webhooks.
-         *
-         * Un mensaje que llega de Meta no trae subdominio: llega a una URL
-         * común con el identificador del número dentro. Hay que saber de qué
-         * negocio es ANTES de poder consultar nada suyo, que es justo lo que
-         * RLS impide sin contexto. Aquí no hay ni credenciales ni mensajes:
-         * sólo «este número es de este negocio».
+         * The webhooks' phone book. A message from Meta carries no subdomain,
+         * so we have to know whose it is BEFORE querying anything of theirs —
+         * which is exactly what RLS prevents without context. No credentials
+         * and no messages live here, only "this number belongs to this tenant".
          */
         'channel_routes',
     ];
 
     /**
-     * Índices únicos que a propósito NO empiezan por `tenant_id`, con la razón.
-     *
-     * El comentario no es decorativo: es lo que se lee cuando alguien pregunta
-     * "¿y por qué este se salta la regla?" dentro de dos años.
+     * Unique indexes that deliberately do NOT start with `tenant_id`, with the
+     * reason. The reason is what gets read when someone asks why, in two years.
      *
      * @var array<string, string>
      */
@@ -91,11 +78,9 @@ final class TenantSchema
     ];
 
     /**
-     * Crea una tabla de negocio con todo lo obligatorio ya puesto.
-     *
-     * Aporta: `id` uuid como clave primaria, `tenant_id`, marcas de tiempo con
-     * zona horaria, el único `(tenant_id, id)` —sin el cual las claves foráneas
-     * compuestas serían imposibles— y RLS activado, forzado y con su política.
+     * Creates a tenant table with everything mandatory already in place: uuid
+     * `id`, `tenant_id`, timestamps with zone, the `(tenant_id, id)` unique
+     * index, and RLS enabled, forced and with its policy.
      */
     public static function create(string $table, Closure $definition): void
     {
@@ -107,7 +92,7 @@ final class TenantSchema
 
             $blueprint->timestampsTz();
 
-            // Este único es el que hace posibles las FK compuestas de abajo.
+            // This unique index is what makes the composite FKs below possible.
             $blueprint->unique(['tenant_id', 'id'], "uq_{$blueprint->getTable()}_tenant_id");
         });
 
@@ -115,14 +100,12 @@ final class TenantSchema
     }
 
     /**
-     * Una clave foránea a otra tabla de negocio. SIEMPRE compuesta.
+     * A foreign key to another tenant table. ALWAYS composite:
+     * `(tenant_id, column) → (tenant_id, id)` rather than `column → id`.
      *
-     * `(tenant_id, columna) → (tenant_id, id)` en vez de `columna → id`.
-     *
-     * La diferencia es la que impide, a nivel de base de datos, meter en el
-     * pedido de un negocio el producto de otro. Con una FK simple eso es una
-     * fila perfectamente válida y el error se descubre meses después, cuando
-     * un reporte no cuadra.
+     * That is what stops one tenant's order referencing another's product at
+     * the database level. With a simple FK it is a perfectly valid row, and the
+     * mistake surfaces months later when a report does not add up.
      */
     public static function references(
         Blueprint $table,
@@ -144,13 +127,10 @@ final class TenantSchema
     }
 
     /**
-     * Un índice que empieza por `tenant_id`.
+     * An index starting with `tenant_id`.
      *
-     * El orden importa y no es una preferencia estética: toda consulta lleva
-     * `where tenant_id = ?`, así que un índice que no empiece por ahí obliga a
-     * PostgreSQL a recorrer filas de otros negocios para descartarlas. En una
-     * máquina modesta con un año de pedidos, eso es la diferencia entre que el
-     * tablero de cocina cargue en 40 ms o en dos segundos.
+     * Every query carries `where tenant_id = ?`, so an index that starts
+     * elsewhere makes PostgreSQL walk other tenants' rows to discard them.
      */
     public static function index(Blueprint $table, array $columns, ?string $name = null): void
     {
@@ -158,8 +138,7 @@ final class TenantSchema
     }
 
     /**
-     * Un único por negocio: dos negocios pueden tener el mismo código de
-     * producto sin pisarse.
+     * Unique per tenant: two tenants can share a product code.
      */
     public static function uniquePerTenant(Blueprint $table, array $columns, ?string $name = null): void
     {
@@ -167,29 +146,24 @@ final class TenantSchema
     }
 
     /**
-     * La política de aislamiento. Se copia palabra por palabra; cada parte está
-     * por una razón distinta.
+     * The isolation policy, copied verbatim. Every part is there for a
+     * different reason.
      */
     public static function enableRowLevelSecurity(string $table): void
     {
         DB::statement("alter table {$table} enable row level security");
 
-        // FORCE es imprescindible: sin él, el DUEÑO de la tabla se salta la
-        // política sin avisar. Y el dueño de la tabla es quien corre las
-        // migraciones y los seeders.
+        // FORCE is essential: without it the table's OWNER silently bypasses the
+        // policy — and the owner is who runs migrations and seeders.
         DB::statement("alter table {$table} force row level security");
 
-        // USING protege la lectura. WITH CHECK protege la escritura: impide
-        // INSERTAR una fila marcada como de otro negocio, que es un agujero
-        // distinto y que USING solo no tapa.
-        //
-        // nullif(current_setting(..., true), '') cubre los dos casos en que no
-        // hay negocio en contexto —parámetro sin fijar (null) y fijado en
-        // cadena vacía, que es como queda tras limpiar la conexión—. En ambos
-        // la comparación da null, y null no es true: CERO filas.
-        //
-        // Es decir: EL MODO DE FALLO ES NEGAR. Si algo se rompe, no se ve nada;
-        // nunca se ve de más.
+        // USING protects reads. WITH CHECK protects writes: it stops INSERTing a
+        // row labelled as another tenant's, a separate hole USING alone leaves.
+        // `nullif(current_setting(..., true), '')` covers both no-tenant cases —
+        // unset (null) and set to empty string, which is how a cleaned connection
+        // is left. Both compare to null, and null is not true: ZERO rows.
+        // The failure mode is to DENY: if something breaks you see nothing, never
+        // more than you should.
         DB::statement(<<<SQL
             create policy tenant_isolation on {$table}
                 for all

@@ -13,17 +13,14 @@ use Platform\Tenancy\TenantContext;
 use Shared\Domain\Exceptions\UserError;
 
 /**
- * La foto de un producto.
+ * A product's photo. Public disk, unlike payment receipts.
  *
- * **Disco público, al revés que los comprobantes.** Y no es un descuido: la
- * foto de una arepa está para que la vea cualquiera que abra el portal — es lo
- * que vende. Un comprobante de pago lleva la cédula y el saldo de quien pagó, y
- * por eso aquél va a disco privado y se sirve por un controlador que comprueba
- * permisos. Distinta cosa, distinto sitio.
+ * Not an oversight: the photo is meant to be seen by anyone who opens the
+ * portal. A receipt carries the payer's ID number and balance, so that one is
+ * private and served through a controller that checks permissions.
  *
- * Al reemplazar se **borra la anterior**. Sin eso, cada cambio de foto deja un
- * archivo huérfano para siempre, y el disco de un VPS pequeño no está para
- * guardar seis versiones de la misma arepa.
+ * On replacement the previous file is deleted, or every change would leave an
+ * orphan on a small VPS's disk.
  */
 final class ProductPhotoController
 {
@@ -35,23 +32,19 @@ final class ProductPhotoController
     {
         $data = $request->validate([
             /*
-             * `image` valida el CONTENIDO, no la extensión: un `.jpg` que en
-             * realidad es otra cosa no pasa.
-             *
-             * Y 4 MB de tope. La foto de un plato hecha con un teléfono ronda
-             * los 2; el límite está para que nadie suba un vídeo por error y
-             * llene el disco del local.
+             * `image` validates the CONTENT, not the extension. And a 4 MB cap:
+             * a phone photo of a dish is around 2, and the limit stops a video
+             * uploaded by mistake filling the shop's disk.
              */
             'photo' => ['required', 'image', 'max:4096'],
         ]);
 
         $product = ProductModel::find($id) ?? throw new ProductNotFound;
 
-        $anterior = $product->photo_url;
+        $previous = $product->photo_url;
 
-        // Con el negocio delante en la ruta: dar de baja a un cliente es borrar
-        // una carpeta, y un fallo que mezclara identificadores dejaría fotos de
-        // dos negocios en el mismo sitio, donde se nota enseguida.
+        // The tenant goes up front in the path: removing a customer is deleting one
+        // directory, and a bug that mixed ids would show up immediately.
         $path = $data['photo']->store("products/{$this->context->id()}", self::DISK);
 
         if ($path === false) {
@@ -65,41 +58,34 @@ final class ProductPhotoController
         }
 
         /*
-         * Se guarda una ruta RELATIVA, no una URL absoluta.
-         *
-         * `Storage::url()` la armaría con `APP_URL`, que es el dominio raíz —
-         * y estas fotos se ven desde el subdominio de cada negocio. Con una
-         * ruta relativa las sirve el mismo origen desde el que se abrió la
-         * página, en desarrollo y en producción, sin que nadie tenga que
-         * acordarse de configurar nada.
+         * A RELATIVE path is stored, not an absolute URL: `Storage::url()`
+         * would build it from `APP_URL`, the root domain, while these photos
+         * are viewed from each tenant's subdomain.
          */
         $product->update(['photo_url' => '/storage/'.$path]);
 
-        $this->forget($anterior);
+        $this->forget($previous);
 
         return response()->json(['data' => ['photoUrl' => $product->refresh()->photo_url]]);
     }
 
-    /** Quitarla: el producto se queda sin foto, y el archivo se va. */
+    /** Removing it: the product is left photoless, and the file goes. */
     public function destroy(string $id): JsonResponse
     {
         $product = ProductModel::find($id) ?? throw new ProductNotFound;
 
-        $anterior = $product->photo_url;
+        $previous = $product->photo_url;
 
         $product->update(['photo_url' => null]);
 
-        $this->forget($anterior);
+        $this->forget($previous);
 
         return response()->json(status: 204);
     }
 
     /**
-     * Borra el archivo de una URL nuestra.
-     *
-     * Sólo si es nuestra: `photo_url` admite también una dirección de fuera
-     * —así se cargaron las cartas antes de que existiera esto— y borrar por
-     * ahí no tendría sentido.
+     * Deletes the file behind one of our URLs, and only ours — `photo_url` also
+     * accepts an outside address.
      */
     private function forget(?string $url): void
     {
@@ -107,9 +93,9 @@ final class ProductPhotoController
             return;
         }
 
-        $prefijo = "/storage/products/{$this->context->id()}/";
+        $prefix = "/storage/products/{$this->context->id()}/";
 
-        if (! str_starts_with($url, $prefijo)) {
+        if (! str_starts_with($url, $prefix)) {
             return;
         }
 

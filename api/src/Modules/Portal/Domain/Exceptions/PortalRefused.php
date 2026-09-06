@@ -7,11 +7,11 @@ namespace Modules\Portal\Domain\Exceptions;
 use Shared\Domain\Exceptions\UserError;
 
 /**
- * El portal no acepta este pedido, y le dice al cliente por qué.
+ * The portal will not take this order, and tells the customer why.
  *
- * 422 y no 400: los datos están bien formados, lo que pasa es que el negocio
- * está cerrado, o no reparte ahí, o falta poco para el mínimo. Todo eso tiene
- * arreglo desde la pantalla, y el mensaje tiene que decir cuál.
+ * 422 and not 400: the data is well formed, the tenant is simply closed, or
+ * does not deliver there, or the minimum is not met — all fixable from the
+ * screen, and the message has to say how.
  */
 final class PortalRefused extends UserError
 {
@@ -20,7 +20,7 @@ final class PortalRefused extends UserError
         parent::__construct($message);
     }
 
-    /** A qué campo del formulario apunta, para pintarlo donde toca. */
+    /** Which form field it points at, so it is painted in the right place. */
     public function field(): ?string
     {
         return $this->field;

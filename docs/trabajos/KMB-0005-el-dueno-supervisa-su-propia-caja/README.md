@@ -4,7 +4,7 @@ titulo: El dueño supervisa su propia caja con la sesión que ya tiene
 tipo: funcionalidad
 estado: hecho
 fecha: 2026-08-29
-toca: [web/packages/shell, web/apps/caja, web/apps/kds]
+toca: [web/packages/shell, web/apps/pos, web/apps/kds]
 relacionados: [KMB-0006, KMB-0010]
 ---
 

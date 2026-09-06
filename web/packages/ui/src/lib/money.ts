@@ -1,17 +1,17 @@
 /**
- * Dinero en el cliente. Centavos enteros, igual que en el servidor.
+ * Money on the client. Whole cents, exactly as on the server.
  *
- * `0.1 + 0.2 !== 0.3` no deja de ser cierto porque estemos en TypeScript: un
- * total calculado con flotantes en el navegador y otro calculado con enteros
- * en PHP acaban discrepando en un céntimo, y el que se ve es el del navegador.
+ * `0.1 + 0.2 !== 0.3` does not stop being true in TypeScript: a total computed
+ * with floats in the browser and one computed with integers in PHP end up a
+ * cent apart, and the one people see is the browser's.
  */
 
 export type Cents = number
 
-/** Cuántos bolívares vale un dólar. */
+/** How many bolívares a dollar is worth. */
 export type Rate = number
 
-/** Para mostrar. Nunca para calcular. */
+/** For display. Never for computing. */
 export function formatUsd(cents: Cents): string {
   const sign = cents < 0 ? '-' : ''
   const abs = Math.abs(cents)
@@ -20,10 +20,10 @@ export function formatUsd(cents: Cents): string {
 }
 
 /**
- * A bolívares, con la tasa del día.
+ * To bolívares, at the rate of the day.
  *
- * Redondea UNA vez, al final. Convertir cada línea y luego sumar es cómo
- * aparece la diferencia de un bolívar que nadie sabe de dónde salió.
+ * Rounds ONCE, at the end. Converting each line and then summing is how the
+ * one-bolívar difference nobody can account for appears.
  */
 export function toBs(cents: Cents, rate: Rate): Cents {
   return Math.round(cents * rate)
@@ -38,11 +38,11 @@ export function formatBs(cents: Cents, rate: Rate): string {
 }
 
 /**
- * De lo que alguien teclea a centavos.
+ * From what somebody types to cents.
  *
- * Acepta la coma decimal, que es como se escribe aquí. Obligar al punto es
- * pedirle a quien está de pie en el mostrador que piense en cómo escribe el
- * ordenador y no en cómo escribe él.
+ * It accepts the decimal comma, which is how it is written here. Insisting on a
+ * point asks whoever is standing at the counter to think about how the computer
+ * writes rather than how they do.
  */
 export function parseAmount(input: string): Cents | null {
   const clean = input.replace(/\s/g, '').replace(',', '.')
@@ -56,7 +56,7 @@ export function parseAmount(input: string): Cents | null {
   return Number.isNaN(value) ? null : Math.round(value * 100)
 }
 
-/** De centavos a lo que se muestra en un campo de texto editable. */
+/** From cents to what is shown in an editable text field. */
 export function toAmountInput(cents: Cents): string {
   return (cents / 100).toFixed(2).replace('.', ',')
 }

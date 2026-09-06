@@ -7,14 +7,12 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Sesiones y recuperación de contraseña.
+ * Sessions and password recovery.
  *
- * Son tablas de PLATAFORMA —están declaradas en TenantSchema::PLATFORM_TABLES—
- * y por eso no llevan `tenant_id` ni RLS: la sesión se resuelve antes de saber
- * de qué negocio hablamos.
+ * PLATFORM tables (declared in TenantSchema::PLATFORM_TABLES), hence no
+ * `tenant_id` and no RLS: the session is resolved before we know the tenant.
  *
- * La tabla `users` NO está aquí: es una tabla de negocio y se crea con
- * TenantSchema, en su propia migración.
+ * `users` is not here: it is a tenant table, created with TenantSchema.
  */
 return new class extends Migration
 {
@@ -29,10 +27,9 @@ return new class extends Migration
             $table->integer('last_activity')->index();
         });
 
-        // Ojo para cuando se implemente recuperar contraseña: la clave es el
-        // correo, y en este sistema el mismo correo puede existir en dos
-        // negocios distintos. Habrá que añadir el negocio a la clave, o
-        // resolverlo por el subdominio desde el que se pidió.
+        // Worth remembering when password recovery gets built: the key is the
+        // email, and the same email can exist in two tenants. The tenant will have
+        // to go into the key, or be resolved from the subdomain.
         Schema::create('password_reset_tokens', function (Blueprint $table): void {
             $table->string('email')->primary();
             $table->string('token');

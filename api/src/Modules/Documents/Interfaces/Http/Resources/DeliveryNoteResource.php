@@ -7,12 +7,10 @@ namespace Modules\Documents\Interfaces\Http\Resources;
 use App\Models\Documents\DeliveryNoteModel;
 
 /**
- * La nota, tal como se manda al cliente para pintarla o imprimirla.
+ * The note, as sent to the client to paint or print.
  *
- * Se devuelve el `snapshot` entero: es el documento congelado, y la pantalla
- * pinta eso y no una reconstrucción. Si reconstruyera desde las tablas vivas,
- * reimprimir una nota vieja daría otro papel del que el cliente tiene en la
- * mano.
+ * The whole `snapshot` is returned — the frozen document — so reprinting an old
+ * note cannot give a different paper from the one the customer is holding.
  */
 final class DeliveryNoteResource
 {
@@ -28,8 +26,8 @@ final class DeliveryNoteResource
             'series' => $note->series,
             'number' => $note->number,
 
-            // Literales, y van en el papel tal cual: este documento dice lo
-            // que es y lo que no es.
+            // Verbatim onto the paper: this document says what it is and what it
+            // is not.
             'title' => 'NOTA DE ENTREGA',
             'disclaimer' => 'No es una factura',
 

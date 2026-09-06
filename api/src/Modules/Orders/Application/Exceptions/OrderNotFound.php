@@ -7,11 +7,10 @@ namespace Modules\Orders\Application\Exceptions;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Ese pedido no existe **en este negocio**.
+ * That order does not exist in this tenant.
  *
- * 404 y no 403: si el identificador es de otro negocio, RLS hace que la
- * consulta ni lo encuentre. Las dos situaciones dan la misma respuesta, que es
- * lo correcto — decir «no puedes» confirmaría que existe.
+ * 404 and not 403: another tenant's id is invisible to RLS anyway, and saying
+ * "you may not" would confirm it exists.
  */
 final class OrderNotFound extends NotFoundHttpException
 {

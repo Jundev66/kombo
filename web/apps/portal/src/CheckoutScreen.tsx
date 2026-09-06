@@ -6,12 +6,11 @@ import { shopApi, type OrderPayload, type Shop } from './api'
 import { lineTotalCents, type Cart } from './cart'
 
 /**
- * El pedido y los datos, **en un solo scroll**.
+ * The order and the details, in a single scroll.
  *
- * Sin pasos, sin «siguiente», sin barra de progreso: cada pantalla intermedia
- * es una oportunidad de abandonar, y aquí no hay nada tan complicado como para
- * repartirlo en tres. Se ve todo, se rellena de arriba abajo, y abajo del todo
- * hay un solo botón.
+ * No steps, no "next", no progress bar: every intermediate screen is a chance
+ * to abandon, and nothing here is complicated enough to split into three. You
+ * see it all, fill it top to bottom, and at the very bottom there is one button.
  */
 export function CheckoutScreen({ shop, cart }: { shop: Shop; cart: Cart }) {
   const navigate = useNavigate()
@@ -69,12 +68,12 @@ export function CheckoutScreen({ shop, cart }: { shop: Shop; cart: Cart }) {
     try {
       const order = await shopApi.place(payload)
 
-      // El carrito se vacía sólo cuando el pedido ya existe de verdad. Si algo
-      // falla, lo que eligió sigue ahí.
+      // The basket is emptied only once the order really exists. If something
+      // fails, what they chose is still there.
       cart.clear()
 
-      // El enlace del pedido queda en el historial: es lo que le permite
-      // volver después de irse a la aplicación del banco.
+      // The order's link stays in history: it is what lets them come back after
+      // going off to the banking app.
       void navigate(`/p/${order.token}`, { replace: true })
     } catch (failure) {
       setError(
@@ -86,7 +85,7 @@ export function CheckoutScreen({ shop, cart }: { shop: Shop; cart: Cart }) {
     }
   }
 
-  const faltan = [
+  const missing = [
     name.trim().length < 2 ? 'tu nombre' : null,
     phone.trim().length < 7 ? 'tu teléfono' : null,
     serviceType === 'delivery' && zoneId === '' ? 'la zona' : null,
@@ -94,8 +93,8 @@ export function CheckoutScreen({ shop, cart }: { shop: Shop; cart: Cart }) {
   ].filter((x): x is string => x !== null)
 
   return (
-    // Un formulario de pedido a metro y medio no se rellena mejor: sólo
-    // aleja cada etiqueta de su campo.
+    // An order form a metre and a half wide is no easier to fill in: it only
+    // pushes each label away from its field.
     <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col bg-[var(--surface-sunken)] pb-28">
       <header className="flex items-center gap-3 bg-[var(--surface-raised)] px-4 py-4">
         <Link
@@ -238,14 +237,14 @@ export function CheckoutScreen({ shop, cart }: { shop: Shop; cart: Cart }) {
             )}
           </div>
 
-          {paymentMethod === 'pago_movil' && shop.pagoMovilDetails != null && (
+          {paymentMethod === 'pago_movil' && shop.mobilePaymentDetails != null && (
             <div className="mt-3 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] p-3">
               <p className="text-sm font-medium text-[var(--text-strong)]">Paga a:</p>
               <p className="text-sm whitespace-pre-line text-[var(--text-default)]">
-                {shop.pagoMovilDetails}
+                {shop.mobilePaymentDetails}
               </p>
-              {/* Se dice ANTES de pedir, no después: el cliente tiene que saber
-                  que va a tener que mandar la foto. */}
+              {/* Said BEFORE ordering, not after: the customer has to know they will
+                  have to send the photo. */}
               <p className="mt-2 text-xs text-[var(--text-muted)]">
                 Al confirmar te pedimos la foto del pago. Tienes{' '}
                 {Math.round(shop.paymentWindowMinutes / 60)} h para enviarla.
@@ -297,16 +296,16 @@ export function CheckoutScreen({ shop, cart }: { shop: Shop; cart: Cart }) {
         <Button
           size="touch"
           block
-          disabled={sending || !shop.isOpen || belowMinimum || faltan.length > 0}
+          disabled={sending || !shop.isOpen || belowMinimum || missing.length > 0}
           onClick={() => void submit()}
         >
-          {/* El botón dice QUÉ FALTA, no sólo que no se puede. Un botón gris sin
-              explicación deja a alguien mirando la pantalla sin saber qué
-              tocar. */}
+          {/* The button says WHAT IS MISSING, not just that it cannot be done. A
+              grey button with no explanation leaves somebody staring at the
+              screen with no idea what to tap. */}
           {sending
             ? 'Enviando…'
-            : faltan.length > 0
-              ? `Falta ${faltan[0]}`
+            : missing.length > 0
+              ? `Falta ${missing[0]}`
               : `Hacer el pedido · ${formatUsd(totalCents)}`}
         </Button>
       </div>

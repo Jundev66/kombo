@@ -14,14 +14,12 @@ use Platform\Capabilities\CurrentCapabilities;
 use Platform\Tenancy\TenantContext;
 
 /**
- * La tienda: todo lo que el portal necesita saber antes de pintar la carta.
+ * The shop: everything the portal needs before painting the menu, in a single
+ * call — on a phone with poor signal, five requests are five chances to see a
+ * half-drawn screen and leave.
  *
- * Una sola llamada, a propósito. En un teléfono con mala señal, cinco
- * peticiones para dibujar la primera pantalla son cinco oportunidades de que
- * el cliente vea algo a medias y se vaya.
- *
- * **Responde sin sesión.** Es la única parte del sistema pensada para alguien
- * que no tiene cuenta y no la va a tener.
+ * It answers without a session: the only part of the system built for somebody
+ * who has no account and is not going to have one.
  */
 final class ShopController
 {
@@ -42,16 +40,15 @@ final class ShopController
         $hours = $this->hours();
         $localNow = Carbon::now($tenant->timezone)->toDateTimeImmutable();
 
-        // El reparto necesita las dos cosas: que el negocio lo ofrezca y que
-        // el módulo esté encendido. Ofrecerlo sin zonas sería prometer algo
-        // que no se puede cumplir.
+        // Delivery needs both: that the tenant offers it and that the module is on.
+        // Offering it with no zones would promise something undeliverable.
         $delivers = $caps->hasModule('delivery') && $caps->setting('portal.accepts_delivery', true) === true;
 
         $zones = $delivers
             ? DeliveryZoneModel::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get()
             : collect();
 
-        $pagoMovilDetails = trim((string) $caps->setting('portal.pago_movil_details', ''));
+        $mobilePaymentDetails = trim((string) $caps->setting('portal.pago_movil_details', ''));
 
         return response()->json([
             'data' => [
@@ -62,7 +59,7 @@ final class ShopController
                 'phone' => $row?->phone,
                 'address' => $row?->address,
 
-                // Un aviso corto arriba del todo: «hoy no hay pollo».
+                // A short notice at the very top: "no chicken today".
                 'notice' => trim((string) $caps->setting('portal.notice', '')) ?: null,
 
                 'isOpen' => $hours['open']->isOpenAt($localNow),
@@ -85,19 +82,18 @@ final class ShopController
 
                 'paymentMethods' => array_values(array_filter([
                     $caps->setting('portal.accepts_cash', true) === true ? 'cash' : null,
-                    // Sin datos a dónde mandar el dinero, no se ofrece: un
-                    // botón de pagar que no dice a quién pagarle es una llamada
-                    // de teléfono garantizada.
-                    $caps->setting('portal.accepts_pago_movil', true) === true && $pagoMovilDetails !== ''
+                    // With no details of where to send the money it is not offered: a pay
+                    // button that does not say who to pay is a guaranteed phone call.
+                    $caps->setting('portal.accepts_pago_movil', true) === true && $mobilePaymentDetails !== ''
                         ? 'pago_movil'
                         : null,
                 ])),
 
-                'pagoMovilDetails' => $pagoMovilDetails ?: null,
+                'mobilePaymentDetails' => $mobilePaymentDetails ?: null,
                 'paymentWindowMinutes' => (int) $caps->setting('portal.payment_window_minutes', 120),
 
-                // La tasa del día, para enseñar los precios en bolívares. Es
-                // presentación: lo que se guarda son centavos de dólar.
+                // The rate of the day, to show prices in bolívares. Presentation only:
+                // what is stored is dollar cents.
                 'exchangeRate' => $this->rate(),
             ],
         ]);
@@ -116,8 +112,8 @@ final class ShopController
         for ($weekday = 0; $weekday <= 6; $weekday++) {
             $row = $rows->get($weekday);
 
-            // Sin fila configurada, CERRADO. El fallo seguro es no aceptar: un
-            // pedido de un día que nadie configuró llega a una cocina apagada.
+            // With no row configured, CLOSED. The safe failure: an order on an
+            // unconfigured day reaches an unlit kitchen.
             $schedules[$weekday] = $row === null || (bool) $row->is_closed
                 ? DaySchedule::closed()
                 : DaySchedule::open($row->opens_at, $row->closes_at);

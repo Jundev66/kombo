@@ -3,12 +3,11 @@
 declare(strict_types=1);
 
 /*
- * El portal es la puerta que no pide contraseña, así que es donde más importa
- * que el aislamiento aguante.
+ * The portal is the door that asks for no password, so it is where isolation
+ * matters most.
  *
- * Aquí no hay sesión que comprobar ni permiso que mirar: lo único que separa el
- * pedido de un negocio del de otro es el subdominio y RLS. Estas pruebas
- * empujan justo ahí.
+ * No session to check and no permission to look at: the only things separating
+ * one tenant's order from another's are the subdomain and RLS.
  */
 
 use App\Models\Catalog\ProductModel;
@@ -19,34 +18,34 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 beforeEach(function (): void {
-    $sufijo = Str::lower(Str::random(6));
+    $suffix = Str::lower(Str::random(6));
 
-    $this->arepera = makeTenant("elsazon-{$sufijo}");
-    $this->pizzeria = makeTenant("laesquina-{$sufijo}");
+    $this->arepera = makeTenant("elsazon-{$suffix}");
+    $this->pizzeria = makeTenant("laesquina-{$suffix}");
 
     $this->tokens = [];
 
-    foreach ([$this->arepera => 'Reina Pepiada', $this->pizzeria => 'Margarita'] as $negocio => $plato) {
-        actingForTenant($negocio);
+    foreach ([$this->arepera => 'Reina Pepiada', $this->pizzeria => 'Margarita'] as $tenant => $dish) {
+        actingForTenant($tenant);
 
-        ProductModel::create(['name' => $plato, 'price_cents' => 300]);
+        ProductModel::create(['name' => $dish, 'price_cents' => 300]);
 
-        DeliveryZoneModel::create(['name' => "Zona de {$plato}", 'fee_cents' => 100]);
+        DeliveryZoneModel::create(['name' => "Zona de {$dish}", 'fee_cents' => 100]);
 
         $order = OrderModel::create([
             'number' => 1,
             'public_token' => Str::random(22),
             'total_cents' => 300,
             'channel' => 'portal',
-            'customer_name' => "Cliente de {$plato}",
+            'customer_name' => "Cliente de {$dish}",
             'placed_at' => now(),
         ]);
 
-        $this->tokens[$negocio] = $order->public_token;
+        $this->tokens[$tenant] = $order->public_token;
     }
 });
 
-it('la carta de un negocio no aparece en la de otro', function (): void {
+it('one tenant\'s menu does not appear in another\'s', function (): void {
     actingForTenant($this->arepera);
     expect(ProductModel::pluck('name')->all())->toBe(['Reina Pepiada']);
 
@@ -54,7 +53,7 @@ it('la carta de un negocio no aparece en la de otro', function (): void {
     expect(ProductModel::pluck('name')->all())->toBe(['Margarita']);
 });
 
-it('las zonas de reparto tampoco se cruzan', function (): void {
+it('delivery zones do not cross either', function (): void {
     actingForTenant($this->arepera);
     expect(DeliveryZoneModel::count())->toBe(1);
 
@@ -62,35 +61,34 @@ it('las zonas de reparto tampoco se cruzan', function (): void {
     expect(DeliveryZoneModel::count())->toBe(1);
 });
 
-it('el token de un pedido NO abre ese pedido desde otro negocio', function (): void {
+it('an order token does NOT open that order from another tenant', function (): void {
     /*
-     * Es el ataque obvio: alguien tiene el enlace de su pedido en la arepera y
-     * lo pega en la dirección de la pizzería. Sin RLS, la consulta por token
-     * encontraría el pedido igual —el token es único en toda la tabla— y le
-     * enseñaría a un negocio el pedido, el nombre y la dirección del cliente
-     * de otro.
+     * The obvious attack: somebody pastes the link to their order at one
+     * tenant into another's address. Without RLS the token lookup would find it
+     * anyway — the token is unique across the table — and show one tenant the
+     * other's order, customer name and address.
      */
-    $ajeno = $this->tokens[$this->arepera];
+    $otherTenant = $this->tokens[$this->arepera];
 
     actingForTenant($this->pizzeria);
 
-    expect(OrderModel::where('public_token', $ajeno)->first())->toBeNull();
+    expect(OrderModel::where('public_token', $otherTenant)->first())->toBeNull();
 
-    // Y desde el suyo sí, para que la prueba diga algo cuando pasa.
+    // And from their own it does, so the test says something when it passes.
     actingForTenant($this->arepera);
-    expect(OrderModel::where('public_token', $ajeno)->first())->not->toBeNull();
+    expect(OrderModel::where('public_token', $otherTenant)->first())->not->toBeNull();
 });
 
-it('sin negocio en contexto, el portal no ve ningún pedido', function (): void {
-    // Es el modo de fallo que importa: una conexión devuelta al pool sin
-    // limpiar no puede convertirse en una que lo ve todo.
+it('with no tenant in context, the portal sees no orders', function (): void {
+    // The failure mode that matters: a connection returned to the pool without
+    // being cleaned must not become one that sees everything.
     withoutTenant();
 
     expect(DB::table('orders')->count())->toBe(0)
         ->and(DB::table('delivery_zones')->count())->toBe(0);
 });
 
-it('no se puede colar un pedido en el portal de otro negocio', function (): void {
+it('an order cannot be slipped into another tenant\'s portal', function (): void {
     actingForTenant($this->arepera);
 
     expect(fn () => DB::table('orders')->insert([
@@ -107,12 +105,12 @@ it('no se puede colar un pedido en el portal de otro negocio', function (): void
     ]))->toThrow(QueryException::class);
 });
 
-it('un pedido no puede repartirse a la zona de otro negocio', function (): void {
-    // La clave foránea es COMPUESTA: (tenant_id, delivery_zone_id). Con una
-    // simple, esta fila sería perfectamente válida para la base de datos y el
-    // error se descubriría meses después, cuando un reporte no cuadre.
+it('an order cannot be delivered to another tenant\'s zone', function (): void {
+    // The foreign key is COMPOSITE: (tenant_id, delivery_zone_id). With a
+    // simple one this row would be perfectly valid to the database, and found
+    // out months later when a report does not add up.
     actingForTenant($this->pizzeria);
-    $zonaAjena = DeliveryZoneModel::first()->id;
+    $otherTenantZone = DeliveryZoneModel::first()->id;
 
     actingForTenant($this->arepera);
 
@@ -120,7 +118,7 @@ it('un pedido no puede repartirse a la zona de otro negocio', function (): void 
         'number' => 2,
         'public_token' => Str::random(22),
         'total_cents' => 300,
-        'delivery_zone_id' => $zonaAjena,
+        'delivery_zone_id' => $otherTenantZone,
         'placed_at' => now(),
     ]))->toThrow(QueryException::class);
 });

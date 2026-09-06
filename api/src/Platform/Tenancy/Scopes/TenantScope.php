@@ -10,13 +10,12 @@ use Illuminate\Database\Eloquent\Scope;
 use Platform\Tenancy\TenantContext;
 
 /**
- * Añade `where tenant_id = ?` a toda consulta de Eloquent.
+ * Adds `where tenant_id = ?` to every Eloquent query.
  *
- * Es COMODIDAD, no la garantía. La garantía es Row Level Security, que filtra
- * aunque alguien se salte esto con SQL crudo. Existe por dos razones
- * prácticas: hace que las consultas sean legibles en los logs, y permite que
- * PostgreSQL use los índices que empiezan por `tenant_id` sin depender de cómo
- * el planificador interprete la política.
+ * CONVENIENCE, not the guarantee — that is RLS, which filters even when
+ * somebody drops to raw SQL. It exists so queries read clearly in the logs and
+ * so PostgreSQL uses the `tenant_id`-first indexes without depending on how the
+ * planner reads the policy.
  */
 final class TenantScope implements Scope
 {
@@ -25,8 +24,8 @@ final class TenantScope implements Scope
         $context = app(TenantContext::class);
 
         if (! $context->has()) {
-            // NEGAR, no permitir. Si por lo que sea esto corre sin contexto,
-            // la respuesta correcta es "nada", nunca "todo".
+            // DENY, not allow. If this ever runs without context, the right answer is
+            // "nothing", never "everything".
             $builder->whereRaw('1 = 0');
 
             return;

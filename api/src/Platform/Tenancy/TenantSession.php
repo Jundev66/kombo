@@ -10,22 +10,13 @@ use Platform\Tenancy\Database\TenantDatabaseGuard;
 use Platform\Tenancy\Exceptions\TenantNotFound;
 
 /**
- * Entrar en un negocio **fuera de una petición HTTP**.
+ * Entering a tenant OUTSIDE an HTTP request — a scheduled task, a queued job,
+ * a channel webhook.
  *
- * Hay tres sitios donde hace falta y ninguno tiene subdominio del que deducir
- * nada: una tarea programada, un trabajo de la cola, y el webhook de un canal
- * —que llega a una dirección común con el identificador dentro del cuerpo—.
- *
- * Existe porque entrar son **tres cosas, no una**, y hacer sólo la primera es
- * un fallo que engaña:
- *
- *   1. El parámetro de PostgreSQL, para que RLS filtre.
- *   2. `TenantContext`, para que Eloquent sepa qué `tenant_id` poner al crear
- *      —y, sobre todo, para que su ámbito global no aplique `1 = 0`—.
- *   3. Olvidar las capacidades memorizadas, que son del negocio anterior.
- *
- * Con sólo la primera, las consultas por SQL crudo funcionan y las de Eloquent
- * devuelven cero filas. Cuesta un rato entender por qué.
+ * It exists because entering is three things, not one: the PostgreSQL
+ * parameter so RLS filters, `TenantContext` so Eloquent's global scope does not
+ * apply `1 = 0`, and forgetting the previous tenant's memoised capabilities.
+ * With only the first, raw SQL works and Eloquent returns zero rows.
  */
 final class TenantSession
 {
@@ -51,17 +42,15 @@ final class TenantSession
     }
 
     /**
-     * Hace el trabajo dentro del negocio y **deja las cosas como estaban**.
+     * Runs the work inside the tenant and leaves things as they were.
      *
-     * Restaurar, no limpiar, y la diferencia es un fallo real que costó
-     * encontrar: un oyente que entra a un negocio en mitad de una petición
-     * —porque la cola corre en modo síncrono, o porque es un evento inline—
-     * limpiaba el contexto al salir y dejaba a la petición SIN negocio a media
-     * ejecución. El síntoma era un 404 en la línea siguiente, que no tiene
-     * ninguna relación aparente con la causa.
+     * Restore, not clear: a listener entering a tenant mid-request — sync queue
+     * or an inline event — used to clear the context on the way out and leave
+     * the request with no tenant, surfacing as a 404 on the next line with no
+     * apparent connection to the cause.
      *
-     * Si no había nada antes, se sale limpio: una conexión devuelta al pool con
-     * un negocio puesto es justo lo que RLS viene a evitar.
+     * If there was nothing before, it exits clean: a pooled connection with a
+     * tenant still set is exactly what RLS is there to prevent.
      *
      * @template T
      *
@@ -99,10 +88,9 @@ final class TenantSession
      */
     private function byId(string $tenantId): Tenant
     {
-        // Sin caché a propósito: por identificador se entra desde tareas y
-        // colas, que son poco frecuentes comparadas con las peticiones web.
-        // Cachear aquí añadiría una segunda clave que invalidar, y la caché mal
-        // invalidada de un negocio es de los fallos más caros que hay.
+        // Deliberately uncached: entering by id happens from tasks and queues,
+        // which are rare next to web requests. Caching here would add a second key
+        // to invalidate, and a badly invalidated tenant cache is expensive.
         $row = $this->db->table('tenants')
             ->where('id', $tenantId)
             ->whereNull('deleted_at')

@@ -8,10 +8,9 @@ use Platform\Modules\ModuleManifest;
 use Platform\Modules\Setting;
 
 /**
- * El núcleo. Todo negocio lo tiene, no depende del plan y no se puede apagar.
- *
- * Es lo mínimo sin lo cual el sistema no es un sistema: quién trabaja aquí,
- * qué puede hacer cada uno, y cómo se llama el negocio.
+ * The core. Every tenant has it, it does not depend on the plan and it cannot
+ * be switched off: who works here, what each of them can do, and the tenant's
+ * own details.
  */
 final class CoreModule extends ModuleManifest
 {
@@ -63,15 +62,12 @@ final class CoreModule extends ModuleManifest
     public function settings(): array
     {
         return [
-            // Cuántos dígitos tiene el PIN. Cuatro es lo que la gente recuerda
-            // y lo que se teclea rápido con un cliente delante; seis es más
-            // seguro y algunos dueños lo prefieren. El valor por defecto es el
-            // comportamiento de hoy, así que nadie nota que existe la opción.
+            // PIN length. Four is what people remember and type fast with a customer
+            // waiting; six is safer and some owners prefer it.
             'pin_length' => Setting::int(4)->min(4)->max(8),
 
-            // Cuántos intentos fallidos antes de bloquear un minuto. Un PIN de
-            // cuatro dígitos son 10.000 combinaciones: sin este tope, probarlas
-            // todas es cuestión de un rato.
+            // Failed attempts before a one-minute lock. Four digits is 10,000
+            // combinations: without a cap, trying them all takes minutes.
             'pin_attempts' => Setting::int(5)->min(3)->max(10),
         ];
     }

@@ -13,25 +13,20 @@ use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
-    public function register(): void
-    {
-        //
-    }
+    public function register(): void {}
 
     public function boot(): void
     {
-        // El nuestro, con `tenant_id` y RLS: un token de un negocio no sirve
-        // en otro.
+        // Ours, with `tenant_id` and RLS: one tenant's token is no good in another.
         Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
 
-        // Fuera de producción, asignar un atributo que no existe revienta en
-        // vez de descartarse en silencio. Un typo en un nombre de columna es
-        // de los errores más caros de encontrar cuando falla callado.
+        // Outside production, assigning an attribute that does not exist blows up
+        // instead of being discarded silently. A typo in a column name is among the
+        // most expensive bugs to find when it fails quietly.
         Model::preventSilentlyDiscardingAttributes(! $this->app->isProduction());
 
-        // Fechas inmutables: `$fecha->addDay()` devolviendo un objeto nuevo en
-        // vez de mutar el original evita una clase entera de errores en
-        // cálculos de vencimiento y de tiempos de cocina.
+        // Immutable dates: `$date->addDay()` returning a new object heads off a
+        // whole class of bug in expiry and kitchen-timing arithmetic.
         Date::use(CarbonImmutable::class);
     }
 }

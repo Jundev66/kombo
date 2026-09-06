@@ -3,34 +3,33 @@
 declare(strict_types=1);
 
 /*
- * Los límites del diseño, y la prueba que rompe cada uno si lo violas.
+ * The design boundaries, and the test that breaks on each one.
  *
- * Cuando una de estas falla, la respuesta casi nunca es cambiar la prueba.
+ * When one of these fails, the answer is almost never to change the test.
  */
 
 use Tests\Support\SourceScanner;
 
-it('la plataforma no depende de ningún módulo', function (): void {
-    // El corolario que hace posible el producto: agregar un módulo —o
-    // borrarlo— no toca el motor. Si esto falla, el motor dejó de ser un motor
-    // y pasó a ser parte de la aplicación.
+it('the platform depends on no module', function (): void {
+    // The corollary that makes the product possible: adding or deleting a
+    // module does not touch the engine. If this fails, the engine has become
+    // part of the application.
     expect('Platform')->not->toUse('Modules');
 });
 
-it('el núcleo compartido no depende de nadie', function (): void {
-    // Money, ExchangeRate y compañía los usa todo el mundo. En cuanto miren
-    // hacia arriba, dejan de poder usarse desde donde haga falta.
+it('the shared core depends on nobody', function (): void {
+    // Money, ExchangeRate and company are used by everyone. The moment they
+    // look upwards they stop being usable from wherever they are needed.
     expect('Shared')
         ->not->toUse('Platform')
         ->not->toUse('Modules')
         ->not->toUse('App');
 });
 
-it('ninguna capa de dominio importa el framework', function (): void {
-    // Escrita recorriendo ficheros y NO con una lista de excepciones a
-    // propósito: la versión con lista obliga a añadir cada módulo nuevo, y el
-    // día que alguien lo olvide la prueba deja de vigilar sin que nadie se
-    // entere. Esta se entera sola.
+it('no domain layer imports the framework', function (): void {
+    // Written by walking files rather than from a list of exceptions: a list
+    // has to grow with every new module, and the day somebody forgets, the
+    // test stops watching without anyone noticing. This one notices itself.
     $offenders = [];
 
     foreach (SourceScanner::files() as $file) {
@@ -57,7 +56,7 @@ it('ninguna capa de dominio importa el framework', function (): void {
     ]));
 });
 
-it('todo el código propio declara tipos estrictos', function (): void {
+it('all our own code declares strict types', function (): void {
     $offenders = [];
 
     foreach (SourceScanner::files() as $file) {
@@ -69,9 +68,9 @@ it('todo el código propio declara tipos estrictos', function (): void {
     expect($offenders)->toBe([], "Falta declare(strict_types=1) en:\n".implode("\n", $offenders));
 });
 
-it('no queda código de depuración', function (): void {
-    // `dd()` en producción no es un detalle de estilo: corta la respuesta a la
-    // mitad y vuelca el estado interno al navegador de quien esté delante.
+it('no debugging code is left behind', function (): void {
+    // `dd()` in production is not a style detail: it cuts the response in half
+    // and dumps internal state into the browser of whoever is in front of it.
     $forbidden = ['dd(', 'dump(', 'ray(', 'var_dump(', 'die(', 'exit('];
     $offenders = [];
 
@@ -88,15 +87,13 @@ it('no queda código de depuración', function (): void {
     expect($offenders)->toBe([], "Código de depuración olvidado:\n".implode("\n", $offenders));
 });
 
-it('ningún módulo importa entidades de otro módulo', function (): void {
-    // Dos módulos se hablan de dos maneras, y sólo dos:
-    //
-    //   ¿Necesitas saber algo AHORA?      Un puerto en Application\Contracts
-    //                                     del que lo publica, y un DTO.
-    //   ¿Reaccionas a algo QUE YA PASÓ?   Un evento de dominio.
-    //
-    // Importar la entidad de otro módulo es poder invocar sus reglas desde
-    // fuera del módulo que las defiende. De ahí no se vuelve.
+it('no module imports another module\'s entities', function (): void {
+    // Two modules talk in two ways, and only two:
+    //   Need to know something NOW?     A port in the publisher's
+    //                                   Application\Contracts, plus a DTO.
+    //   Reacting to what already happened?   A domain event.
+    // Importing another module's entity means invoking its rules from outside
+    // the module that defends them. There is no coming back from that.
     $offenders = [];
 
     foreach (SourceScanner::files() as $file) {

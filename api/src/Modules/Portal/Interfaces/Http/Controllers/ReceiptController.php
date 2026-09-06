@@ -10,11 +10,9 @@ use Modules\Portal\Application\UseCases\AttachReceipt;
 use Modules\Portal\Interfaces\Http\Resources\PublicOrderResource;
 
 /**
- * El cliente manda la foto de su pago móvil.
- *
- * Se identifica con el token de su propio pedido, que es lo único que tiene:
- * no hay cuenta ni sesión. Quien tenga el enlace puede subir un comprobante a
- * ESE pedido y a ninguno más.
+ * The customer sends the photo of their mobile payment, identified only by
+ * their own order's token. Whoever holds the link can upload to THAT order and
+ * no other.
  */
 final class ReceiptController
 {
@@ -22,19 +20,15 @@ final class ReceiptController
     {
         $data = $request->validate([
             /*
-             * Foto, y con techo.
-             *
-             * `image` valida el contenido, no la extensión: un `.jpg` que en
-             * realidad es otra cosa no pasa. Y 8 MB porque una captura de
-             * pantalla de un teléfono moderno ronda los 3, mientras que sin
-             * límite el primer curioso sube una película.
+             * A photo, and with a ceiling. `image` validates the content, not
+             * the extension, and 8 MB covers a phone screenshot while stopping
+             * the first curious visitor uploading a film.
              */
             'receipt' => ['required', 'image', 'max:8192'],
 
-            // La referencia bancaria: son los últimos dígitos que el negocio
-            // busca en su cuenta. Opcional porque a veces la captura ya la
-            // trae, y obligarla sería que el cliente la copie a mano de una
-            // imagen que tiene delante.
+            // The bank reference: the last digits the tenant looks for on its
+            // statement. Optional, because the screenshot usually carries it and
+            // requiring it would mean copying it by hand from an image.
             'reference' => ['nullable', 'string', 'max:120'],
         ]);
 

@@ -7,12 +7,11 @@ namespace Modules\Orders\Application\Exceptions;
 use Shared\Domain\Exceptions\UserError;
 
 /**
- * Ese producto no se puede vender ahora mismo.
+ * That product cannot be sold right now.
  *
- * Un solo mensaje para las tres razones —no existe, lo sacaron de la carta, se
- * acabó— porque para quien está pidiendo son la misma cosa. Distinguirlas sólo
- * serviría para que alguien deduzca qué hay en la base probando
- * identificadores.
+ * One message for all three reasons — gone, off the menu, sold out — because to
+ * whoever is ordering they are the same thing, and telling them apart would map
+ * the database for anyone trying ids.
  */
 final class ProductNotSellable extends UserError
 {

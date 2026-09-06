@@ -3,11 +3,11 @@ import { useState } from 'react'
 import type { MenuModifier, MenuModifierGroup, MenuProduct } from './api'
 
 /**
- * Un producto con sus agregados, en una hoja que sube desde abajo.
+ * A product with its add-ons, in a sheet that rises from the bottom.
  *
- * Abajo y no en el centro: en un teléfono, lo que hay que tocar tiene que
- * quedar donde llega el pulgar. Y con la cantidad aquí dentro, para que pedir
- * tres empanadas sea un gesto y no tres.
+ * Bottom rather than centre: on a phone, what has to be tapped belongs where
+ * the thumb reaches. With the quantity inside, so ordering three empanadas is
+ * one gesture rather than three.
  */
 export function ProductSheet({
   product,
@@ -39,8 +39,8 @@ export function ProductSheet({
         return { ...current, [group.id]: already.filter((id) => id !== modifier.id) }
       }
 
-      // Cuando sólo cabe uno, elegir otro SUSTITUYE. Nadie quiere «primero
-      // quita el que pusiste».
+      // When only one fits, choosing another REPLACES it. Nobody wants "first
+      // remove the one you picked".
       if (group.maxChoices <= 1) {
         return { ...current, [group.id]: [modifier.id] }
       }

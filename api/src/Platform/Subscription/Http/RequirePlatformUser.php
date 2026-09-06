@@ -11,12 +11,11 @@ use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Sólo pasa un administrador de plataforma.
+ * Only a platform administrator gets through.
  *
- * Se comprueba el guard `platform` explícitamente, y no `auth` a secas: con el
- * guard por defecto, la sesión de un empleado de un negocio cualquiera abriría
- * la facturación de todos los clientes. Es el tipo de fallo que no se nota
- * hasta que alguien lo prueba.
+ * The `platform` guard is checked explicitly rather than bare `auth`: with the
+ * default guard, any tenant employee's session would open every customer's
+ * billing.
  */
 final class RequirePlatformUser
 {

@@ -7,16 +7,10 @@ namespace Modules\Catalog\Domain\ValueObjects;
 use Modules\Catalog\Domain\Exceptions\InvalidStock;
 
 /**
- * Si este producto lleva la cuenta de lo que queda, y cuánto queda.
+ * Whether this product counts what is left, and how much.
  *
- * La mayoría de los platos NO la llevan: se hacen al momento y no tiene sentido
- * preguntarse cuántas arepas quedan. Se activa para lo contado —las diez tortas
- * del día, las cervezas de la nevera— y sólo entonces la cantidad significa
- * algo.
- *
- * Que las dos cosas vivan juntas en un value object es lo que impide el estado
- * imposible «no lleva cuenta pero quedan 7», que es el que hace que una
- * pantalla muestre existencias de algo que nunca se contó.
+ * Most dishes do not — they are made to order. Keeping both facts in one value
+ * object is what prevents the impossible "untracked but 7 left" state.
  */
 final readonly class StockPolicy
 {
@@ -25,7 +19,7 @@ final readonly class StockPolicy
         public ?int $quantity,
     ) {}
 
-    /** Se hace al momento: no hay nada que contar. */
+    /** Made to order: nothing to count. */
     public static function untracked(): self
     {
         return new self(false, null);
@@ -41,10 +35,9 @@ final readonly class StockPolicy
     }
 
     /**
-     * Desde lo que llega de un formulario o de la base.
-     *
-     * Si no lleva cuenta, la cantidad se DESCARTA en vez de guardarse
-     * «por si acaso»: guardarla es justo cómo aparece el estado imposible.
+     * From a form or from the database. Untracked, the quantity is DISCARDED
+     * rather than kept "just in case" — keeping it is how the impossible state
+     * appears.
      */
     public static function from(bool $tracked, ?int $quantity): self
     {
@@ -59,7 +52,7 @@ final readonly class StockPolicy
         return self::tracked($quantity);
     }
 
-    /** ¿Alcanza para esta cantidad? Sin cuenta, siempre alcanza. */
+    /** Enough for this quantity? Untracked, there always is. */
     public function allows(int $quantity): bool
     {
         return ! $this->tracked || ($this->quantity ?? 0) >= $quantity;

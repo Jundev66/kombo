@@ -7,18 +7,14 @@ namespace Modules\Catalog\Domain\ValueObjects;
 use Modules\Catalog\Domain\Exceptions\InvalidSelectionRule;
 
 /**
- * Cuántas opciones se pueden elegir de un grupo de modificadores.
+ * How many options can be picked from a modifier group.
  *
- * Un grupo es una PREGUNTA, y esta regla dice de qué tipo:
+ *   (0, N)  optional extras          "anything else?"
+ *   (1, 1)  pick one, required       "how would you like the meat?"
+ *   (0, 1)  optional, exclusive      "any sauce?"
  *
- *   (0, N)  extras opcionales        «¿algo más?»
- *   (1, 1)  elegir uno, obligatorio  «¿término de la carne?»
- *   (0, 1)  opcional excluyente      «¿alguna salsa?»
- *   (2, 3)  «elige de dos a tres acompañantes»
- *
- * Está aquí y no en una validación del formulario porque la caja, el portal y
- * el bot tienen que aplicar exactamente la misma regla. Tres validaciones
- * distintas son tres oportunidades de que una se quede vieja.
+ * Here rather than in a form validation: the till, the portal and the bot have
+ * to apply the same rule, and three validations are three chances to go stale.
  */
 final readonly class SelectionRule
 {
@@ -44,13 +40,13 @@ final readonly class SelectionRule
         return new self($min, $max);
     }
 
-    /** «Elige uno» — lo más común en comida. */
+    /** "Pick one" — the most common in food. */
     public static function exactlyOne(): self
     {
         return new self(1, 1);
     }
 
-    /** Extras opcionales, tantos como quiera. */
+    /** Optional extras, as many as they like. */
     public static function anyNumber(int $max = 99): self
     {
         return new self(0, $max);
@@ -62,17 +58,15 @@ final readonly class SelectionRule
     }
 
     /**
-     * ¿Una selección concreta cumple la regla?
-     *
-     * Lo usan el portal para no dejar seguir, y el servidor para no fiarse del
-     * portal.
+     * Does a selection satisfy the rule? The portal uses it to block progress,
+     * the server to not trust the portal.
      */
     public function accepts(int $chosen): bool
     {
         return $chosen >= $this->min && $chosen <= $this->max;
     }
 
-    /** Qué decirle a quien está pidiendo cuando no cumple. */
+    /** What to tell whoever is ordering when it does not. */
     public function explain(): string
     {
         if ($this->min === $this->max) {

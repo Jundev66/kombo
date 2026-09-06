@@ -12,7 +12,7 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Una comanda. Lo que la cocina tiene delante.
+ * A kitchen ticket. What the kitchen has in front of it.
  */
 #[Fillable([
     'order_id', 'number', 'status', 'service_type', 'station',

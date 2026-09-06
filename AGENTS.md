@@ -123,9 +123,9 @@ api/                      Laravel 13 · PHP 8.5
 
 web/                      Monorepo npm workspaces
   apps/portal/            Cliente final   → /          (≤180 KB)
-  apps/caja/              Mostrador       → /caja/     (≤180 KB)
-  apps/panel/             Dueño           → /panel/    (≤220 KB)
-  apps/kds/               Cocina          → /cocina/   (≤120 KB)
+  apps/pos/               Mostrador       → /pos/       (≤180 KB)
+  apps/dashboard/         Dueño           → /dashboard/ (≤220 KB)
+  apps/kds/               Cocina          → /kds/       (≤120 KB)
   apps/admin/             Plataforma      → admin.*    (≤220 KB)
   packages/{ui,shell,api-client}
 
@@ -216,24 +216,24 @@ make e2e             # pruebas de usuario por el navegador
 Tareas programadas, que corren solas y conviene conocer:
 
 ```bash
-php artisan suscripciones:revisar    # diaria: marca vencidos y suspende
-php artisan pedidos:cerrar-vencidos  # cada 10 min: cierra los que no pagaron
-php artisan demo:limpiar --horas=0   # sólo en demostración: vacía los tableros
+php artisan subscriptions:check    # diaria: marca vencidos y suspende
+php artisan orders:cancel-expired  # cada 10 min: cierra los que no pagaron
+php artisan demo:clean --hours=0   # sólo en demostración: vacía los tableros
 ```
 
 Y una que **no** tiene horario porque es de despliegue, no periódica:
 
 ```bash
-php artisan roles:reconciliar        # tras ampliar RoleCatalog o encender un módulo
+php artisan roles:reconcile        # tras ampliar RoleCatalog o encender un módulo
 ```
 
 Direcciones en desarrollo:
 
 ```
 http://elsazon.localhost:8010/          portal del cliente
-http://elsazon.localhost:8010/panel/    panel del dueño
-http://elsazon.localhost:8010/caja/     caja
-http://elsazon.localhost:8010/cocina/   pantalla de cocina
+http://elsazon.localhost:8010/dashboard/  panel del dueño
+http://elsazon.localhost:8010/pos/        caja
+http://elsazon.localhost:8010/kds/        pantalla de cocina
 http://admin.localhost:8010/            super administración
 ```
 
@@ -295,7 +295,7 @@ PIN.
 `RoleCatalog` servía a los negocios nuevos y a nadie más: el código salía, no
 fallaba nada, y el encargado de un local de hace seis meses seguía sin poder.
 Ahora la siembra vive en `RoleProvisioner` —el alta, el seeder de demostración y
-los helpers de prueba usan ése— y `roles:reconciliar` la aplica a los que ya
+los helpers de prueba usan ése— y `roles:reconcile` la aplica a los que ya
 existen. **Después de tocar el catálogo, hay que correrlo.**
 
 Y ojo con qué módulos cuentan: **el núcleo nunca tiene fila en
@@ -459,7 +459,7 @@ se lo lleva creyendo que ahí están sus pedidos.
    que falló por el camino y cómo lo verificaste — que es lo que nadie va a
    poder deducir del diff dentro de seis meses. Y si el porqué de una línea de
    código vive ahí, cita el código donde está la línea.
-7. Si ampliaste `RoleCatalog`: ¿corriste `roles:reconciliar`? Si no, el cambio
+7. Si ampliaste `RoleCatalog`: ¿corriste `roles:reconcile`? Si no, el cambio
    no llega a ningún negocio que ya exista ([KMB-0007]).
 
 [KMB-0007]: docs/trabajos/KMB-0007-reconciliar-los-roles-de-los-negocios-que-ya-exist/

@@ -5,29 +5,28 @@ declare(strict_types=1);
 namespace Platform\Tenancy;
 
 /**
- * En qué situación está un negocio.
+ * What situation a tenant is in.
  *
- * La distinción que importa es entre **poder entrar** y **poder escribir**. Un
- * negocio que dejó de pagar no se queda fuera de golpe: entra, consulta y
- * exporta todo durante el período de gracia. Borrarle el acceso a sus propios
- * datos a alguien que confió en el sistema no es una palanca de cobro
- * aceptable.
+ * The distinction that matters is between getting IN and being able to WRITE.
+ * A tenant that stopped paying is not locked out at once: it reads and exports
+ * everything through the grace period. Cutting someone off from their own data
+ * is not an acceptable collection tactic.
  */
 enum TenantStatus: string
 {
-    /** Probando. Entra y opera con normalidad. */
+    /** Trialling. Signs in and operates normally. */
     case Trial = 'trial';
 
-    /** Al día. */
+    /** Paid up. */
     case Active = 'active';
 
-    /** Se le venció y está en gracia: entra, opera, y ve el aviso. */
+    /** Overdue and in grace: signs in, operates, and sees the warning. */
     case PastDue = 'past_due';
 
-    /** Suspendido: entra, pero sólo lee y exporta. */
+    /** Suspended: signs in, but only reads and exports. */
     case Suspended = 'suspended';
 
-    /** Cerrado. No entra. */
+    /** Closed. No entry. */
     case Closed = 'closed';
 
     public function allowsAccess(): bool
@@ -40,7 +39,7 @@ enum TenantStatus: string
         return in_array($this, [self::Trial, self::Active, self::PastDue], true);
     }
 
-    /** Para avisar en la interfaz antes de que se convierta en un problema. */
+    /** To warn in the UI before it becomes a problem. */
     public function needsAttention(): bool
     {
         return in_array($this, [self::PastDue, self::Suspended], true);

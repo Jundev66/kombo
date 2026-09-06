@@ -7,32 +7,24 @@ namespace Modules\Channels\Infrastructure\Services;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * ¿Este mensaje ya lo procesamos?
+ * Have we already processed this message? Meta retries — when the server is
+ * slow, on any non-200, and sometimes for no apparent reason.
  *
- * Meta reintenta. Reintenta cuando el servidor tarda, cuando devuelve algo que
- * no es 200, y a veces sin razón aparente. Sin esto, un cliente que escribe una
- * vez recibe el menú tres veces.
+ * `Cache::add()` and not `has()` then `put()`: two retries arriving at once
+ * would both clear the `has()` before either wrote. `add()` is atomic in Redis.
  *
- * **`Cache::add()` y no `has()` seguido de `put()`.** La diferencia importa de
- * verdad: dos reintentos que llegan a la vez —a dos procesos de PHP distintos—
- * pasan los dos por el `has()` antes de que ninguno haya escrito, y los dos
- * siguen. `add()` es atómico en Redis: escribe **sólo** si la clave no existía,
- * y devuelve si lo consiguió.
- *
- * Se guarda 24 horas: más que cualquier ventana de reintentos de Meta, y poco
- * comparado con lo que ocupa una clave por mensaje.
+ * Kept 24 hours: longer than any retry window, and cheap at one key per message.
  */
 final class MessageDeduplicator
 {
     private const TTL_SECONDS = 86_400;
 
-    /** `true` si es la primera vez que se ve. */
+    /** `true` if this is the first time it has been seen. */
     public function firstTime(string $tenantId, string $channel, string $externalId): bool
     {
         if ($externalId === '') {
-            // Sin identificador no se puede deduplicar. Se deja pasar en vez de
-            // descartar: perder un mensaje de un cliente es peor que
-            // contestarle dos veces.
+            // No id, nothing to deduplicate on. Let through rather than discarded:
+            // losing a customer's message is worse than answering twice.
             return true;
         }
 

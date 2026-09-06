@@ -3,27 +3,26 @@ import { cn } from '../lib/cn'
 
 interface FieldProps {
   label: string
-  // `| undefined` explícito: con `exactOptionalPropertyTypes`, «sin error» y
-  // «error indefinido» son cosas distintas, y quien llama suele tener un
-  // `string | null` del que sale un `undefined`.
+  // Explicit `| undefined`: with `exactOptionalPropertyTypes`, "no error" and
+  // "undefined error" are different things, and callers usually hold a
+  // `string | null` that yields an `undefined`.
   hint?: string | undefined
   error?: string | undefined
   required?: boolean
-  /** Recibe el id ya generado y si el campo está en error. */
+  /** Receives the generated id and whether the field is in error. */
   children: (props: { id: string; invalid: boolean }) => ReactNode
 }
 
 /**
- * Un campo con su etiqueta de verdad.
+ * A field with a real label.
  *
- * Usa render-prop para que el `<label>` apunte al control con `htmlFor`. No es
- * cosmética: sin esa asociación, tocar la etiqueta en un teléfono no enfoca el
- * campo, un lector de pantalla no sabe qué se está pidiendo, y las pruebas no
- * pueden encontrarlo por su nombre accesible.
+ * A render prop, so the `<label>` points at the control with `htmlFor`. Not
+ * cosmetic: without that association, tapping the label on a phone does not
+ * focus the field, a screen reader does not know what is being asked, and tests
+ * cannot find it by its accessible name.
  *
- * El asterisco de obligatorio va `aria-hidden`: forma parte del texto visible
- * pero no del nombre accesible, para que `getByRole('textbox', {name: 'Correo'})`
- * lo encuentre sin el asterisco.
+ * The required asterisk is `aria-hidden`: part of the visible text but not of
+ * the accessible name, so `getByRole('textbox', {name: 'Correo'})` finds it.
  */
 export function Field({ label, hint, error, required = false, children }: FieldProps) {
   const id = useId()

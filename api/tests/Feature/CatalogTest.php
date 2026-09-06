@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 /*
- * La carta por HTTP: permisos, techos del plan, y la separación entre editar
- * un producto y cambiarle el precio.
+ * The menu over HTTP: permissions, plan ceilings, and the separation between
+ * editing a product and changing its price.
  */
 
 use App\Models\Catalog\ProductModel;
@@ -14,10 +14,10 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 beforeEach(function (): void {
-    $sufijo = Str::lower(Str::random(6));
+    $suffix = Str::lower(Str::random(6));
 
-    $this->slug = "elsazon-{$sufijo}";
-    $this->tenant = makeTenant($this->slug, plan: 'negocio');
+    $this->slug = "elsazon-{$suffix}";
+    $this->tenant = makeTenant($this->slug, plan: 'business');
 
     actingForTenant($this->tenant);
     enableModule($this->tenant, 'core');
@@ -30,8 +30,8 @@ beforeEach(function (): void {
     giveRole($this->tenant, $this->carlos, 'kitchen');
 });
 
-it('el dueño añade un producto a la carta', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('the owner adds a product to the menu', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
     $response = $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/catalog/products'), [
@@ -41,19 +41,19 @@ it('el dueño añade un producto a la carta', function (): void {
         ]);
 
     $response->assertCreated()
-        // El nombre llega normalizado: el dominio lo limpió antes de guardar.
+        // The name arrives normalised: the domain cleaned it before saving.
         ->assertJsonPath('data.name', 'Reina Pepiada')
         ->assertJsonPath('data.priceCents', 300)
         ->assertJsonPath('data.prepMinutes', 8)
-        // Sellado desde el primer día, para que «¿desde cuándo no reviso este
-        // precio?» tenga respuesta.
+        // Stamped from day one, so "how long since I reviewed this price?" has an
+        // answer.
         ->assertJsonPath('data.isActive', true);
 
     expect($response->json('data.priceUpdatedAt'))->not->toBeNull();
 });
 
-it('rechaza un precio negativo, y lo dice en el campo que toca', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('rejects a negative price, and says so on the right field', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
     $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/catalog/products'), [
@@ -64,11 +64,10 @@ it('rechaza un precio negativo, y lo dice en el campo que toca', function (): vo
         ->assertJsonValidationErrors('price_cents');
 });
 
-it('la cocina no puede tocar la carta', function (): void {
-    // Carlos sólo tiene la pantalla de comandas. Que no pueda editar precios
-    // no es desconfianza: es que ése no es su trabajo y un toque accidental
-    // con las manos llenas sale caro.
-    entrarComo($this->slug, 'carlos@ejemplo.com');
+it('the kitchen cannot touch the menu', function (): void {
+    // Carlos only has the ticket board. That he cannot edit prices is not
+    // distrust: it is not his job, and a stray tap with full hands is expensive.
+    loginAs($this->slug, 'carlos@ejemplo.com');
 
     $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/catalog/products'), [
@@ -78,10 +77,10 @@ it('la cocina no puede tocar la carta', function (): void {
         ->assertForbidden();
 });
 
-it('editar un producto NO puede cambiarle el precio', function (): void {
-    // Si `price_cents` colara por aquí, el permiso aparte de cambiar precios
-    // sería decorativo.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('editing a product CANNOT change its price', function (): void {
+    // If `price_cents` slipped through here, the separate price permission would
+    // be decorative.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
     $id = $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/catalog/products'), [
@@ -91,15 +90,15 @@ it('editar un producto NO puede cambiarle el precio', function (): void {
     $this->withHeaders(browsingAs($this->slug))
         ->patchJson(urlFor($this->slug, "/api/v1/catalog/products/{$id}"), [
             'name' => 'Reina Pepiada Especial',
-            'price_cents' => 1,          // ← se ignora, no se aplica
+            'price_cents' => 1,          // ← ignored, not applied
         ])
         ->assertOk()
         ->assertJsonPath('data.name', 'Reina Pepiada Especial')
         ->assertJsonPath('data.priceCents', 300);
 });
 
-it('cambiar el precio deja rastro con el antes y el después', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('changing the price leaves a trail with the before and the after', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
     $id = $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/catalog/products'), [
@@ -113,38 +112,37 @@ it('cambiar el precio deja rastro con el antes y el después', function (): void
 
     actingForTenant($this->tenant);
 
-    $entrada = DB::table('audit_log')
+    $entry = DB::table('audit_log')
         ->where('tenant_id', $this->tenant)
         ->where('action', 'catalog.price_changed')
         ->first();
 
-    expect(json_decode((string) $entrada?->before, true))->toBe(['price_cents' => 300])
-        ->and(json_decode((string) $entrada?->after, true))->toBe(['price_cents' => 350]);
+    expect(json_decode((string) $entry?->before, true))->toBe(['price_cents' => 300])
+        ->and(json_decode((string) $entry?->after, true))->toBe(['price_cents' => 350]);
 });
 
-it('poner el mismo precio no ensucia la bitácora ni la fecha', function (): void {
-    // Una bitácora llena de «cambió de 3,00 a 3,00» es una bitácora que nadie
-    // lee, y una fecha que se mueve sin motivo deja de servir para saber qué
-    // lleva meses sin revisar.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('setting the same price dirties neither the audit log nor the date', function (): void {
+    // An audit log full of "changed from 3.00 to 3.00" is one nobody reads, and
+    // a date that moves for no reason stops telling you what needs reviewing.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $creado = $this->withHeaders(browsingAs($this->slug))
+    $created = $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/catalog/products'), [
             'name' => 'Reina Pepiada', 'price_cents' => 300,
         ])->json('data');
 
     $this->withHeaders(browsingAs($this->slug))
-        ->postJson(urlFor($this->slug, "/api/v1/catalog/products/{$creado['id']}/price"), ['price_cents' => 300])
+        ->postJson(urlFor($this->slug, "/api/v1/catalog/products/{$created['id']}/price"), ['price_cents' => 300])
         ->assertOk()
-        ->assertJsonPath('data.priceUpdatedAt', $creado['priceUpdatedAt']);
+        ->assertJsonPath('data.priceUpdatedAt', $created['priceUpdatedAt']);
 
     actingForTenant($this->tenant);
 
     expect(DB::table('audit_log')->where('action', 'catalog.price_changed')->count())->toBe(0);
 });
 
-it('el techo del plan frena, y dice cuántos caben', function (): void {
-    // Un plan diminuto para no tener que crear sesenta productos.
+it('the plan ceiling stops it, and says how many fit', function (): void {
+    // A tiny plan, to avoid creating sixty products.
     DB::table('plans')->insert([
         'code' => 'diminuto', 'name' => 'Diminuto', 'currency' => 'USD',
         'max_products' => 1, 'created_at' => now(), 'updated_at' => now(),
@@ -154,7 +152,7 @@ it('el techo del plan frena, y dice cuántos caben', function (): void {
     ]);
     DB::table('tenants')->where('id', $this->tenant)->update(['plan_code' => 'diminuto']);
 
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    loginAs($this->slug, 'maria@ejemplo.com');
 
     $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/catalog/products'), ['name' => 'Primero', 'price_cents' => 100])
@@ -164,14 +162,14 @@ it('el techo del plan frena, y dice cuántos caben', function (): void {
         ->postJson(urlFor($this->slug, '/api/v1/catalog/products'), ['name' => 'Segundo', 'price_cents' => 100])
         ->assertStatus(422);
 
-    // El mensaje dice qué hacer, no sólo que no se puede.
+    // The message says what to do, not just that it cannot be done.
     expect($response->json('message'))->toContain('1 productos');
 });
 
-it('un grupo de modificadores llega con su regla ya explicada', function (): void {
-    // La misma frase la ven el portal, la caja y el bot. Tres validaciones
-    // distintas serían tres oportunidades de que una se quede vieja.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('a modifier group arrives with its rule already explained', function (): void {
+    // The portal, the till and the bot all show the same sentence. Three
+    // validations would be three chances for one to go stale.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
     $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/catalog/modifier-groups'), [
@@ -191,8 +189,8 @@ it('un grupo de modificadores llega con su regla ya explicada', function (): voi
         ->assertJsonPath('data.0.modifiers.1.name', 'Bien cocida');
 });
 
-it('un modificador SÍ puede descontar', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('a modifier CAN take money off', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
     $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/catalog/modifier-groups'), [
@@ -205,18 +203,16 @@ it('un modificador SÍ puede descontar', function (): void {
         ->assertJsonPath('data.0.modifiers.0.priceDeltaCents', -50);
 });
 
-it('la carta es de núcleo: nadie puede apagarla, ni escribiendo en la tabla', function (): void {
-    // Un negocio de comida sin carta no es nada, y todo lo demás —pedidos,
-    // cocina, caja, portal, bots— cuelga de aquí. Por eso `isCore()` la
-    // enciende pase lo que pase en `tenant_modules`.
-    //
-    // Se escribe la fila a mano precisamente para comprobar que no basta.
+it('the menu is core: nobody can switch it off, not even by writing to the table', function (): void {
+    // A food business with no menu is nothing, and everything else hangs off it.
+    // That is why `isCore()` switches it on whatever `tenant_modules` says — the
+    // row is written by hand here precisely to show it is not enough.
     DB::table('tenant_modules')
         ->where('tenant_id', $this->tenant)
         ->where('module_code', 'catalog')
         ->update(['enabled' => false]);
 
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    loginAs($this->slug, 'maria@ejemplo.com');
 
     $this->withHeaders(browsingAs($this->slug))
         ->getJson(urlFor($this->slug, '/api/v1/catalog/products'))
@@ -227,93 +223,90 @@ it('la carta es de núcleo: nadie puede apagarla, ni escribiendo en la tabla', f
         ->assertJsonPath('modules', fn (array $modules): bool => in_array('catalog', $modules, true));
 });
 
-it('un módulo que este negocio no tiene responde 404, no 403', function (): void {
-    // 404 y no 403 a propósito: que un módulo no exista para un negocio es
-    // información sobre su CONTRATO, no sobre sus permisos. Para una cocina
-    // oculta que sólo vende por el portal, la caja sencillamente no existe —
-    // no hay nada que explicarle al dueño. Un 403 diría «esto existe pero no
-    // puedes», que invita a insistir y filtra qué funcionalidades hay.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('a module this tenant does not have answers 404, not 403', function (): void {
+    // 404 and not 403 on purpose: a module a tenant does not have is information
+    // about their CONTRACT, not their permissions. A 403 would say "this exists
+    // but you may not", which invites insistence and leaks the feature list.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    // `counter` llega en la Fase 5. Hoy no existe para nadie, que es
-    // exactamente el caso que se quiere comprobar.
+    // `counter` arrives in phase 5. Today it exists for nobody, which is exactly
+    // the case being checked.
     $this->withHeaders(browsingAs($this->slug))
         ->getJson(urlFor($this->slug, '/api/v1/counter/anything'))
         ->assertNotFound();
 });
 
-it('la foto se sube, reemplaza a la anterior y se puede quitar', function (): void {
+it('the photo uploads, replaces the previous one, and can be removed', function (): void {
     /*
-     * En el portal la foto es lo que vende. Antes había que pegar una
-     * dirección a mano, que en la práctica significaba que casi ninguna carta
-     * tenía fotos.
+     * On the portal the photo is what sells. Pasting an address by hand meant,
+     * in practice, that almost no menu had photos.
      */
     Storage::fake('public');
 
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    $producto = ProductModel::create(['name' => 'Reina Pepiada', 'price_cents' => 300]);
+    $product = ProductModel::create(['name' => 'Reina Pepiada', 'price_cents' => 300]);
 
-    $primera = test()->withHeaders(browsingAs($this->slug))
-        ->post(urlFor($this->slug, "/api/v1/catalog/products/{$producto->id}/photo"), [
+    $first = test()->withHeaders(browsingAs($this->slug))
+        ->post(urlFor($this->slug, "/api/v1/catalog/products/{$product->id}/photo"), [
             'photo' => UploadedFile::fake()->create('arepa.jpg', 200, 'image/jpeg'),
         ])->assertOk()->json('data.photoUrl');
 
-    // Ruta relativa: la sirve el mismo origen desde el que se abrió la página,
-    // que es el subdominio del negocio y no el dominio raíz.
-    expect($primera)->toStartWith("/storage/products/{$this->tenant}/");
+    // A relative path: served by the same origin the page was opened from, which
+    // is the tenant's subdomain rather than the root domain.
+    expect($first)->toStartWith("/storage/products/{$this->tenant}/");
 
-    Storage::disk('public')->assertExists(str_replace('/storage/', '', $primera));
+    Storage::disk('public')->assertExists(str_replace('/storage/', '', $first));
 
-    $segunda = test()->withHeaders(browsingAs($this->slug))
-        ->post(urlFor($this->slug, "/api/v1/catalog/products/{$producto->id}/photo"), [
+    $second = test()->withHeaders(browsingAs($this->slug))
+        ->post(urlFor($this->slug, "/api/v1/catalog/products/{$product->id}/photo"), [
             'photo' => UploadedFile::fake()->create('otra.jpg', 200, 'image/jpeg'),
         ])->assertOk()->json('data.photoUrl');
 
-    // La anterior se borra: si no, cada cambio deja un archivo huérfano y el
-    // disco de un VPS pequeño no está para guardar seis arepas iguales.
-    expect($segunda)->not->toBe($primera);
-    Storage::disk('public')->assertMissing(str_replace('/storage/', '', $primera));
+    // The previous one is deleted, or every change leaves an orphan and a small
+    // VPS's disk fills with six identical arepas.
+    expect($second)->not->toBe($first);
+    Storage::disk('public')->assertMissing(str_replace('/storage/', '', $first));
 
     test()->withHeaders(browsingAs($this->slug))
-        ->deleteJson(urlFor($this->slug, "/api/v1/catalog/products/{$producto->id}/photo"))
+        ->deleteJson(urlFor($this->slug, "/api/v1/catalog/products/{$product->id}/photo"))
         ->assertStatus(204);
 
     actingForTenant($this->tenant);
 
-    expect(ProductModel::find($producto->id)->photo_url)->toBeNull();
-    Storage::disk('public')->assertMissing(str_replace('/storage/', '', $segunda));
+    expect(ProductModel::find($product->id)->photo_url)->toBeNull();
+    Storage::disk('public')->assertMissing(str_replace('/storage/', '', $second));
 });
 
-it('lo que no es una foto no se sube', function (): void {
+it('what is not a photo is not uploaded', function (): void {
     Storage::fake('public');
 
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    $producto = ProductModel::create(['name' => 'Reina Pepiada', 'price_cents' => 300]);
+    $product = ProductModel::create(['name' => 'Reina Pepiada', 'price_cents' => 300]);
 
     test()->withHeaders(browsingAs($this->slug))
-        ->post(urlFor($this->slug, "/api/v1/catalog/products/{$producto->id}/photo"), [
+        ->post(urlFor($this->slug, "/api/v1/catalog/products/{$product->id}/photo"), [
             'photo' => UploadedFile::fake()->create('cualquier.jpg', 100, 'application/pdf'),
         ])->assertStatus(422)->assertJsonValidationErrors('photo');
 });
 
-it('quien no maneja la carta no le cambia la foto a nada', function (): void {
+it('whoever does not manage the menu changes nothing\'s photo', function (): void {
     Storage::fake('public');
 
     actingForTenant($this->tenant);
 
-    $producto = ProductModel::create(['name' => 'Reina Pepiada', 'price_cents' => 300]);
+    $product = ProductModel::create(['name' => 'Reina Pepiada', 'price_cents' => 300]);
 
     $carlos = makeUser($this->tenant, 'carlos-foto@ejemplo.com', 'Carlos');
     giveRole($this->tenant, $carlos, 'kitchen');
 
-    entrarComo($this->slug, 'carlos-foto@ejemplo.com');
+    loginAs($this->slug, 'carlos-foto@ejemplo.com');
 
     test()->withHeaders(browsingAs($this->slug))
-        ->post(urlFor($this->slug, "/api/v1/catalog/products/{$producto->id}/photo"), [
+        ->post(urlFor($this->slug, "/api/v1/catalog/products/{$product->id}/photo"), [
             'photo' => UploadedFile::fake()->create('arepa.jpg', 100, 'image/jpeg'),
         ])->assertForbidden();
 });

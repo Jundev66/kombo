@@ -7,12 +7,10 @@ namespace Modules\Catalog\Interfaces\Http\Resources;
 use App\Models\Catalog\ProductModel;
 
 /**
- * Cómo se ve un producto hacia el cliente.
+ * How a product looks to the client: camelCase, and always in cents.
  *
- * En camelCase, porque lo consume TypeScript. Y **siempre en centavos**: el
- * importe se formatea en el borde, en el componente que lo pinta, nunca antes.
- * Mandar «12,30» obligaría al cliente a re-parsearlo para sumar, que es
- * exactamente donde vuelven a aparecer los errores de coma flotante.
+ * Amounts are formatted at the edge, in the component that paints them. Sending
+ * "12.30" would force the client to re-parse it to add up.
  */
 final class ProductResource
 {
@@ -29,9 +27,7 @@ final class ProductResource
 
             'priceCents' => $product->price_cents,
             'currency' => $product->currency,
-            // Para que el dueño vea de un vistazo qué lleva meses sin revisar.
-            // En un país con inflación, eso es la diferencia entre ganar y
-            // regalar.
+            // So the owner can see at a glance what has gone months without review.
             'priceUpdatedAt' => $product->price_updated_at?->toAtomString(),
 
             'categoryId' => $product->category_id,
@@ -40,8 +36,8 @@ final class ProductResource
 
             'tracksStock' => $product->track_stock,
             'stockQty' => $product->stock_qty,
-            // Resuelto en el servidor: la pantalla no tiene que saber que
-            // «sin cuenta de existencias» significa «siempre hay».
+            // Resolved on the server: the screen need not know that "stock untracked"
+            // means "there is always some".
             'isSoldOut' => $product->track_stock && ($product->stock_qty ?? 0) <= 0,
 
             'sortOrder' => $product->sort_order,

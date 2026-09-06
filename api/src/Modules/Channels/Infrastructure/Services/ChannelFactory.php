@@ -11,10 +11,10 @@ use Modules\Channels\Infrastructure\Adapters\WhatsAppChannel;
 use RuntimeException;
 
 /**
- * De una cuenta guardada al adaptador que sabe hablar por ella.
+ * From a stored account to the adapter that can talk through it.
  *
- * Es el único sitio del sistema donde aparece la lista de canales que existen.
- * Añadir uno es una clase nueva y una línea aquí; nada más lo sabe.
+ * The only place where the list of channels appears. Adding one is a new class
+ * and a line here; nothing else knows.
  */
 final class ChannelFactory
 {
@@ -28,7 +28,7 @@ final class ChannelFactory
     }
 
     /**
-     * Los canales que el sistema sabe manejar.
+     * The channels the system knows how to handle.
      *
      * @return list<string>
      */

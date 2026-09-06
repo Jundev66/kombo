@@ -9,23 +9,18 @@ use Illuminate\Support\Facades\DB;
 use Platform\Tenancy\TenantSession;
 
 /**
- * Cierra lo que quedó abierto en los negocios de demostración.
+ * Closes whatever was left open in the demo tenants.
  *
- * Las pantallas de trabajo —el tablero del panel y la cocina— muestran lo que
- * está VIVO. En un local de verdad eso se cierra solo: la comida sale, alguien
- * toca «entregado», y el tablero vuelve a estar vacío. En una demostración no:
- * los pedidos de las pruebas de ayer siguen ahí, y al cabo de unas semanas el
- * tablero tiene doscientos pedidos que nadie va a entregar nunca.
+ * The working screens show what is LIVE. In a real shop that clears itself; in
+ * a demo it does not, and after a few weeks the board holds two hundred orders
+ * nobody will ever deliver.
  *
- * Esto los cierra. **No borra nada**: los pedidos quedan entregados y las
- * comandas servidas, así que los reportes siguen contándolos.
- *
- * Sólo corre donde las herramientas de demostración están encendidas. En
- * producción, cerrar pedidos de nadie es lo último que queremos.
+ * It closes them and deletes nothing, so the reports still count them. It only
+ * runs where the demo tooling is switched on.
  */
 final class CleanDemoDataCommand extends Command
 {
-    protected $signature = 'demo:limpiar {--horas=12 : Desde cuántas horas atrás se considera abandonado}';
+    protected $signature = 'demo:clean {--hours=12 : Desde cuántas horas atrás se considera abandonado}';
 
     protected $description = 'Cierra los pedidos y comandas que quedaron abiertos en los negocios de demostración';
 
@@ -37,52 +32,47 @@ final class CleanDemoDataCommand extends Command
             return self::FAILURE;
         }
 
-        $limite = now()->subHours((int) $this->option('horas'));
+        $limit = now()->subHours((int) $this->option('hours'));
         $total = 0;
-        $personas = 0;
+        $people = 0;
 
         foreach (DB::table('tenants')->whereNull('deleted_at')->pluck('id') as $tenantId) {
-            [$cerrados, $dadosDeBaja] = $session->within((string) $tenantId, function () use ($limite): array {
-                $pedidos = DB::table('orders')
+            [$closedOnes, $deactivated] = $session->within((string) $tenantId, function () use ($limit): array {
+                $orders = DB::table('orders')
                     ->whereNotIn('status', ['delivered', 'cancelled'])
-                    ->where('placed_at', '<', $limite)
+                    ->where('placed_at', '<', $limit)
                     ->update(['status' => 'delivered', 'delivered_at' => now(), 'updated_at' => now()]);
 
                 DB::table('kitchen_tickets')
                     ->whereNotIn('status', ['served', 'cancelled'])
-                    ->where('placed_at', '<', $limite)
+                    ->where('placed_at', '<', $limit)
                     ->update(['status' => 'served', 'served_at' => now(), 'updated_at' => now()]);
 
                 /*
-                 * La gente que suman las pruebas de usuario.
+                 * The people the end-to-end tests add up.
                  *
-                 * Ocupa PLAZA del plan, y las plazas tienen techo. Sin esto,
-                 * cada corrida deja una cuenta activa más y llega el día en que
-                 * el botón «Sumar a alguien» aparece deshabilitado: la prueba
-                 * falla por el techo del plan —que está haciendo su trabajo— y
-                 * no por lo que venía a comprobar. Se pierde media mañana
-                 * buscándolo en el sitio equivocado.
+                 * They take a SEAT in the plan, and seats have a ceiling.
+                 * Without this, every run leaves one more active account until
+                 * "Sumar a alguien" is disabled and a test fails on the plan
+                 * ceiling doing its job, not on what it meant to check.
                  *
-                 * Por el prefijo `[e2e]`, que es la marca que las pruebas
-                 * ponen a todo lo que crean. Nadie de un negocio de verdad se
-                 * llama así.
-                 *
-                 * Se DESACTIVA, no se borra: sus pedidos y sus notas siguen
-                 * diciendo quién los hizo.
+                 * Matched by the `[e2e]` prefix the tests stamp on everything
+                 * they create. They are DEACTIVATED, not deleted: their orders
+                 * and notes keep saying who made them.
                  */
-                $baja = DB::table('users')
+                $deactivated = DB::table('users')
                     ->where('name', 'like', '[e2e]%')
                     ->where('is_active', true)
                     ->update(['is_active' => false, 'updated_at' => now()]);
 
-                return [$pedidos, $baja];
+                return [$orders, $deactivated];
             });
 
-            $total += $cerrados;
-            $personas += $dadosDeBaja;
+            $total += $closedOnes;
+            $people += $deactivated;
         }
 
-        $this->info("Pedidos cerrados: {$total} · Cuentas de prueba dadas de baja: {$personas}");
+        $this->info("Pedidos cerrados: {$total} · Cuentas de prueba dadas de baja: {$people}");
 
         return self::SUCCESS;
     }

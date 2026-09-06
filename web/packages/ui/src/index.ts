@@ -1,6 +1,6 @@
-// Sistema visual: componentes, tema y los principios que los gobiernan.
-// Los principios están en web/AGENTS.md; en una revisión se resuelve
-// señalando uno de ellos, no por gusto.
+// The visual system: components, theme, and the principles that govern them.
+// The principles live in web/AGENTS.md; a review is settled by pointing at
+// one of them, not by taste.
 
 export { Button, buttonClasses } from './components/Button'
 export type { ButtonSize, ButtonVariant } from './components/Button'

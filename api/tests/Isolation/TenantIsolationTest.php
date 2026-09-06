@@ -3,20 +3,18 @@
 declare(strict_types=1);
 
 /*
- * Las pruebas más importantes del sistema.
+ * The most important tests in the system.
  *
- * La pregunta que responden NO es «¿está aislado?». Es:
+ * The question they answer is not "is it isolated?" but:
  *
- *      ¿QUÉ TIENE QUE FALLAR PARA QUE SE FILTRE UN DATO DE OTRO NEGOCIO?
+ *      WHAT HAS TO FAIL FOR ANOTHER TENANT'S DATA TO LEAK?
  *
- * Por eso varias desactivan a propósito una capa de defensa y comprueban que
- * la siguiente aguanta sola. Un aislamiento que sólo funciona cuando todo está
- * bien no es aislamiento: es suerte.
+ * Which is why several deliberately disable one layer of defence and check that
+ * the next holds alone. Isolation that only works when everything is fine is
+ * not isolation, it is luck.
  *
- * Corren como `kombo_app`, el usuario SIN BYPASSRLS. Si corrieran como el
- * dueño del esquema pasarían en verde con RLS completamente roto — y ése es el
- * peor fallo que puede tener una suite: silencioso, y comprobando algo
- * distinto de lo que dice comprobar.
+ * They run as `kombo_app`, the user WITHOUT BYPASSRLS. As the schema owner they
+ * would pass green with RLS completely broken — the worst kind of green.
  */
 
 use Illuminate\Database\QueryException;
@@ -24,40 +22,40 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 beforeEach(function (): void {
-    // Sufijo aleatorio: la siembra es aditiva y estas pruebas no pueden
-    // depender de que la base esté recién creada.
-    $sufijo = Str::lower(Str::random(6));
+    // Random suffix: seeding is additive, and these tests cannot depend on a
+    // freshly created database.
+    $suffix = Str::lower(Str::random(6));
 
-    $this->arepera = makeTenant("elsazon-{$sufijo}");
-    $this->pizzeria = makeTenant("laesquina-{$sufijo}");
+    $this->arepera = makeTenant("elsazon-{$suffix}");
+    $this->pizzeria = makeTenant("laesquina-{$suffix}");
 
     actingForTenant($this->arepera);
-    $this->usuarioArepera = makeUser($this->arepera, "maria-{$sufijo}@ejemplo.com");
+    $this->areperaUser = makeUser($this->arepera, "maria-{$suffix}@ejemplo.com");
 
     actingForTenant($this->pizzeria);
-    $this->usuarioPizzeria = makeUser($this->pizzeria, "pedro-{$sufijo}@ejemplo.com");
+    $this->pizzeriaUser = makeUser($this->pizzeria, "pedro-{$suffix}@ejemplo.com");
 });
 
-it('cada negocio ve sólo sus propios datos', function (): void {
+it('each tenant sees only its own data', function (): void {
     actingForTenant($this->arepera);
-    expect(DB::table('users')->pluck('id')->all())->toBe([$this->usuarioArepera]);
+    expect(DB::table('users')->pluck('id')->all())->toBe([$this->areperaUser]);
 
     actingForTenant($this->pizzeria);
-    expect(DB::table('users')->pluck('id')->all())->toBe([$this->usuarioPizzeria]);
+    expect(DB::table('users')->pluck('id')->all())->toBe([$this->pizzeriaUser]);
 });
 
-it('no encuentra un registro ajeno ni pidiéndolo por su identificador', function (): void {
-    // Es el caso realista: alguien copia un id de una URL y lo prueba en otra
-    // cuenta. Tiene que responder «no existe», no «no puedes» — un 403 ya
-    // confirmaría que el recurso existe.
+it('does not find another tenant\'s row even when asked for by id', function (): void {
+    // The realistic case: somebody copies an id from a URL and tries it on
+    // another account. It has to answer "does not exist" — a 403 would already
+    // confirm the resource exists.
     actingForTenant($this->arepera);
 
-    expect(DB::table('users')->find($this->usuarioPizzeria))->toBeNull();
+    expect(DB::table('users')->find($this->pizzeriaUser))->toBeNull();
 });
 
-it('una consulta directa a la base tampoco ve lo ajeno', function (): void {
-    // Sin Eloquent, sin ámbito global, sin modelo. Aquí quien filtra es
-    // PostgreSQL, no el framework.
+it('a direct database query does not see another tenant\'s data either', function (): void {
+    // No Eloquent, no global scope, no model. Here PostgreSQL does the
+    // filtering, not the framework.
     actingForTenant($this->arepera);
 
     $emails = DB::select('select email from users');
@@ -65,24 +63,24 @@ it('una consulta directa a la base tampoco ve lo ajeno', function (): void {
     expect($emails)->toHaveCount(1);
 });
 
-it('una petición SIN negocio no devuelve NINGUNA fila, no todas', function (): void {
-    // La diferencia entre estas dos respuestas es la diferencia entre un
-    // sistema que falla y un sistema que filtra los datos de todos sus
-    // clientes. El modo de fallo tiene que ser NEGAR.
+it('a request with NO tenant returns NO rows, not all of them', function (): void {
+    // The difference between these two answers is the difference between a
+    // system that fails and one that leaks every customer's data. The failure
+    // mode has to be DENY.
     withoutTenant();
 
     expect(DB::table('users')->count())->toBe(0);
 });
 
-it('la base rechaza escribir una fila a nombre de otro negocio', function (): void {
-    // Ésta es la prueba de WITH CHECK, y va con SQL crudo a propósito: por
-    // Eloquent nunca llegaría aquí, porque el trait rellena el negocio solo.
-    // Lo que se comprueba es qué pasa si ese trait falla o alguien lo evita.
+it('the database refuses to write a row in another tenant\'s name', function (): void {
+    // The WITH CHECK test, deliberately in raw SQL: through Eloquent it would
+    // never get here, because the trait fills the tenant in. What is checked is
+    // what happens if that trait fails or somebody bypasses it.
     actingForTenant($this->arepera);
 
     expect(fn () => DB::table('users')->insert([
         'id' => (string) Str::uuid7(),
-        'tenant_id' => $this->pizzeria,   // ← el negocio de OTRO
+        'tenant_id' => $this->pizzeria,   // ← ANOTHER tenant's
         'name' => 'Colada',
         'email' => 'colada@ejemplo.com',
         'password' => 'x',
@@ -92,33 +90,33 @@ it('la base rechaza escribir una fila a nombre de otro negocio', function (): vo
     ]))->toThrow(QueryException::class);
 });
 
-it('no se puede robar una fila ajena cambiándole el negocio', function (): void {
-    // El otro lado de WITH CHECK: mover una fila propia al negocio de otro.
+it('another tenant\'s row cannot be stolen by changing its tenant', function (): void {
+    // The other side of WITH CHECK: moving one's own row to another tenant.
     actingForTenant($this->arepera);
 
     expect(fn () => DB::table('users')
-        ->where('id', $this->usuarioArepera)
+        ->where('id', $this->areperaUser)
         ->update(['tenant_id' => $this->pizzeria]))
         ->toThrow(QueryException::class);
 });
 
-it('borrar lo de otro negocio no borra nada', function (): void {
-    // No lanza error —sencillamente no ve la fila— y eso está bien: el
-    // atacante no aprende siquiera que existe.
+it('deleting another tenant\'s row deletes nothing', function (): void {
+    // It does not error — it simply does not see the row — and that is right:
+    // the attacker does not even learn it exists.
     actingForTenant($this->arepera);
 
-    $borradas = DB::table('users')->where('id', $this->usuarioPizzeria)->delete();
+    $deletedRows = DB::table('users')->where('id', $this->pizzeriaUser)->delete();
 
-    expect($borradas)->toBe(0);
+    expect($deletedRows)->toBe(0);
 
     actingForTenant($this->pizzeria);
-    expect(DB::table('users')->find($this->usuarioPizzeria))->not->toBeNull();
+    expect(DB::table('users')->find($this->pizzeriaUser))->not->toBeNull();
 });
 
-it('el aislamiento aguanta aunque el contexto quede en cadena vacía', function (): void {
-    // Es como queda una conexión tras limpiarla antes de devolverla al pool.
-    // `current_setting` devolvería '' y sin el nullif() el casteo a uuid
-    // reventaría con un error de SQL en vez de devolver cero filas.
+it('isolation holds even with the context left as an empty string', function (): void {
+    // How a connection is left after cleaning it before the pool.
+    // `current_setting` would return '' and without the nullif() the uuid cast
+    // would blow up with a SQL error rather than returning zero rows.
     DB::statement("select set_config('app.tenant_id', '', false)");
 
     expect(DB::table('users')->count())->toBe(0);

@@ -1,22 +1,22 @@
 /**
- * Las direcciones del sistema.
+ * The system's addresses.
  *
- * El subdominio ES el negocio: no hay parámetro de tenant en ninguna URL, ni
- * cabecera que poner desde el cliente. Si una prueba necesita otro negocio,
- * cambia de host, no de parámetro.
+ * The subdomain IS the tenant: there is no tenant parameter in any URL and no
+ * header to set from the client. A test that needs another tenant changes host,
+ * not parameter.
  */
 
 const PORT = process.env.E2E_PORT ?? '8010'
 
-/** Los negocios de demostración. Se siembran con `php artisan demo:reset`. */
+/** The demo tenants. Seeded with `php artisan demo:reset`. */
 export const TENANTS = {
-  /** Arepera: el caso completo — caja, cocina, portal y delivery. */
+  /** Arepera: the full case — till, kitchen, portal and delivery. */
   arepera: 'elsazon',
-  /** Pizzería: sólo portal y bots, sin caja. Prueba que la caja se puede apagar. */
+  /** Pizzeria: portal and bots only. Proves the till can be switched off. */
   pizzeria: 'laesquina',
 } as const
 
-/** Todos los usuarios sembrados comparten contraseña. Es una demostración. */
+/** Every seeded user shares a password. It is a demo. */
 export const PASSWORD = 'demo1234'
 
 function origin(host: string): string {
@@ -28,9 +28,9 @@ export function addressOf(tenant: string, path = '/'): string {
 }
 
 export const portalOf = (tenant: string) => addressOf(tenant, '/')
-export const cajaOf = (tenant: string) => addressOf(tenant, '/caja/')
-export const panelOf = (tenant: string) => addressOf(tenant, '/panel/')
-export const cocinaOf = (tenant: string) => addressOf(tenant, '/cocina/')
+export const posOf = (tenant: string) => addressOf(tenant, '/pos/')
+export const dashboardOf = (tenant: string) => addressOf(tenant, '/dashboard/')
+export const kdsOf = (tenant: string) => addressOf(tenant, '/kds/')
 
-/** La super administración no es un negocio: `admin` es un slug reservado. */
+/** Platform admin is not a tenant: `admin` is a reserved slug. */
 export const adminAddress = (path = '/') => origin('admin.localhost') + path

@@ -19,11 +19,11 @@ use Platform\Tenancy\TenantContext;
 use Platform\Tenancy\TenantResolver;
 
 /**
- * El motor. No depende de ningún módulo, y hay una prueba de arquitectura que
- * lo verifica (`Platform` nunca importa `Modules`).
+ * The engine. It depends on no module, and an architecture test verifies it
+ * (`Platform` never imports `Modules`).
  *
- * Va PRIMERO en bootstrap/providers.php: todo lo demás se apoya en el contexto
- * de negocio y en el registro de módulos que se montan aquí.
+ * First in bootstrap/providers.php: everything else leans on the tenant context
+ * and the module registry wired up here.
  */
 final class PlatformServiceProvider extends ServiceProvider
 {
@@ -31,9 +31,8 @@ final class PlatformServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../../config/kombo.php', 'kombo');
 
-        // Singletons EXPLÍCITOS. Un ciclo de vida accidental no es un ciclo de
-        // vida: si el contexto de negocio se resolviera dos veces por petición
-        // el fallo sería intermitente y carísimo de encontrar.
+        // EXPLICIT singletons. Resolving the tenant context twice per request
+        // would be an intermittent failure and terribly expensive to find.
         $this->app->singleton(TenantContext::class);
 
         $this->app->singleton(
@@ -80,11 +79,10 @@ final class PlatformServiceProvider extends ServiceProvider
     }
 
     /**
-     * Las rutas de un módulo las declara SU MANIFIESTO, no `routes/api.php`.
+     * A module's routes are declared by ITS manifest, not `routes/api.php`.
      *
-     * Se cargan SIEMPRE, esté el módulo encendido o no; el filtrado lo hace el
-     * middleware `module:`. Así, encender la caja abre sus rutas en el instante
-     * en que se escribe la fila, sin reiniciar ni desplegar nada.
+     * Always loaded, on or off; the `module:` middleware does the filtering. So
+     * switching a module on opens its routes the instant the row is written.
      */
     private function registerModuleRoutes(): void
     {
@@ -109,12 +107,11 @@ final class PlatformServiceProvider extends ServiceProvider
     }
 
     /**
-     * Vuelve a fijar el negocio en cada transacción nueva.
+     * Re-pins the tenant on every new transaction.
      *
-     * Tapa un agujero que sólo aparece bajo concurrencia: una conexión
-     * devuelta al pool conserva el parámetro del negocio anterior, y la
-     * siguiente petición que la tome antes de que el middleware la
-     * reconfigure vería datos ajenos.
+     * Plugs a hole that only shows under concurrency: a pooled connection keeps
+     * the previous tenant's parameter, and the next request to take it before
+     * the middleware reconfigures it would see somebody else's data.
      */
     private function guardConnectionsOnTransactions(): void
     {

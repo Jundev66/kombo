@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace Platform\Audit;
 
 /**
- * Quién autorizó una acción con su PIN.
+ * Who authorised an action with their PIN.
  *
- * Distinto de `Actor`: el actor es quien la INICIÓ (el cajero), y esto es
- * quien la permitió (el encargado). Las dos cosas van a la bitácora, porque la
- * conversación que esto viene a resolver es exactamente «¿quién anuló esa
- * venta?» — y la respuesta útil tiene dos nombres.
+ * Different from `Actor`: the actor started it (the cashier), this allowed it
+ * (the manager). Both go into the log, because the useful answer to "who voided
+ * that sale?" has two names in it.
  */
 final readonly class AuthorizedBy
 {

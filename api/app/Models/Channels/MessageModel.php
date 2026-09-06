@@ -10,7 +10,7 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Un mensaje, en cualquiera de las dos direcciones.
+ * A message, in either direction.
  */
 #[Fillable(['conversation_id', 'direction', 'content', 'message_type', 'external_id', 'metadata'])]
 class MessageModel extends Model

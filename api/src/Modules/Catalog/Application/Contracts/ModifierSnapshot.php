@@ -7,18 +7,15 @@ namespace Modules\Catalog\Application\Contracts;
 use Shared\Domain\ValueObjects\Money;
 
 /**
- * Un agregado, de sólo lectura. **No es la entidad.**
- *
- * Quien cobra necesita el nombre y cuánto suma, y nada más. Recibir algo con
- * métodos que cambian el precio sería poder cambiarlo desde fuera del módulo
- * que defiende esa regla.
+ * An add-on, read-only. Not the entity — a type with methods that change the
+ * price could be used from outside the module that defends that rule.
  */
 final readonly class ModifierSnapshot
 {
     public function __construct(
         public string $id,
         public string $name,
-        /** Puede ser NEGATIVO: «sin queso» a veces descuenta. */
+        /** Can be NEGATIVE: "no cheese" sometimes takes money off. */
         public Money $priceDelta,
         public bool $isActive,
     ) {}

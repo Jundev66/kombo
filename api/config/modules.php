@@ -16,25 +16,22 @@ use Modules\Reports\ReportsModule;
 
 return [
     /*
-     * Los módulos que EXISTEN en esta versión del sistema.
+     * The modules that EXIST in this version of the system. Whether a tenant
+     * has them is what its plan and `tenant_modules` say.
      *
-     * Que un negocio los tenga o no es otra cosa —eso lo dicen su plan y
-     * `tenant_modules`—. Esta lista es sólo el catálogo de lo que hay.
+     * DECLARED here rather than discovered by walking directories: what exists
+     * should not depend on which files survived a half-finished deployment.
      *
-     * Se DECLARAN aquí y no se descubren recorriendo carpetas: qué módulos
-     * existen no debería depender de qué archivos quedaron en el disco tras un
-     * despliegue a medias.
-     *
-     * Añadir un módulo es: su carpeta con las cuatro capas, su proveedor en
-     * bootstrap/providers.php, y una línea aquí. `routes/api.php` no se toca.
+     * Adding a module is its directory with the four layers, its provider in
+     * bootstrap/providers.php, and one line here. `routes/api.php` is untouched.
      */
     'manifests' => [
-        // Núcleo. Siempre encendido, no depende del plan, no se apaga.
+        // Core. Always on, independent of the plan, cannot be switched off.
         CoreModule::class,
         CatalogModule::class,
         OrdersModule::class,
 
-        // Opcionales: se encienden si el negocio los necesita.
+        // Optional: switched on if the tenant needs them.
         KitchenModule::class,
         DocumentsModule::class,
         CounterModule::class,

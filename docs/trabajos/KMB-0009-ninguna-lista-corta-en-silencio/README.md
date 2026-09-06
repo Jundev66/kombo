@@ -4,7 +4,7 @@ titulo: Ninguna lista corta en silencio
 tipo: arreglo
 estado: hecho
 fecha: 2026-08-29
-toca: [web/packages/ui, web/packages/api-client/src/paged.ts, web/apps/panel, web/apps/admin, api/src/Modules/Customers, api/src/Platform/Subscription]
+toca: [web/packages/ui, web/packages/api-client/src/paged.ts, web/apps/dashboard, web/apps/admin, api/src/Modules/Customers, api/src/Platform/Subscription]
 relacionados: [KMB-0008]
 ---
 

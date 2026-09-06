@@ -18,47 +18,44 @@ use Platform\Tenancy\TenantStatus;
 use Tests\TestCase;
 
 /*
- * Las pruebas de arquitectura recorren ficheros y el catálogo de PostgreSQL;
- * necesitan la aplicación arrancada pero no tocan datos.
+ * Architecture tests walk files and PostgreSQL's catalog: they need the
+ * application booted but touch no data.
  */
 pest()->extend(TestCase::class)->in('Architecture');
 
 /*
- * Feature e Isolation sí escriben. DatabaseTransactions y no RefreshDatabase:
- * volver a migrar entre pruebas contra PostgreSQL con RLS son varios segundos
- * por fichero, y en una máquina modesta eso convierte la suite en algo que
- * nadie corre.
+ * Feature and Isolation do write. DatabaseTransactions rather than
+ * RefreshDatabase: re-migrating between tests against PostgreSQL with RLS costs
+ * seconds per file, which turns the suite into something nobody runs.
  */
 pest()->extend(TestCase::class)->use(DatabaseTransactions::class)->in('Feature', 'Isolation');
 
 /*
- * Unit NO extiende TestCase a propósito: son value objects y máquinas de
- * estado, PHP puro. Arrancar Laravel para comprobar que 100 entre 3 reparte
- * [34, 33, 33] cuesta cientos de milisegundos por fichero y no compra nada.
+ * Unit deliberately does not extend TestCase: these are value objects and state
+ * machines, plain PHP. Booting Laravel to check that 100 split three ways gives
+ * [34, 33, 33] buys nothing.
  */
 
 pest()->group('arch')->in('Architecture');
 pest()->group('isolation')->in('Isolation');
 
 /*
- * ── Ayudantes ───────────────────────────────────────────────────────────────
+ * ── Helpers ─────────────────────────────────────────────────────────────────
  *
- * Hablan directamente con PostgreSQL en vez de pasar por TenantDatabaseGuard, y
- * es deliberado: ahí es donde vive la garantía. Si el aislamiento se sostiene
- * contra SQL crudo, se sostiene contra cualquier cosa que escriba encima.
+ * They talk straight to PostgreSQL rather than going through
+ * TenantDatabaseGuard, deliberately: that is where the guarantee lives. If
+ * isolation holds against raw SQL, it holds against anything written on top.
  *
- * Ojo con el orden en las pruebas: el contexto va ANTES de escribir cualquier
- * fila de negocio. `WITH CHECK` rechaza un insert sin negocio en contexto, y
- * eso es correcto — no es un estorbo del helper.
+ * Mind the order: context goes BEFORE writing any tenant row. `WITH CHECK`
+ * rejects an insert with no tenant in context, and that is correct.
  */
 
 /**
- * Fija el negocio en curso, en las DOS capas.
+ * Pins the current tenant, in BOTH layers.
  *
- * `ResolveTenant` hace exactamente esto en cada petición, y hacen falta las
- * dos: PostgreSQL para que RLS filtre, y `TenantContext` para que el trait
- * `BelongsToTenant` sepa qué `tenant_id` poner al crear. Fijar sólo una deja
- * un entorno que no se parece a ninguna petición real.
+ * `ResolveTenant` does exactly this on every request, and both are needed:
+ * PostgreSQL so RLS filters, and `TenantContext` so `BelongsToTenant` knows
+ * which `tenant_id` to write.
  */
 function actingForTenant(string $tenantId): void
 {
@@ -68,16 +65,16 @@ function actingForTenant(string $tenantId): void
         id: $tenantId,
         slug: 'pruebas',
         name: 'Pruebas',
-        planCode: 'negocio',
+        planCode: 'business',
         status: TenantStatus::Active,
     ));
 
-    // Las capacidades se memorizan por petición; en una prueba que cambia de
-    // negocio a media función, esa memoria sería del negocio anterior.
+    // Capabilities are memoised per request; in a test that switches tenant
+    // mid-function, that memo would belong to the previous one.
     app(CurrentCapabilities::class)->reset();
 }
 
-/** Deja la conexión SIN negocio, como quedaría al devolverla al pool. */
+/** Leaves the connection with NO tenant, as it would return to the pool. */
 function withoutTenant(): void
 {
     DB::statement('select set_config(?, ?, false)', [TenantSchema::GUC, '']);
@@ -86,15 +83,14 @@ function withoutTenant(): void
 }
 
 /**
- * Crea un negocio. `tenants` es tabla de plataforma —se consulta para
- * averiguar de qué negocio hablamos— así que no lleva RLS y se puede insertar
- * sin contexto.
+ * Creates a tenant. `tenants` is a platform table — queried to find out which
+ * tenant we mean — so it has no RLS and can be inserted without context.
  */
-function makeTenant(string $slug, string $plan = 'negocio'): string
+function makeTenant(string $slug, string $plan = 'business'): string
 {
-    // Se siembran los planes DE VERDAD, no una fila mínima: si el helper
-    // inventara sus propios límites, las pruebas comprobarían un plan que no
-    // existe en producción y pasarían en verde con los techos mal puestos.
+    // The REAL plans are seeded, not a minimal row: a helper inventing its own
+    // limits would test a plan that does not exist in production and pass green
+    // with the ceilings wrong.
     if (! DB::table('plans')->where('code', $plan)->exists()) {
         (new PlanSeeder)->run();
     }
@@ -114,7 +110,7 @@ function makeTenant(string $slug, string $plan = 'negocio'): string
     return $id;
 }
 
-/** Crea un usuario dentro de un negocio. */
+/** Creates a user inside a tenant. */
 function makeUser(
     string $tenantId,
     string $email,
@@ -140,45 +136,40 @@ function makeUser(
 }
 
 /**
- * Asigna un rol del catálogo base a un usuario, **creándolo si no existe**.
+ * Assigns a base-catalog role to a user, creating it if missing.
  *
- * Reutiliza el rol si ya está, igual que en producción: los roles se siembran
- * una vez al dar de alta el negocio, y dos personas de cocina comparten el
- * mismo. Crearlo siempre reventaba contra el único `(tenant_id, code)` en
- * cuanto dos pruebas del mismo fichero repartían el mismo rol — un fallo que no
- * dice nada sobre lo que se estaba probando.
+ * It reuses an existing role, as production does: roles are seeded once at
+ * sign-up and two kitchen staff share one. Always creating blew up against the
+ * unique `(tenant_id, code)` as soon as two tests handed out the same role.
  *
- * Concede sólo los permisos de módulos que el negocio tenga encendidos, y la
- * cuenta de cuáles son ésos la hace `RoleProvisioner` — el mismo objeto que usa
- * la siembra real, no una copia.
+ * Permissions are granted only for modules the tenant has on, and that count is
+ * made by `RoleProvisioner` — the same object the real seeding uses, not a copy.
  *
- * Que fueran dos cuentas distintas es exactamente por lo que un fallo tardó en
- * verse: aquí se leía `tenant_modules` a secas, y las pruebas encendían `core`
- * a mano en esa tabla. En producción `core` nunca tiene fila —no depende del
- * plan y no se apaga—, así que `settings.manage` y `users.manage` no llegaban a
- * ningún rol. El mundo de las pruebas era más generoso que el real, que es la
- * peor dirección en la que pueden diferir.
+ * Two separate counts is exactly why a bug took so long to see: this read
+ * `tenant_modules` alone, while `core` never has a row there, so
+ * `settings.manage` and `users.manage` reached no role. The test world was more
+ * generous than the real one, the worst direction to differ in.
  */
 function giveRole(string $tenantId, string $userId, string $code): string
 {
-    $catalogo = RoleCatalog::get($code);
+    $catalog = RoleCatalog::get($code);
 
-    $existente = DB::table('roles')
+    $existing = DB::table('roles')
         ->where('tenant_id', $tenantId)
         ->where('code', $code)
         ->value('id');
 
-    if ($existente !== null) {
+    if ($existing !== null) {
         DB::table('role_user')->insertOrIgnore([
             'id' => (string) Str::uuid7(),
             'tenant_id' => $tenantId,
             'user_id' => $userId,
-            'role_id' => $existente,
+            'role_id' => $existing,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        return (string) $existente;
+        return (string) $existing;
     }
 
     $roleId = (string) Str::uuid7();
@@ -187,18 +178,18 @@ function giveRole(string $tenantId, string $userId, string $code): string
         'id' => $roleId,
         'tenant_id' => $tenantId,
         'code' => $code,
-        'name' => $catalogo['name'],
+        'name' => $catalog['name'],
         'is_system' => true,
-        'is_owner' => $catalogo['is_owner'],
+        'is_owner' => $catalog['is_owner'],
         'created_at' => now(),
         'updated_at' => now(),
     ]);
 
     $provisioner = app(RoleProvisioner::class);
-    $disponibles = app(ModuleRegistry::class)->permissionsFor($provisioner->activeModules($tenantId));
+    $available = app(ModuleRegistry::class)->permissionsFor($provisioner->activeModules($tenantId));
 
-    foreach ($catalogo['permissions'] as $permission => $requiereAutorizacion) {
-        if (! in_array($permission, $disponibles, true)) {
+    foreach ($catalog['permissions'] as $permission => $requiresAuthorization) {
+        if (! in_array($permission, $available, true)) {
             continue;
         }
 
@@ -207,7 +198,7 @@ function giveRole(string $tenantId, string $userId, string $code): string
             'tenant_id' => $tenantId,
             'role_id' => $roleId,
             'permission' => $permission,
-            'requires_authorization' => $requiereAutorizacion,
+            'requires_authorization' => $requiresAuthorization,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -225,7 +216,7 @@ function giveRole(string $tenantId, string $userId, string $code): string
     return $roleId;
 }
 
-/** Enciende un módulo para un negocio. */
+/** Switches a module on for a tenant. */
 function enableModule(string $tenantId, string $moduleCode): void
 {
     DB::table('tenant_modules')->insertOrIgnore([
@@ -240,13 +231,11 @@ function enableModule(string $tenantId, string $moduleCode): void
 }
 
 /**
- * Las cabeceras con las que un NAVEGADOR llegaría desde el subdominio de ese
- * negocio.
+ * The headers a BROWSER would arrive with from that tenant's subdomain.
  *
- * `Origin` no es decorativo: Sanctum decide si una petición viene «del
- * frontend» —y por tanto si le da sesión— mirando `Origin` o `Referer`, no el
- * Host. Sin esto, el login responde que no hay sesión y parece un fallo del
- * servidor.
+ * `Origin` is not decorative: Sanctum decides whether a request comes "from the
+ * frontend" — and therefore gets a session — by looking at `Origin` or
+ * `Referer`, not the Host.
  *
  * @return array<string, string>
  */
@@ -259,22 +248,20 @@ function browsingAs(string $slug): array
     ];
 }
 
-/** La URL absoluta de una ruta dentro del subdominio de un negocio. */
+/** The absolute URL of a route inside a tenant's subdomain. */
 function urlFor(string $slug, string $path): string
 {
     return "http://{$slug}.localhost{$path}";
 }
 
 /**
- * Entra al panel de un negocio con correo y contraseña.
+ * Signs into a tenant's dashboard with email and password, leaving the session
+ * cookie on the test client.
  *
- * Deja la cookie de sesión puesta en el cliente de pruebas, así que las
- * llamadas siguientes van autenticadas. Vive aquí y no dentro de un fichero de
- * pruebas porque lo necesitan varias suites — y una función declarada en un
- * fichero de test sólo existe cuando ESE fichero se carga, que es un fallo
- * desconcertante cuando se corre una suite sola.
+ * Here rather than in a test file because several suites need it, and a
+ * function declared in a test file only exists when that file is loaded.
  */
-function entrarComo(string $slug, string $email, string $password = 'demo1234'): void
+function loginAs(string $slug, string $email, string $password = 'demo1234'): void
 {
     test()->withHeaders(browsingAs($slug))
         ->postJson(urlFor($slug, '/api/v1/auth/login'), ['email' => $email, 'password' => $password])

@@ -18,25 +18,24 @@ use Modules\Orders\Interfaces\Http\Resources\OrderResource;
 use Platform\Auth\ActionAuthorizer;
 
 /**
- * Los pedidos, por HTTP.
+ * The orders, over HTTP.
  *
- * Sin reglas de negocio aquí: valida la forma, llama al caso de uso, devuelve.
- * Un `if` sobre estados en este archivo sería una regla que deja de valer para
- * el bot y para la caja.
+ * No business rules here: validate shape, call the use case, return. An `if`
+ * about states would stop applying to the bot and to the till.
  */
 final class OrderController
 {
-    /** Cuántos pedidos caben en el tablero antes de tener que avisar. */
-    private const TOPE = 200;
+    /** How many orders fit on the board before it has to say something. */
+    private const CAP = 200;
 
     public function index(Request $request): JsonResponse
     {
         $orders = OrderModel::query()
             ->with(['items.modifiers'])
             ->when(
-                $request->boolean('abiertos', true),
-                // Por defecto, sólo los vivos: el tablero es para trabajar, no
-                // para consultar el histórico.
+                $request->boolean('open', true),
+                // Live ones only by default: the board is for working, not for browsing
+                // history.
                 fn ($q) => $q->whereNotIn('status', [
                     OrderStatus::Delivered->value,
                     OrderStatus::Cancelled->value,
@@ -46,22 +45,17 @@ final class OrderController
                 $request->string('estado')->isNotEmpty(),
                 fn ($q) => $q->where('status', $request->string('estado')->toString()),
             )
-            // Del más viejo al más nuevo: el que lleva más esperando va
-            // primero, que es el orden en el que hay que atenderlos.
+            // Oldest first: whoever has waited longest is dealt with first.
             ->orderBy('placed_at')
-            ->limit(self::TOPE)
+            ->limit(self::CAP)
             ->get();
 
         /*
-         * Si hay más de los que caben, **se dice**.
-         *
-         * Como el orden va del más viejo al más nuevo, lo que se queda fuera
-         * son los pedidos RECIÉN entrados. Cortar en silencio significa que un
-         * negocio con el tablero lleno deja de ver lo que acaba de llegar — sin
-         * ningún aviso, y con el cliente esperando. Es el mismo cuidado que se
-         * tuvo con la pantalla de cocina.
+         * If there are more than fit, it SAYS SO. Ordered oldest to newest,
+         * what falls off the end are the just-arrived orders, so truncating
+         * silently hides exactly what has come in. Same care as the kitchen.
          */
-        $vivos = $orders->count() < self::TOPE
+        $liveOnes = $orders->count() < self::CAP
             ? $orders->count()
             : OrderModel::query()->whereNotIn('status', [
                 OrderStatus::Delivered->value,
@@ -71,8 +65,8 @@ final class OrderController
         return response()->json([
             'data' => $orders->map(fn (OrderModel $o): array => OrderResource::make($o))->all(),
             'meta' => [
-                'total' => $vivos,
-                'hidden' => max(0, $vivos - $orders->count()),
+                'total' => $liveOnes,
+                'hidden' => max(0, $liveOnes - $orders->count()),
             ],
         ]);
     }
@@ -102,10 +96,9 @@ final class OrderController
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
-        // `price_cents` NO se acepta, ni por línea ni en total. Los
-        // identificadores vienen del cliente; los precios los pone el
-        // servidor. Es la regla que impide que un navegador manipulado se
-        // cobre a sí mismo lo que quiera.
+        // `price_cents` is NOT accepted, per line or as a total. Ids come from the
+        // client, prices from the server: it is what stops a tampered browser
+        // charging itself whatever it likes.
         $order = $placeOrder->execute(
             items: $data['items'],
             serviceType: ServiceType::from($data['service_type'] ?? 'takeaway'),
@@ -145,10 +138,9 @@ final class OrderController
         ]);
 
         /*
-         * Quien sólo tiene `orders.cancel_request` llega hasta aquí y necesita
-         * el PIN de alguien que sí pueda. El autorizador devuelve 422 con
-         * nombre de campo si falta, para que la caja abra el diálogo en vez de
-         * dejar al cajero sin salida con un cliente delante.
+         * `orders.cancel_request` gets this far and needs the PIN of someone
+         * who can. The authorizer returns 422 with a field name, so the till
+         * opens the dialog instead of stranding the cashier.
          */
         $authorizedBy = $authorizer->resolve($request, 'orders.cancel');
 

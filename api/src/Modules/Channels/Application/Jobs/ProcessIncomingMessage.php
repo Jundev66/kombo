@@ -18,24 +18,20 @@ use Modules\Channels\Infrastructure\Services\ChannelFactory;
 use Platform\Tenancy\TenantSession;
 
 /**
- * Contestar a un cliente, fuera de la petición del webhook.
+ * Answering a customer, outside the webhook request.
  *
- * Meta corta a los 30 segundos y reintenta lo que no conteste a tiempo.
- * Consultar la carta, escribir la conversación y llamar a la API del canal
- * puede llevar más que eso en una máquina ocupada — y entonces empieza la
- * tormenta: el reintento entra, se procesa otra vez, tarda otra vez, y así.
- *
- * Por eso el webhook responde 200 en el acto y todo lo demás pasa aquí.
+ * Meta cuts off at 30 seconds and retries what does not answer in time. On a
+ * busy machine the work takes longer than that, and then the storm starts — so
+ * the webhook answers 200 immediately and everything else happens here.
  */
 final class ProcessIncomingMessage implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
-     * Tres intentos, no más.
-     *
-     * Si el canal está caído, insistir veinte veces no lo levanta y sí llena la
-     * cola de un negocio que además está cocinando.
+     * Three attempts, no more: if the channel is down, insisting twenty times
+     * does not bring it back and does fill the queue of a tenant that is also
+     * cooking.
      */
     public int $tries = 3;
 
@@ -70,8 +66,8 @@ final class ProcessIncomingMessage implements ShouldQueue
             foreach ($replies as $reply) {
                 $adapter->send($this->message->chatId, $reply);
 
-                // Se guarda lo que se dijo, no sólo lo que nos dijeron: sin
-                // eso, la pantalla de conversaciones enseña media charla.
+                // What was said is stored too, not only what was said to us: otherwise the
+                // conversations screen shows half a chat.
                 $this->record($conversation, 'out', $reply->text, null);
             }
 
@@ -93,8 +89,8 @@ final class ProcessIncomingMessage implements ShouldQueue
             ],
         );
 
-        // El nombre puede llegar más tarde que la primera línea, y cambiar: la
-        // gente se pone y se quita el nombre del perfil.
+        // The name can arrive later than the first line, and change: people put
+        // their profile name up and take it down.
         if ($this->message->senderName !== null && $conversation->customer_name !== $this->message->senderName) {
             $conversation->update(['customer_name' => $this->message->senderName]);
         }

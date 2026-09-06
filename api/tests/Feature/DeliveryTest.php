@@ -3,11 +3,10 @@
 declare(strict_types=1);
 
 /*
- * El repartidor.
+ * The courier.
  *
- * El rol existía desde la primera fase y sus permisos también; lo que no había
- * era forma de usarlos. Dos listas: lo que está listo para salir y lo que
- * llevo yo.
+ * The role and its permissions existed from the first phase; what was missing
+ * was any way to use them. Two lists: ready to go out, and what I am carrying.
  */
 
 use App\Models\Catalog\ProductModel;
@@ -22,14 +21,14 @@ use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Modules\Orders\Domain\ValueObjects\ServiceType;
 
 beforeEach(function (): void {
-    $sufijo = Str::lower(Str::random(6));
+    $suffix = Str::lower(Str::random(6));
 
-    $this->slug = "elsazon-{$sufijo}";
-    $this->tenant = makeTenant($this->slug, plan: 'negocio');
+    $this->slug = "elsazon-{$suffix}";
+    $this->tenant = makeTenant($this->slug, plan: 'business');
 
     actingForTenant($this->tenant);
-    foreach (['core', 'catalog', 'orders', 'kitchen', 'delivery'] as $modulo) {
-        enableModule($this->tenant, $modulo);
+    foreach (['core', 'catalog', 'orders', 'kitchen', 'delivery'] as $module) {
+        enableModule($this->tenant, $module);
     }
 
     $this->maria = makeUser($this->tenant, 'maria@ejemplo.com', 'María');
@@ -42,11 +41,11 @@ beforeEach(function (): void {
     giveRole($this->tenant, $this->luis, 'courier');
 
     $this->arepa = ProductModel::create(['name' => 'Reina Pepiada', 'price_cents' => 300]);
-    $this->zona = DeliveryZoneModel::create(['name' => 'Los Palos Grandes', 'fee_cents' => 200]);
+    $this->zone = DeliveryZoneModel::create(['name' => 'Los Palos Grandes', 'fee_cents' => 200]);
 });
 
-/** Un pedido a domicilio, listo para salir. */
-function paraLlevar(string $productId, string $zoneId, string $zoneName, bool $pagado = false): OrderModel
+/** A delivery order, ready to go out. */
+function takeaway(string $productId, string $zoneId, string $zoneName, bool $paid = false): OrderModel
 {
     $order = app(PlaceOrder::class)->execute(
         items: [['product_id' => $productId, 'quantity' => 1]],
@@ -60,7 +59,7 @@ function paraLlevar(string $productId, string $zoneId, string $zoneName, bool $p
         deliveryZoneName: $zoneName,
     );
 
-    if ($pagado) {
+    if ($paid) {
         app(RegisterPayment::class)->execute(
             orderId: (string) $order->id,
             method: 'cash_usd',
@@ -68,95 +67,95 @@ function paraLlevar(string $productId, string $zoneId, string $zoneName, bool $p
         );
     }
 
-    foreach ([OrderStatus::Confirmed, OrderStatus::Preparing, OrderStatus::Ready] as $paso) {
-        $order = app(AdvanceOrder::class)->execute((string) $order->id, $paso);
+    foreach ([OrderStatus::Confirmed, OrderStatus::Preparing, OrderStatus::Ready] as $step) {
+        $order = app(AdvanceOrder::class)->execute((string) $order->id, $step);
     }
 
     return $order;
 }
 
-function entregas(string $slug, string $path = '', string $method = 'GET'): TestResponse
+function deliveries(string $slug, string $path = '', string $method = 'GET'): TestResponse
 {
     return test()->withHeaders(browsingAs($slug))
         ->json($method, urlFor($slug, "/api/v1/delivery/orders{$path}"));
 }
 
-it('el repartidor ve lo que está listo para salir, con lo que hay que cobrar', function (): void {
+it('the courier sees what is ready to go out, with what to collect', function (): void {
     actingForTenant($this->tenant);
-    paraLlevar($this->arepa->id, $this->zona->id, 'Los Palos Grandes');
+    takeaway($this->arepa->id, $this->zone->id, 'Los Palos Grandes');
 
-    entrarComo($this->slug, 'pedro@ejemplo.com');
+    loginAs($this->slug, 'pedro@ejemplo.com');
 
-    $data = entregas($this->slug)->assertOk()->json('data');
+    $data = deliveries($this->slug)->assertOk()->json('data');
 
     expect($data)->toHaveCount(1)
         ->and($data[0]['address'])->toBe('Cuarta avenida, casa 12')
-        // El teléfono se ve: es con lo que se llama cuando no se encuentra la
-        // casa, que pasa en la mitad de los repartos.
+        // The phone number is visible: it is what you call with when you cannot find
+        // the house, which is half of all deliveries.
         ->and($data[0]['customerPhone'])->toBe('04141234567')
-        // 300 + 200 de reparto, y nadie ha pagado.
+        // 300 plus 200 delivery, and nobody has paid.
         ->and($data[0]['toCollectCents'])->toBe(500)
         ->and($data[0]['isMine'])->toBeFalse();
 });
 
-it('lo que ya se pagó no hay que cobrarlo al llegar', function (): void {
+it('what has already been paid is not collected on arrival', function (): void {
     actingForTenant($this->tenant);
-    paraLlevar($this->arepa->id, $this->zona->id, 'Los Palos Grandes', pagado: true);
+    takeaway($this->arepa->id, $this->zone->id, 'Los Palos Grandes', paid: true);
 
-    entrarComo($this->slug, 'pedro@ejemplo.com');
+    loginAs($this->slug, 'pedro@ejemplo.com');
 
-    expect(entregas($this->slug)->json('data.0.toCollectCents'))->toBe(0);
+    expect(deliveries($this->slug)->json('data.0.toCollectCents'))->toBe(0);
 });
 
-it('el primero que lo toma se lo lleva', function (): void {
+it('first to take it gets it', function (): void {
     /*
-     * Dos repartidores tocando «lo llevo yo» al mismo tiempo pasa de verdad en
-     * la puerta de una cocina. Sin la condición en el UPDATE, los dos saldrían
-     * con el mismo pedido.
+     * Two couriers tapping "I'll take it" at once really happens at a kitchen
+     * door. Without the condition in the UPDATE, both would leave with the same
+     * order.
      */
     actingForTenant($this->tenant);
-    $order = paraLlevar($this->arepa->id, $this->zona->id, 'Los Palos Grandes');
+    $order = takeaway($this->arepa->id, $this->zone->id, 'Los Palos Grandes');
 
-    entrarComo($this->slug, 'pedro@ejemplo.com');
-    entregas($this->slug, "/{$order->id}/take", 'POST')->assertOk();
+    loginAs($this->slug, 'pedro@ejemplo.com');
+    deliveries($this->slug, "/{$order->id}/take", 'POST')->assertOk();
 
-    entrarComo($this->slug, 'luis@ejemplo.com');
-    $respuesta = entregas($this->slug, "/{$order->id}/take", 'POST')->assertStatus(422);
+    loginAs($this->slug, 'luis@ejemplo.com');
+    $response = deliveries($this->slug, "/{$order->id}/take", 'POST')->assertStatus(422);
 
-    expect($respuesta->json('message'))->toContain('ya se lo llevó otra persona');
+    expect($response->json('message'))->toContain('ya se lo llevó otra persona');
 
     actingForTenant($this->tenant);
     expect(OrderModel::find($order->id)->courier_name)->toBe('Pedro');
 });
 
-it('cada quien ve lo suyo, no lo de los demás', function (): void {
-    // Una lista con las entregas de tres personas es una lista donde nadie
-    // encuentra la propia.
+it('everyone sees their own, not anybody else\'s', function (): void {
+    // A list with three people's deliveries is a list where nobody finds their
+    // own.
     actingForTenant($this->tenant);
 
-    $deLuis = paraLlevar($this->arepa->id, $this->zona->id, 'Los Palos Grandes');
-    $libre = paraLlevar($this->arepa->id, $this->zona->id, 'Los Palos Grandes');
+    $forLuis = takeaway($this->arepa->id, $this->zone->id, 'Los Palos Grandes');
+    $free = takeaway($this->arepa->id, $this->zone->id, 'Los Palos Grandes');
 
-    entrarComo($this->slug, 'luis@ejemplo.com');
-    entregas($this->slug, "/{$deLuis->id}/take", 'POST')->assertOk();
+    loginAs($this->slug, 'luis@ejemplo.com');
+    deliveries($this->slug, "/{$forLuis->id}/take", 'POST')->assertOk();
 
-    entrarComo($this->slug, 'pedro@ejemplo.com');
+    loginAs($this->slug, 'pedro@ejemplo.com');
 
-    $numeros = array_column(entregas($this->slug)->json('data'), 'number');
+    $numbers = array_column(deliveries($this->slug)->json('data'), 'number');
 
-    expect($numeros)->toBe([$libre->number]);
+    expect($numbers)->toBe([$free->number]);
 });
 
-it('marcar entregado lo de otro no se puede', function (): void {
-    // Es cómo se pierde el rastro de quién llevó qué, que es con lo que se le
-    // paga a cada uno.
+it('marking somebody else\'s as delivered is not possible', function (): void {
+    // It is how the trail of who took what gets lost — and that trail is what
+    // each of them is paid on.
     actingForTenant($this->tenant);
-    $order = paraLlevar($this->arepa->id, $this->zona->id, 'Los Palos Grandes');
+    $order = takeaway($this->arepa->id, $this->zone->id, 'Los Palos Grandes');
 
-    entrarComo($this->slug, 'luis@ejemplo.com');
-    entregas($this->slug, "/{$order->id}/take", 'POST')->assertOk();
+    loginAs($this->slug, 'luis@ejemplo.com');
+    deliveries($this->slug, "/{$order->id}/take", 'POST')->assertOk();
 
-    entrarComo($this->slug, 'pedro@ejemplo.com');
+    loginAs($this->slug, 'pedro@ejemplo.com');
 
     test()->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, "/api/v1/delivery/orders/{$order->id}/advance"), [
@@ -164,13 +163,13 @@ it('marcar entregado lo de otro no se puede', function (): void {
         ])->assertForbidden();
 });
 
-it('el recorrido completo: lo tomo, salgo, lo entrego', function (): void {
+it('the whole journey: take it, go out, deliver it', function (): void {
     actingForTenant($this->tenant);
-    $order = paraLlevar($this->arepa->id, $this->zona->id, 'Los Palos Grandes');
+    $order = takeaway($this->arepa->id, $this->zone->id, 'Los Palos Grandes');
 
-    entrarComo($this->slug, 'pedro@ejemplo.com');
+    loginAs($this->slug, 'pedro@ejemplo.com');
 
-    entregas($this->slug, "/{$order->id}/take", 'POST')->assertOk();
+    deliveries($this->slug, "/{$order->id}/take", 'POST')->assertOk();
 
     test()->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, "/api/v1/delivery/orders/{$order->id}/advance"), [
@@ -184,31 +183,31 @@ it('el recorrido completo: lo tomo, salgo, lo entrego', function (): void {
 
     actingForTenant($this->tenant);
 
-    $entregado = OrderModel::find($order->id);
+    $delivered = OrderModel::find($order->id);
 
-    expect($entregado->status->value)->toBe('delivered')
-        // Y queda a su nombre, copiado: el día que Pedro se dé de baja, el
-        // pedido tiene que seguir diciendo quién lo llevó.
-        ->and($entregado->courier_name)->toBe('Pedro')
-        ->and($entregado->delivered_at)->not->toBeNull();
+    expect($delivered->status->value)->toBe('delivered')
+        // Recorded in their name, copied: the day Pedro leaves, the order still has
+        // to say who took it.
+        ->and($delivered->courier_name)->toBe('Pedro')
+        ->and($delivered->delivered_at)->not->toBeNull();
 });
 
-it('soltar un pedido lo devuelve a la lista', function (): void {
+it('dropping an order returns it to the list', function (): void {
     actingForTenant($this->tenant);
-    $order = paraLlevar($this->arepa->id, $this->zona->id, 'Los Palos Grandes');
+    $order = takeaway($this->arepa->id, $this->zone->id, 'Los Palos Grandes');
 
-    entrarComo($this->slug, 'pedro@ejemplo.com');
-    entregas($this->slug, "/{$order->id}/take", 'POST')->assertOk();
-    entregas($this->slug, "/{$order->id}/release", 'POST')->assertOk();
+    loginAs($this->slug, 'pedro@ejemplo.com');
+    deliveries($this->slug, "/{$order->id}/take", 'POST')->assertOk();
+    deliveries($this->slug, "/{$order->id}/release", 'POST')->assertOk();
 
-    entrarComo($this->slug, 'luis@ejemplo.com');
-    entregas($this->slug, "/{$order->id}/take", 'POST')->assertOk();
+    loginAs($this->slug, 'luis@ejemplo.com');
+    deliveries($this->slug, "/{$order->id}/take", 'POST')->assertOk();
 
     actingForTenant($this->tenant);
     expect(OrderModel::find($order->id)->courier_name)->toBe('Luis');
 });
 
-it('lo que se busca no es de domicilio, y no aparece', function (): void {
+it('what is searched for is not a delivery, and does not appear', function (): void {
     actingForTenant($this->tenant);
 
     $order = app(PlaceOrder::class)->execute(
@@ -216,22 +215,22 @@ it('lo que se busca no es de domicilio, y no aparece', function (): void {
         channel: 'counter',
     );
 
-    foreach ([OrderStatus::Confirmed, OrderStatus::Preparing, OrderStatus::Ready] as $paso) {
-        app(AdvanceOrder::class)->execute((string) $order->id, $paso);
+    foreach ([OrderStatus::Confirmed, OrderStatus::Preparing, OrderStatus::Ready] as $step) {
+        app(AdvanceOrder::class)->execute((string) $order->id, $step);
     }
 
-    entrarComo($this->slug, 'pedro@ejemplo.com');
+    loginAs($this->slug, 'pedro@ejemplo.com');
 
-    expect(entregas($this->slug)->json('data'))->toBe([]);
+    expect(deliveries($this->slug)->json('data'))->toBe([]);
 });
 
-it('la cocina no reparte', function (): void {
+it('the kitchen does not deliver', function (): void {
     actingForTenant($this->tenant);
 
     $carlos = makeUser($this->tenant, 'carlos@ejemplo.com', 'Carlos');
     giveRole($this->tenant, $carlos, 'kitchen');
 
-    entrarComo($this->slug, 'carlos@ejemplo.com');
+    loginAs($this->slug, 'carlos@ejemplo.com');
 
-    entregas($this->slug)->assertForbidden();
+    deliveries($this->slug)->assertForbidden();
 });

@@ -3,31 +3,22 @@ import { boot, useSession } from './session'
 import { terminal } from './terminal'
 
 /**
- * Cómo se entra a una pantalla del local. **Tres maneras, y las decide `/me`.**
+ * How a shop-floor screen is entered. Three ways, and `/me` decides.
  *
- * Antes el orden era al revés: se miraba `localStorage`, y sólo después de
- * pasar la puerta se preguntaba al servidor quién había entrado. Eso hacía dos
- * cosas mal.
+ * The order used to be reversed: `localStorage` was read, and only after the
+ * door had been passed was the server asked who came in. That did two things
+ * wrong — it locked out the owner, who had just signed into the dashboard, and
+ * worse, it lied: Sanctum prefers the session cookie over the token, so where
+ * somebody left the dashboard open, the cashier's PIN produced operations in
+ * the other person's name with no way for the screen to know.
  *
- * Dejaba fuera al dueño, que acababa de entrar al panel con su contraseña y
- * tenía que dar de alta el aparato y teclear un PIN para mirar su propia caja.
+ * Asking first, the SERVER always decides:
  *
- * Y, peor, mentía: Sanctum prefiere la cookie de sesión al token, así que en
- * una máquina donde alguien dejó el panel abierto, el cajero ponía su PIN y
- * todas las operaciones salían a nombre del otro. La pantalla no tenía forma de
- * saberlo porque nunca preguntaba.
+ *   supervision  A browser session and no shift. The owner looking.
+ *   shift        A shift on this machine. The usual case.
+ *   gate         Neither: registration and PIN are asked for.
  *
- * Preguntando primero, **quien manda es siempre el servidor**:
- *
- *   supervision  Hay sesión de navegador y no hay turno. El dueño mirando.
- *   shift        Hay turno en esta máquina. El de siempre.
- *   gate         Ninguna de las dos: se pide el alta y el PIN.
- *
- * Por qué se invirtió el arranque, y la trampa que tapa: KMB-0005.
- *
- * En los dos primeros casos, `capabilities.user` es quien opera DE VERDAD —lo
- * dice `/me`, no el token guardado—, así que las pantallas enseñan ese nombre y
- * la trampa de arriba deja de ser invisible.
+ * Why boot was inverted, and the trap it covers: KMB-0005.
  */
 export type EntryMode = 'gate' | 'shift' | 'supervision'
 
@@ -43,15 +34,15 @@ export function useDoorway(): {
     void boot()
   }, [])
 
-  /** Alguien acaba de poner su PIN: hay que volver a preguntar quién es. */
+  /** Somebody just entered their PIN: ask again who they are. */
   const enter = useCallback(() => {
     setShift(true)
     void boot()
   }, [])
 
   /**
-   * Cerrar el turno. Se borra sólo el token de la persona: la máquina sigue
-   * dada de alta y el siguiente entra con su PIN sin volver a configurarla.
+   * Closing the shift. Only the person's token is cleared: the machine stays
+   * registered and the next person signs in with their PIN.
    */
   const endShift = useCallback(() => {
     terminal.endShift()
@@ -65,11 +56,11 @@ export function useDoorway(): {
 }
 
 /**
- * Volver al panel desde una pantalla del local.
+ * Back to the dashboard from a shop-floor screen.
  *
- * Recarga entera y no navegación de router: son aplicaciones distintas servidas
- * bajo el mismo origen, y no comparten historial.
+ * A full reload rather than router navigation: these are separate apps served
+ * under the same origin, and they share no history.
  */
-export function backToPanel(): void {
-  window.location.href = '/panel/'
+export function backToDashboard(): void {
+  window.location.href = '/dashboard/'
 }

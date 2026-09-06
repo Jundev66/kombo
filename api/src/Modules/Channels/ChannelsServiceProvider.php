@@ -10,11 +10,10 @@ use Modules\Channels\Application\Listeners\NotifyCustomer;
 use Modules\Orders\Domain\Events\OrderAdvanced;
 
 /**
- * Todo el enganche de los canales: una línea.
+ * The channels' entire hook-up: one line.
  *
- * `Orders` no sabe que este módulo existe. Se puede borrar la carpeta entera y
- * su línea de `config/modules.php`, y los pedidos siguen funcionando — sólo que
- * ya no avisa nadie. Es la misma prueba que pasa la cocina.
+ * Delete the directory and its `config/modules.php` line and orders carry on —
+ * only nobody gets told anything. The same test the kitchen passes.
  */
 final class ChannelsServiceProvider extends ServiceProvider
 {

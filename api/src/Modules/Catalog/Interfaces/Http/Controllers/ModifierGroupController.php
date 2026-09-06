@@ -13,11 +13,10 @@ use Modules\Catalog\Domain\ValueObjects\SelectionRule;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Los agregados: «sin cebolla», «extra queso», «término de la carne».
+ * The add-ons: "no onion", "extra cheese", "how would you like the meat".
  *
- * Un grupo es una PREGUNTA y sus modificadores son las respuestas posibles.
- * Se guardan juntos en una sola llamada porque un grupo sin opciones no sirve
- * de nada, y dejarlo a medias es dejar una pregunta sin respuestas en la carta.
+ * A group is a question and its modifiers are the answers. Saved together in
+ * one call, because a question with no answers is useless on the menu.
  */
 final class ModifierGroupController
 {
@@ -31,8 +30,8 @@ final class ModifierGroupController
                 'name' => $g->name,
                 'minChoices' => $g->min_choices,
                 'maxChoices' => $g->max_choices,
-                // El texto que verá quien esté pidiendo, resuelto en el
-                // servidor para que el portal, la caja y el bot digan lo mismo.
+                // The text whoever is ordering will see, resolved on the server so the
+                // portal, the till and the bot all say the same thing.
                 'rule' => SelectionRule::of($g->min_choices, $g->max_choices)->explain(),
                 'isActive' => $g->is_active,
                 'modifiers' => $g->modifiers->map(fn (ModifierModel $m): array => [
@@ -49,8 +48,8 @@ final class ModifierGroupController
     {
         $data = $this->validated($request);
 
-        // La regla se construye ANTES de escribir: si es imposible
-        // (mínimo mayor que máximo) no queda un grupo a medias en la carta.
+        // The rule is built BEFORE anything is written, so an impossible one leaves
+        // no half-built group on the menu.
         SelectionRule::of($data['min_choices'] ?? 0, $data['max_choices'] ?? 1);
 
         $group = DB::transaction(function () use ($data): ModifierGroupModel {
@@ -64,7 +63,7 @@ final class ModifierGroupController
             foreach (array_values($data['modifiers'] ?? []) as $i => $modifier) {
                 $group->modifiers()->create([
                     'name' => $modifier['name'],
-                    // Puede ser NEGATIVO: «sin queso» a veces descuenta.
+                    // Can be NEGATIVE: "no cheese" sometimes takes money off.
                     'price_delta_cents' => $modifier['price_delta_cents'] ?? 0,
                     'sort_order' => $i,
                 ]);
@@ -97,7 +96,7 @@ final class ModifierGroupController
             'sort_order' => ['integer', 'min:0'],
             'modifiers' => ['array'],
             'modifiers.*.name' => ['required', 'string', 'max:80'],
-            // Sin `min:0`: un modificador SÍ puede descontar.
+            // No `min:0`: a modifier MAY take money off.
             'modifiers.*.price_delta_cents' => ['integer'],
         ]);
     }

@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
 import { sharedConfig } from '../../vite.shared.ts'
 
-// La pantalla de comandas. No navega, no filtra y no busca.
-export default defineConfig(sharedConfig({ base: '/cocina/', budgetKb: 120 }))
+// The ticket board. It does not navigate, filter or search.
+export default defineConfig(sharedConfig({ base: '/kds/', budgetKb: 120 }))

@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 #
-# El registro de trabajos: crear uno nuevo y mantener el índice.
+# The work log: creating a new entry and keeping the index up to date.
 #
-#   ./scripts/trabajos.sh nuevo "Paginar la carta"   crea KMB-00NN-paginar-la-carta/
-#   ./scripts/trabajos.sh indice                     regenera docs/trabajos/README.md
-#   ./scripts/trabajos.sh verificar                  lo que corre `make check`
+#   ./scripts/trabajos.sh nuevo "Paginar la carta"   creates KMB-00NN-…/
+#   ./scripts/trabajos.sh indice                     regenerates the index
+#   ./scripts/trabajos.sh verificar                  what `make check` runs
 #
-# En bash y no en PHP a propósito: esto se corre en el HOST, antes de tocar
-# nada, y muchas veces antes de haber levantado los contenedores. Un ayudante
-# para empezar a trabajar que exige tener el entorno arriba se deja de usar.
+# In bash rather than PHP on purpose: this runs on the HOST, before touching
+# anything, and often before the containers are up. A helper for starting work
+# that requires the environment to be running stops being used.
 #
-# La cabecera de cada trabajo es un YAML deliberadamente simple —una clave por
-# línea, sin anidar— para poder leerla con `sed` desde aquí sin traer un parser
-# de YAML a un script de cuatro funciones.
+# Each entry's front matter is deliberately simple YAML — one key per line,
+# no nesting — so it can be read with `sed` from here without pulling a YAML
+# parser into a four-function script.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -20,32 +20,31 @@ cd "$(dirname "$0")/.."
 TRABAJOS="docs/trabajos"
 INDICE="$TRABAJOS/README.md"
 
-# ── Utilidades ──────────────────────────────────────────────────────────────
+# ── Utilities ───────────────────────────────────────────────────────────────
 
-# El valor de una clave de la cabecera. Vacío si no está.
+# The value of a front-matter key. Empty when absent.
 #
-# Se corta en el `#`: la plantilla lleva las opciones de cada campo como
-# comentario al lado —`tipo: arreglo   # funcionalidad | arreglo | ...`— y sin
-# esto el índice se llevaba el comentario entero. Con sus barras verticales
-# dentro de una tabla de markdown, que la parten en columnas inventadas.
+# Cut at the `#`: the template carries each field's options as a trailing
+# comment, and without this the index swallowed the whole comment — pipes
+# included, which split a markdown table into invented columns.
 campo() {
     sed -n "s/^$2: *//p" "$1/README.md" \
         | head -1 \
         | sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]+$//'
 }
 
-# «Añadir la Carta» → «anadir-la-carta». Sin acentos ni eñes: son nombres de
-# carpeta que acaban en una URL y en un `git mv` de alguien con otro teclado.
+# "Añadir la Carta" → "anadir-la-carta". No accents or ñ: these are directory
+# names that end up in a URL and in somebody else's `git mv`.
 #
-# Tres cosas que costaron un intento cada una:
+# Three things that each cost an attempt:
 #
-# - `sed -E`, no `sed` a secas: el de macOS no entiende `\+` en expresión
-#   básica, y dejaba los espacios DENTRO del nombre de la carpeta sin quejarse.
-# - `s///g` para los acentos, no `y///`: `y` trabaja por bytes y parte en dos
-#   los caracteres UTF-8, que aquí son casi todos los interesantes.
-# - Nada de `iconv ... || echo`: en macOS `iconv --translit` escribe lo que
-#   pudo Y sale con error, así que el `||` pegaba las dos salidas y el nombre
-#   salía duplicado.
+# - `sed -E`, not plain `sed`: macOS's does not understand `\+` in a basic
+#   expression, and left the spaces INSIDE the directory name without complaint.
+# - `s///g` for the accents, not `y///`: `y` works byte by byte and splits
+#   UTF-8 characters in two, which here is most of the interesting ones.
+# - No `iconv ... || echo`: on macOS `iconv --translit` writes what it managed
+#   AND exits with an error, so the `||` concatenated both outputs and the name
+#   came out duplicated.
 slugify() {
     printf '%s' "$1" \
         | sed 's/[áÁ]/a/g; s/[éÉ]/e/g; s/[íÍ]/i/g; s/[óÓ]/o/g; s/[úÚüÜ]/u/g; s/[ñÑ]/n/g' \
@@ -62,7 +61,7 @@ siguiente_codigo() {
     printf 'KMB-%04d' "$((10#${ultimo:-0} + 1))"
 }
 
-# ── Crear ───────────────────────────────────────────────────────────────────
+# ── Create ──────────────────────────────────────────────────────────────────
 
 nuevo() {
     local titulo="${1:-}"
@@ -90,15 +89,15 @@ nuevo() {
     echo "$carpeta/README.md"
 }
 
-# ── Índice ──────────────────────────────────────────────────────────────────
+# ── Index ───────────────────────────────────────────────────────────────────
 
 tabla() {
     local carpeta codigo titulo tipo estado
     printf '| Código | Trabajo | Tipo | Estado |\n'
     printf '|---|---|---|---|\n'
 
-    # Por código, que es cronológico: el registro se lee de arriba abajo como
-    # se construyó el sistema.
+    # By code, which is chronological: the log reads top to bottom the way the
+    # system was built.
     while IFS= read -r carpeta; do
         codigo=$(campo "$carpeta" codigo)
         titulo=$(campo "$carpeta" titulo)
@@ -114,13 +113,13 @@ indice() {
     local tmp
     tmp=$(mktemp)
 
-    # La cabecera se escribe a mano y la tabla se genera. El separador es lo
-    # que permite las dos cosas en un archivo: lo de arriba lo edita una
-    # persona, lo de abajo lo pisa el script.
+    # The header is written by hand and the table is generated. The separator is
+    # what allows both in one file: above it a person edits, below it the script
+    # overwrites.
     sed -n '1,/^<!-- La tabla la genera/p' "$INDICE" > "$tmp" 2>/dev/null \
         || cabecera_indice > "$tmp"
 
-    # Si el archivo aún no tenía marca, se arranca de cero.
+    # If the file had no marker yet, start from scratch.
     grep -q '^<!-- La tabla la genera' "$tmp" || cabecera_indice > "$tmp"
 
     {
@@ -159,15 +158,15 @@ mitad de la memoria de este proyecto, y no se van a reescribir aquí.
 CABECERA
 }
 
-# ── Guardián ────────────────────────────────────────────────────────────────
+# ── Guard ───────────────────────────────────────────────────────────────────
 #
-# Vive aquí y no en `api/tests/Architecture/` —que es donde están los otros
-# guardianes— por una razón material: el contenedor de la API sólo monta
-# `api/`, así que desde dentro `docs/trabajos/` no existe. Y tampoco debería
-# hacerlo: el registro es del repositorio entero, no del backend.
+# It lives here rather than in `api/tests/Architecture/` — where the other
+# guards are — for a material reason: the API container only mounts `api/`, so
+# `docs/trabajos/` does not exist from inside. Nor should it: the log belongs
+# to the whole repository, not to the backend.
 #
-# No comprueba el CONTENIDO. Que un trabajo esté bien escrito no lo puede decir
-# un script, y fingir que sí daría permiso para escribirlos mal mientras pasen.
+# It does not check CONTENT. Whether an entry is well written is not something
+# a script can say, and pretending otherwise would license writing them badly.
 
 fallo() {
     echo "✗ $1" >&2
@@ -188,9 +187,9 @@ comprobar() {
             continue
         fi
 
-        # La cabecera completa: el índice se genera de ella, y un campo vacío
-        # sale como un hueco en la tabla sin que se sepa si falta el dato o
-        # falta el trabajo.
+        # The complete front matter: the index is generated from it, and an empty
+        # field shows as a gap in the table with no way to tell whether the data or
+        # the work is missing.
         for clave in codigo titulo tipo estado fecha; do
             valor=$(campo "$carpeta" "$clave")
             [[ -n "$valor" ]] || fallo "A «${nombre}» le falta «${clave}» en la cabecera."
@@ -198,22 +197,21 @@ comprobar() {
 
         codigo=$(campo "$carpeta" codigo)
 
-        # Un código que apunta a dos sitios deja de identificar nada, y se
-        # citan desde comentarios del código y desde mensajes de commit: son
-        # referencias que tienen que resolver.
+        # A code pointing at two places identifies nothing, and they are cited from
+        # code comments and commit messages: references that have to resolve.
         case " $codigos_vistos " in
             *" $codigo "*) fallo "El código $codigo está repetido." ;;
             *) codigos_vistos="$codigos_vistos $codigo" ;;
         esac
 
-        # Si la cabecera y la carpeta divergen, buscar por una encuentra el
-        # documento y buscar por la otra encuentra la carpeta. Dos formas de
-        # buscar lo mismo que dan respuestas distintas es peor que una que falle.
+        # If the front matter and the directory diverge, searching by one finds the
+        # document and searching by the other finds the directory. Two ways of
+        # searching for one thing giving different answers is worse than one failure.
         [[ "$nombre" == "$codigo"* ]] \
             || fallo "«${nombre}» dice ser $codigo en su cabecera."
 
-        # Un `estado: terminado` donde el resto dice `hecho` no rompe nada y
-        # hace inútil filtrar el índice, que es para lo único que sirve.
+        # A `estado: terminado` where the rest say `hecho` breaks nothing and makes
+        # filtering the index useless, which is all it is good for.
         case "$(campo "$carpeta" tipo)" in
             funcionalidad|arreglo|decision|plan) ;;
             *) fallo "«${nombre}» tiene un tipo que no está en la lista." ;;
@@ -225,17 +223,17 @@ comprobar() {
         esac
     done < <(find "$TRABAJOS" -maxdepth 1 -type d -name 'KMB-*' | sort)
 
-    # Un índice al que le falta lo último es PEOR que no tenerlo: quien busca
-    # si algo ya se decidió mira ahí, no lo encuentra, y concluye que nadie lo
-    # decidió.
+    # An index missing the latest entry is WORSE than no index: whoever looks for
+    # whether something was already decided goes there, does not find it, and
+    # concludes nobody decided it.
     local antes despues
     antes=$(cat "$INDICE")
     indice
     despues=$(cat "$INDICE")
 
     if [[ "$antes" != "$despues" ]]; then
-        # Se deja regenerado: si el único problema era éste, `make check` vuelve
-        # a pasar sin que nadie tenga que acordarse del comando.
+        # It is left regenerated: if that was the only problem, `make check` passes
+        # again without anyone having to remember the command.
         fallo "El índice no estaba al día. Ya lo regeneré — revísalo y añádelo al commit."
     fi
 
@@ -248,7 +246,7 @@ comprobar() {
     echo "✓ Registro de trabajos: $(find "$TRABAJOS" -maxdepth 1 -type d -name 'KMB-*' | wc -l | tr -d ' ') trabajos, índice al día."
 }
 
-# ── Entrada ─────────────────────────────────────────────────────────────────
+# ── Entry point ─────────────────────────────────────────────────────────────
 
 case "${1:-}" in
     nuevo)      nuevo "${2:-}" ;;

@@ -3,29 +3,18 @@ import type { ReactNode } from 'react'
 import type { Shop } from './api'
 
 /**
- * Quién es el negocio, arriba del todo.
+ * Who the tenant is, at the very top. Used by the menu and by order tracking.
  *
- * La usan la carta y el seguimiento del pedido. Era una sola cosa escrita dos
- * veces —y en el seguimiento, ni eso: el nombre iba en gris pequeño y el logo
- * no aparecía—. Alguien que llega por un enlace de WhatsApp tiene que
- * reconocer de quién es la pantalla antes de leer nada más.
+ * The brand colour tints the name band and nothing else. Not timidity:
+ * `brand_color` is a hex the tenant types in, and once a surface carries an
+ * arbitrary colour, the colour of EVERYTHING on it has to be recomputed. The
+ * first attempt included the subtitle, and "Abierto ahora" in green on dark
+ * orange could not be read. With the subtitle and the notices below, the status
+ * colours stay on the neutral they were chosen for.
  *
- * **El color de marca tiñe la franja del nombre y nada más.** No es timidez:
- * `brand_color` es un hexa que escribe el negocio, y en cuanto una superficie
- * lleva un color arbitrario hay que recalcular el color de TODO lo que va
- * encima. El primer intento metía ahí también el subtítulo, y «Abierto ahora»
- * en verde sobre un naranja oscuro no se leía. Dejando debajo el subtítulo y
- * los avisos, los colores de estado siguen sobre el neutro para el que se
- * eligieron — que es donde está garantizado que se leen.
- *
- * `brandSurface` descarta el color si el texto no contrasta encima. Y nunca se
- * usa en un botón ni en un estado: verde, ámbar y rojo dicen cómo va el
- * pedido, y una marca verde diría «listo» sin serlo.
- *
- * **La franja va a todo el ancho; su contenido, alineado con la página.** Sin
- * eso, en un portátil el nombre del negocio queda pegado al borde izquierdo y
- * la carta empieza doscientos píxeles más adentro, como si fueran dos páginas
- * distintas pegadas.
+ * `brandSurface` discards the colour when the text on it does not contrast. And
+ * it is never used on a button or a status: green, amber and red say how the
+ * order is going, and a green brand would say "ready" without being so.
  */
 export function ShopHeader({
   shop,
@@ -35,26 +24,25 @@ export function ShopHeader({
 }: {
   shop: Shop
   /**
-   * Con qué etiqueta va el nombre del negocio.
+   * Which tag the tenant's name takes.
    *
-   * `h1` en la carta, donde la página ES el negocio. `p` en el seguimiento,
-   * donde el encabezado de la página es el PEDIDO: es el dato que el cliente
-   * lee en voz alta por teléfono, y dejarlo de subtítulo mientras la marca se
-   * lleva el `h1` desordena la página para quien la recorre con un lector.
+   * `h1` on the menu, where the page IS the tenant. `p` on tracking, where the
+   * page's heading is the ORDER — the figure the customer reads aloud on the
+   * phone.
    */
   as?: 'h1' | 'p'
-  /** Debajo de la franja, sobre el neutro: «Abierto ahora», «Pedido #518»… */
+  /** Below the band, on the neutral: "Abierto ahora", "Pedido #518"… */
   subtitle?: ReactNode
-  /** Avisos que van con la cabecera. */
+  /** Notices that belong with the header. */
   children?: ReactNode
 }) {
-  const marca = brandSurface(shop.brandColor)
+  const brand = brandSurface(shop.brandColor)
 
   return (
     <header className="flex flex-col bg-[var(--surface-raised)]">
       <div
         style={
-          marca === null ? undefined : { background: marca.background, color: marca.foreground }
+          brand === null ? undefined : { background: brand.background, color: brand.foreground }
         }
       >
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-4 sm:px-6">
@@ -68,9 +56,9 @@ export function ShopHeader({
 
           <Title
             className="min-w-0 flex-1 truncate text-xl font-bold text-[var(--text-strong)]"
-            // Con marca manda el color de la franja: la variable del tema
-            // apunta a la tinta del sistema, que sobre un fondo oscuro no se lee.
-            style={marca === null ? undefined : { color: marca.foreground }}
+            // With a brand, the band's colour wins: the theme variable points at the
+            // system ink, which does not read on a dark background.
+            style={brand === null ? undefined : { color: brand.foreground }}
           >
             {shop.name}
           </Title>

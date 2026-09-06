@@ -1,26 +1,26 @@
-# Debian (trixie), no Alpine, y la razón importa.
+# Debian (trixie), not Alpine, and the reason matters.
 #
-# La imagen de Alpine parecía la elección obvia por tamaño. En la práctica,
-# instalar el cliente de PostgreSQL 18 en Alpine arrastra TODO el toolchain de
-# LLVM y clang —`llvm22-libs` solo tarda casi seis minutos en ARM— porque el
-# paquete de desarrollo de Postgres depende de LLVM para su compilación JIT.
-# Son cientos de megas y varios minutos de compilación para no usarlos nunca.
+# The Alpine image looked like the obvious choice on size. In practice,
+# installing the PostgreSQL 18 client on Alpine drags in the whole LLVM and
+# clang toolchain — `llvm22-libs` alone takes nearly six minutes on ARM —
+# because the Postgres dev package depends on LLVM for its JIT compilation.
+# Hundreds of megabytes and several minutes of compilation, never used.
 #
-# En Debian, `libpq-dev` no arrastra nada de eso. El build baja de más de
-# quince minutos a un par, la imagen final pesa parecido, y de paso corremos
-# sobre glibc en vez de musl, que para PHP rinde algo mejor y da menos
-# sorpresas con extensiones de terceros.
+# On Debian, `libpq-dev` drags in none of that. The build drops from over
+# fifteen minutes to a couple, the final image weighs about the same, and we
+# run on glibc rather than musl, which performs slightly better for PHP and
+# springs fewer surprises with third-party extensions.
 FROM php:8.5-fpm-trixie
 
-# install-php-extensions resuelve solo las dependencias de compilación de cada
-# extensión y las desinstala después. Hacerlo a mano son treinta líneas que se
-# rompen en cada actualización de la base.
+# install-php-extensions resolves each extension's build dependencies itself
+# and uninstalls them afterwards. Doing it by hand is thirty lines that break
+# on every base image update.
 COPY --from=mlocati/php-extension-installer:latest /usr/bin/install-php-extensions /usr/local/bin/
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 
-# Sólo `pdo_pgsql`: Laravel habla con PostgreSQL por PDO y nunca llama a las
-# funciones `pg_*`, así que la extensión `pgsql` sobraría. Una dependencia que
-# no se usa es superficie que hay que actualizar igual.
+# `pdo_pgsql` only: Laravel talks to PostgreSQL through PDO and never calls
+# the `pg_*` functions, so the `pgsql` extension would be surplus. An unused
+# dependency is surface that still has to be updated.
 RUN install-php-extensions \
         pdo_pgsql \
         redis \
@@ -31,15 +31,15 @@ RUN install-php-extensions \
         pcntl \
     && apt-get update \
     && apt-get install -y --no-install-recommends git gnupg curl ca-certificates \
-    # ── El cliente de PostgreSQL 18, y por qué hace falta el repositorio ──
+    # ── The PostgreSQL 18 client, and why the repository is needed ──
     #
-    # Debian trixie trae el cliente 17 y el servidor es el 18. Para `psql` da
-    # igual, pero `pg_dump` **se niega a volcar una base de versión superior**:
-    # «server version 18 … pg_dump version 17». Sin cliente 18 no hay respaldos.
+    # Debian trixie ships client 17 and the server is 18. For `psql` it makes no
+    # difference, but `pg_dump` refuses to dump a database of a higher version:
+    # "server version 18 … pg_dump version 17". No client 18, no backups.
     #
-    # Va también en desarrollo, y no sólo en producción, por una razón concreta:
-    # es donde se prueba `respaldos:hacer`. Un respaldo que sólo se puede probar
-    # en el servidor del cliente se prueba el día que hace falta restaurarlo.
+    # It goes into development too, not just production, for a concrete reason:
+    # that is where `backups:run` gets tested. A backup that can only be tested
+    # on the customer's server gets tested the day it has to be restored.
     && install -d /usr/share/postgresql-common/pgdg \
     && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
         -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \

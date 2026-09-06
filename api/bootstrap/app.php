@@ -24,49 +24,34 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         /*
-         * Detrás hay un proxy, y hay que creerle.
+         * There is a proxy in front, and it has to be believed.
          *
-         * En producción, entre el cliente y esto hay Cloudflare y nginx. Sin
-         * esta línea Laravel ve la IP del proxy en TODAS las peticiones, y ahí
-         * empieza el problema de verdad: los limitadores de intentos —el login
-         * de la plataforma, el `throttle` del portal, el de los comprobantes—
-         * cuentan por IP. Con una sola IP para todo el mundo, el primer cliente
-         * que se equivoque de contraseña deja fuera a los demás. Un ataque de
-         * denegación de servicio hecho por accidente, entre clientes que no se
-         * conocen.
+         * Without this, Laravel sees the proxy's IP on every request — and the
+         * attempt limiters count per IP, so the first customer to get their
+         * password wrong locks everyone else out. It also thinks the request
+         * arrived over `http`, generating links that leave the browser with no
+         * cookie under `SESSION_SECURE_COOKIE`.
          *
-         * Lo otro que arregla: sin esto Laravel cree que la petición llegó por
-         * `http` —el TLS lo termina el proxy— y genera enlaces y redirecciones
-         * a `http`, que con `SESSION_SECURE_COOKIE` activo dejan al navegador
-         * sin cookie.
-         *
-         * `at: '*'` y no una lista de rangos de Cloudflare: php-fpm sólo es
-         * alcanzable desde nginx, que es quien pone estas cabeceras, así que la
-         * lista no añadiría seguridad. Y mantener a mano unos rangos que
-         * Cloudflare cambia sin avisar es una tarea que nadie hace y que falla
-         * en silencio el día que cambian.
+         * `at: '*'` rather than Cloudflare's ranges: php-fpm is only reachable
+         * from nginx, so a hand-maintained list would add no security and would
+         * fail silently the day the ranges change.
          */
         $middleware->trustProxies(at: '*');
 
-        // La API se consume desde el mismo origen (el navegador ya está en
-        // `elsazon.localhost`), así que la sesión por cookie vale y no hace
-        // falta pasear tokens por el panel ni por el portal.
+        // The API is consumed from the same origin, so the session cookie is
+        // enough and no tokens are carried around the dashboard or the portal.
         $middleware->statefulApi();
 
-        // ANTEPUESTO, y antes de la autenticación a propósito: el usuario se
-        // busca DENTRO del negocio ya resuelto. Así el mismo correo en dos
-        // negocios entra al que corresponde al subdominio, sin preguntar.
+        // PREPENDED, and deliberately before authentication: the user is looked up
+        // INSIDE the already-resolved tenant, so the same email in two tenants
+        // signs into the one for the subdomain.
         $middleware->prependToGroup('web', ResolveTenant::class);
         $middleware->prependToGroup('api', ResolveTenant::class);
 
         /*
-         * La suspensión, en UN sitio.
-         *
-         * Va en el grupo entero y no como un `if` en cada controlador, que es
-         * exactamente donde falló el proyecto anterior: la comprobación estaba
-         * puesta en 2 de unos 20 controladores, así que un negocio suspendido
-         * seguía trabajando con normalidad por las otras 18 puertas. Aquí, un
-         * módulo nuevo no puede olvidarse de ella porque nadie la escribe.
+         * Suspension, in ONE place: on the whole group rather than an `if` per
+         * controller. That is exactly where the previous project failed, with
+         * the check wired into 2 of some 20 controllers.
          */
         $middleware->appendToGroup('api', EnsureTenantCanWrite::class);
 
@@ -82,18 +67,11 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         /*
-         * Los errores de PERSONA se responden como 422 con forma de error de
-         * validación.
+         * PEOPLE's errors are answered as 422, shaped like a validation error,
+         * so the screen can paint them next to the field that caused them.
          *
-         * «El precio no puede ser negativo» o «tu plan llega hasta 60
-         * productos» no son fallos del servidor: son cosas que le pasan a
-         * alguien escribiendo en un formulario, y la pantalla tiene que poder
-         * pintarlas junto al campo que las causó.
-         *
-         * Sin esto salían como 500 y «funcionaban» en desarrollo por
-         * accidente, porque con APP_DEBUG Laravel incluye el mensaje en el
-         * cuerpo. En producción el usuario veía «error del servidor» y nadie
-         * entendía por qué.
+         * Without this they came out as 500 and "worked" in development,
+         * because APP_DEBUG puts the message in the body.
          */
         $exceptions->render(function (UserError $error, Request $request): ?JsonResponse {
             if (! $request->expectsJson()) {

@@ -5,18 +5,10 @@ declare(strict_types=1);
 namespace Modules\Orders\Domain\Events;
 
 /**
- * Un pedido cambió de estado.
+ * An order changed state. The THIN notice: which order, and where it went.
  *
- * Es el aviso **delgado**: sólo dice qué pedido y a dónde fue. Convive con
- * `OrderConfirmed`, que es el **gordo** —lleva las líneas, los agregados y los
- * minutos de preparación— porque las dos cosas no son la misma:
- *
- *   `OrderConfirmed`  «nació una comanda». La cocina necesita saber QUÉ hacer.
- *   `OrderAdvanced`   «esto se movió». A quien avisa al cliente le basta con
- *                     el estado; los detalles ya los tiene el cliente.
- *
- * Meter todo en un solo evento obligaría a cargar las líneas de un pedido cada
- * vez que alguien toca «Entregado», para que las lea nadie.
+ * It coexists with the fat `OrderConfirmed` because loading an order's lines
+ * every time somebody taps "Delivered" would be work done for nobody to read.
  */
 final readonly class OrderAdvanced
 {

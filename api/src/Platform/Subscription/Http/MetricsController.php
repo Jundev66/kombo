@@ -10,16 +10,12 @@ use Illuminate\Support\Facades\DB;
 use Platform\Tenancy\TenantSession;
 
 /**
- * Cómo va el negocio del negocio.
+ * How the business of the business is doing. Four figures and no more.
  *
- * Cuatro cifras y ninguna más. Un tablero con veinte gráficos es un tablero que
- * nadie mira: éstas son las que contestan «¿esto va bien?» en cinco segundos.
- *
- * **Los pedidos se cuentan entrando en cada negocio, uno por uno.** No es
- * elegante y es a propósito: `orders` lleva RLS, así que no hay una consulta
- * que los sume todos, y la alternativa —darle a la plataforma un usuario que se
- * salte RLS— sería abrir justo el agujero que RLS existe para tapar. Se cachea
- * cinco minutos, que para un tablero es tiempo real de sobra.
+ * Orders are counted by entering each tenant one at a time. It is not elegant
+ * and it is deliberate: `orders` is under RLS, and the alternative — giving the
+ * platform a user that bypasses RLS — would open the very hole RLS exists to
+ * close. Cached for five minutes.
  */
 final class MetricsController
 {
@@ -42,13 +38,13 @@ final class MetricsController
                 ],
 
                 /*
-                 * El ingreso recurrente: lo que valen los planes de los
-                 * negocios que están al día.
+                 * Recurring revenue: what the plans of the up-to-date tenants
+                 * are worth.
                  *
-                 * Se calcula sobre el precio del PLAN y no sobre lo cobrado el
-                 * mes pasado: lo primero dice cuánto entra si nadie se va, que
-                 * es la pregunta; lo segundo dice cuánto entró, que ya lo sabe
-                 * el historial de pagos.
+                 * Computed on the PLAN price rather than on last month's
+                 * takings: the first answers "what comes in if nobody leaves",
+                 * which is the question; the second is already in the payment
+                 * history.
                  */
                 'mrrCents' => (int) DB::table('tenants')
                     ->join('plans', 'plans.code', '=', 'tenants.plan_code')

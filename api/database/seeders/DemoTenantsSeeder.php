@@ -12,16 +12,13 @@ use Platform\Auth\RoleProvisioner;
 use Platform\Tenancy\Database\TenantDatabaseGuard;
 
 /**
- * Dos negocios para poder enseñar el sistema y para que corran las pruebas.
+ * Two tenants, so the system can be demonstrated and the tests can run.
  *
- * **Es ADITIVO**: reusa lo que ya existe, no borra nada, y se puede ejecutar
- * cien veces seguidas dejando el sistema igual. Las pruebas de usuario lo
- * llaman antes de cada corrida; si borrara y recreara, cada corrida invalidaría
- * lo que la anterior dejó a medias.
+ * ADDITIVE: it reuses what exists, deletes nothing, and runs a hundred times in
+ * a row unchanged — the end-to-end tests call it before every run.
  *
- * Ojo: esto corre como el DUEÑO del esquema, que se salta RLS. Por eso cada
- * consulta que decide algo («¿ya existe este usuario?») filtra por `tenant_id`
- * a mano. El aislamiento ambiental no está puesto aquí.
+ * It runs as the schema OWNER, which bypasses RLS, so every query that decides
+ * something filters by `tenant_id` by hand.
  */
 class DemoTenantsSeeder extends Seeder
 {
@@ -29,15 +26,15 @@ class DemoTenantsSeeder extends Seeder
 
     public function run(): void
     {
-        $this->negocio(
+        $this->tenant(
             slug: 'elsazon',
-            nombre: 'Arepera El Sazón',
-            plan: 'negocio',
-            telefono: '0414-1234567',
-            // Naranja de arepera. Distinto del acento del sistema a propósito:
-            // así se ve que el color viene del negocio y no del producto.
+            name: 'Arepera El Sazón',
+            plan: 'business',
+            phone: '0414-1234567',
+            // Arepera orange, deliberately different from the system accent: it shows
+            // the colour comes from the tenant, not from the product.
             color: '#B4451F',
-            equipo: [
+            team: [
                 ['maria@elsazon.test', 'María', 'owner', '1234'],
                 ['jose@elsazon.test', 'José', 'manager', '2345'],
                 ['ana@elsazon.test', 'Ana', 'counter', '3456'],
@@ -45,18 +42,17 @@ class DemoTenantsSeeder extends Seeder
             ],
         );
 
-        // Un negocio SIN caja: sólo vende por el portal. Existe para que las
-        // pruebas verifiquen que la caja se puede apagar de verdad —que sus
-        // rutas responden 404 y que su entrada no aparece en el menú—.
-        $this->negocio(
+        // A tenant with NO till: portal only. It exists so the tests can verify the
+        // till really switches off — routes answer 404 and the menu entry is gone.
+        $this->tenant(
             slug: 'laesquina',
-            nombre: 'Pizzería La Esquina',
-            plan: 'inicial',
-            telefono: '0412-7654321',
-            // Verde oscuro: el segundo negocio con otra marca, para que se note
-            // que cada portal se ve como su dueño y no como el vecino.
+            name: 'Pizzería La Esquina',
+            plan: 'starter',
+            phone: '0412-7654321',
+            // Dark green: the second tenant with a different brand, so it is obvious
+            // each portal looks like its owner and not like the neighbour.
             color: '#1F5D3A',
-            equipo: [
+            team: [
                 ['pedro@laesquina.test', 'Pedro', 'owner', '1234'],
                 ['lucia@laesquina.test', 'Lucía', 'kitchen', '5678'],
             ],
@@ -64,61 +60,57 @@ class DemoTenantsSeeder extends Seeder
     }
 
     /**
-     * @param  list<array{0: string, 1: string, 2: string, 3: string}>  $equipo
+     * @param  list<array{0: string, 1: string, 2: string, 3: string}>  $team
      */
-    private function negocio(
+    private function tenant(
         string $slug,
-        string $nombre,
+        string $name,
         string $plan,
-        string $telefono,
+        string $phone,
         string $color,
-        array $equipo,
+        array $team,
     ): void {
-        // `tenants` y `plans` son tablas de plataforma: se escriben sin negocio
-        // en contexto, porque se consultan para AVERIGUAR de qué negocio se
-        // habla.
-        $tenantId = $this->tenant($slug, $nombre, $plan, $telefono, $color);
+        // `tenants` and `plans` are platform tables: written with no tenant in
+        // context, because they are queried to find out which tenant it is.
+        $tenantId = $this->tenantRow($slug, $name, $plan, $phone, $color);
 
-        // A partir de aquí se escriben tablas de NEGOCIO, así que hay que
-        // fijar el contexto — igual que hace una petición real.
-        //
-        // Se podría evitar corriendo el seeder como dueño del esquema, que se
-        // salta RLS. No se hace a propósito: un seeder que necesita
-        // superusuario esconde exactamente los errores que RLS existe para
-        // atrapar, y este mismo código sirve mañana para dar de alta un
-        // cliente de verdad desde la aplicación.
+        // From here on TENANT tables are written, so the context has to be set —
+        // exactly as a real request does.
+        // This could be avoided by running as the schema owner, which bypasses RLS.
+        // Deliberately not: a seeder needing a superuser hides exactly the bugs RLS
+        // exists to catch, and this same code will sign up a real customer.
         $guard = app(TenantDatabaseGuard::class);
         $guard->apply($tenantId);
 
-        $this->modulos($tenantId, $plan);
-        $this->horario($tenantId);
-        $this->ajustesDelPortal($tenantId);
+        $this->modules($tenantId, $plan);
+        $this->openingHours($tenantId);
+        $this->portalSettings($tenantId);
 
         if ($slug === 'elsazon') {
-            $this->zonas($tenantId);
+            $this->zones($tenantId);
         }
 
         $roles = $this->roles($tenantId);
 
-        foreach ($equipo as [$email, $nombrePersona, $rol, $pin]) {
-            $userId = $this->usuario($tenantId, $email, $nombrePersona, $pin);
+        foreach ($team as [$email, $personName, $role, $pin]) {
+            $userId = $this->user($tenantId, $email, $personName, $pin);
 
             DB::table('role_user')->insertOrIgnore([
                 'id' => (string) Str::uuid7(),
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
-                'role_id' => $roles[$rol],
+                'role_id' => $roles[$role],
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
         }
 
-        // Se limpia antes de pasar al siguiente negocio: dejar el contexto
-        // puesto sería exactamente el fallo que RLS viene a evitar.
+        // Cleared before the next tenant: leaving the context set would be exactly
+        // the failure RLS is there to prevent.
         $guard->clear();
     }
 
-    private function tenant(string $slug, string $nombre, string $plan, string $telefono, string $color): string
+    private function tenantRow(string $slug, string $name, string $plan, string $phone, string $color): string
     {
         $existing = DB::table('tenants')->where('slug', $slug)->value('id');
 
@@ -131,15 +123,13 @@ class DemoTenantsSeeder extends Seeder
         DB::table('tenants')->insert([
             'id' => $id,
             'slug' => $slug,
-            'name' => $nombre,
+            'name' => $name,
             'plan_code' => $plan,
             'status' => 'active',
-            // Con teléfono y color de marca, y no en blanco. Un negocio de
-            // demostración sin teléfono deja sin probar el único camino que
-            // tiene un cliente cuando su pedido se atasca, y sin color de marca
-            // el portal se ve como el de cualquiera — que es justo lo que el
-            // dueño quiere que NO pase.
-            'phone' => $telefono,
+            // With a phone number and a brand colour, not blank: no phone leaves
+            // untested the only route a customer has when their order sticks, and no
+            // colour makes the portal look like anybody's.
+            'phone' => $phone,
             'brand_color' => $color,
             'timezone' => 'America/Caracas',
             'country_code' => 'VE',
@@ -150,12 +140,12 @@ class DemoTenantsSeeder extends Seeder
         return $id;
     }
 
-    /** Enciende lo que el plan incluye. Después manda `tenant_modules`. */
-    private function modulos(string $tenantId, string $plan): void
+    /** Switches on what the plan includes. After that, `tenant_modules` rules. */
+    private function modules(string $tenantId, string $plan): void
     {
-        $delPlan = DB::table('plan_modules')->where('plan_code', $plan)->pluck('module_code')->all();
+        $fromPlan = DB::table('plan_modules')->where('plan_code', $plan)->pluck('module_code')->all();
 
-        foreach ($delPlan as $module) {
+        foreach ($fromPlan as $module) {
             DB::table('tenant_modules')->insertOrIgnore([
                 'id' => (string) Str::uuid7(),
                 'tenant_id' => $tenantId,
@@ -169,13 +159,12 @@ class DemoTenantsSeeder extends Seeder
     }
 
     /**
-     * El horario, sin el cual el portal no acepta ni un pedido.
+     * Opening hours, without which the portal takes no orders at all.
      *
-     * Un día sin fila configurada está CERRADO —es el fallo seguro—, así que un
-     * negocio de demostración sin horario parecería roto: la carta se ve, y
-     * pedir contesta que está cerrado a cualquier hora.
+     * An unconfigured day is CLOSED — the safe failure — so a demo tenant with
+     * no hours would look broken: the menu shows and ordering says closed.
      */
-    private function horario(string $tenantId): void
+    private function openingHours(string $tenantId): void
     {
         for ($weekday = 0; $weekday <= 6; $weekday++) {
             DB::table('business_hours')->insertOrIgnore([
@@ -183,9 +172,8 @@ class DemoTenantsSeeder extends Seeder
                 'tenant_id' => $tenantId,
                 'weekday' => $weekday,
                 'opens_at' => '08:00',
-                // Hasta la una de la madrugada: además de ser el horario de
-                // media comida rápida, deja probado el turno que cruza la
-                // medianoche.
+                // Until one in the morning: half of fast food closes then, and it leaves
+                // the shift that crosses midnight tested.
                 'closes_at' => '01:00',
                 'is_closed' => false,
                 'created_at' => now(),
@@ -194,8 +182,8 @@ class DemoTenantsSeeder extends Seeder
         }
     }
 
-    /** Sin estos datos el portal no ofrece pago móvil, y hace bien. */
-    private function ajustesDelPortal(string $tenantId): void
+    /** Without this data the portal offers no mobile payment, and rightly so. */
+    private function portalSettings(string $tenantId): void
     {
         DB::table('tenant_settings')->insertOrIgnore([
             'id' => (string) Str::uuid7(),
@@ -207,23 +195,23 @@ class DemoTenantsSeeder extends Seeder
         ]);
     }
 
-    private function zonas(string $tenantId): void
+    private function zones(string $tenantId): void
     {
-        $zonas = [
+        $zones = [
             ['El Centro', 100, 20],
             ['Los Palos Grandes', 200, 30],
             ['La Urbina', 300, 45],
         ];
 
-        foreach ($zonas as $orden => [$nombre, $tarifa, $minutos]) {
+        foreach ($zones as $order => [$name, $fee, $minutes]) {
             DB::table('delivery_zones')->insertOrIgnore([
                 'id' => (string) Str::uuid7(),
                 'tenant_id' => $tenantId,
-                'name' => $nombre,
-                'fee_cents' => $tarifa,
-                'estimated_minutes' => $minutos,
+                'name' => $name,
+                'fee_cents' => $fee,
+                'estimated_minutes' => $minutes,
                 'is_active' => true,
-                'sort_order' => $orden,
+                'sort_order' => $order,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -231,27 +219,25 @@ class DemoTenantsSeeder extends Seeder
     }
 
     /**
-     * Crea los roles base con sus permisos y devuelve sus identificadores.
+     * Creates the base roles with their permissions and returns their ids.
      *
-     * La reconciliación es la MISMA que usan el alta de un negocio y
-     * `roles:reconciliar`, no una copia: cuando eran tres copias, ampliar el
-     * catálogo servía a unas y a otras no, y la diferencia sólo se notaba
-     * cuando alguien no podía hacer su trabajo.
+     * The SAME reconciliation used by sign-up and by `roles:reconcile`: when
+     * there were three copies, widening the catalog served some and not others.
      *
-     * @return array<string, string> código del rol → identificador
+     * @return array<string, string> role code → id
      */
     private function roles(string $tenantId): array
     {
         app(RoleProvisioner::class)->reconcile($tenantId);
 
         return DB::table('roles')
-            ->where('tenant_id', $tenantId)   // a mano: aquí RLS no filtra
+            ->where('tenant_id', $tenantId)   // by hand: RLS does not filter here
             ->pluck('id', 'code')
             ->map(fn (mixed $id): string => (string) $id)
             ->all();
     }
 
-    private function usuario(string $tenantId, string $email, string $nombre, string $pin): string
+    private function user(string $tenantId, string $email, string $name, string $pin): string
     {
         $existing = DB::table('users')
             ->where('tenant_id', $tenantId)
@@ -267,7 +253,7 @@ class DemoTenantsSeeder extends Seeder
         DB::table('users')->insert([
             'id' => $id,
             'tenant_id' => $tenantId,
-            'name' => $nombre,
+            'name' => $name,
             'email' => $email,
             'password' => Hash::make(self::PASSWORD),
             'pin_hash' => Hash::make($pin),

@@ -19,9 +19,8 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
 
-    // El cargador nativo de configuración de Vite 8 exige la extensión en el
-    // import de vite.shared.ts. Es seguro porque nunca emitimos: TypeScript
-    // aquí sólo comprueba tipos, el que transpila es Vite.
+    // Vite 8's native config loader requires the extension when importing
+    // vite.shared.ts. Safe because we never emit: Vite transpiles, not tsc.
     "allowImportingTsExtensions": true,
     "noEmit": true
   }

@@ -11,10 +11,10 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Un rol: un conjunto de permisos, dentro de un negocio.
+ * A role: a set of permissions, within one tenant.
  *
- * Los de sistema los trae el paquete del rubro al registrarse y no se editan
- * ni se borran. El dueño puede crear los suyos encima.
+ * System roles arrive with the industry pack at sign-up and cannot be edited or
+ * deleted; the owner can create their own on top.
  */
 #[Fillable(['code', 'name', 'is_system', 'is_owner'])]
 class Role extends Model

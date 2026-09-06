@@ -2,105 +2,94 @@ import type { ReactNode } from 'react'
 import { cn } from '../lib/cn'
 
 /**
- * Cómo se reparte el ancho. **Las dos formas de no ser responsive.**
+ * How width is allotted. The two ways of not being responsive.
  *
- * El sistema nació para el teléfono, y eso sigue siendo correcto: la caja es
- * una PC de mostrador con una pantalla pequeña y la cocina una tablet barata.
- * Lo que no era correcto es lo que pasaba de ahí para arriba, y fallaba de dos
- * maneras opuestas:
+ * The system was born for the phone, and that is still right. What was wrong is
+ * what happened above that size, and it failed in two opposite ways: the
+ * dashboard and the platform admin stayed in a narrow column with huge grey
+ * margins, while the portal had no cap at all and stretched phone rows a metre
+ * and a half wide.
  *
- * - **El panel y la super administración** se quedaban en una columna estrecha
- *   con dos márgenes grises enormes: en un portátil usaban la mitad de la
- *   pantalla, y dentro de esa columna cada tarjeta se estiraba a 736 px para
- *   sostener cuatro líneas de texto.
- * - **El portal** hacía lo contrario: sin tope de ancho, estiraba filas de
- *   teléfono a metro y medio. Un producto ocupaba una franja entera con dos
- *   palabras en la esquina.
- *
- * Las dos se arreglan aquí y no en cada pantalla: doce pantallas resolviendo
- * cada una su ancho es doce respuestas distintas a la misma pregunta.
+ * Both are fixed here rather than per screen: twelve screens each solving their
+ * own width are twelve different answers to one question.
  */
 
-type Ancho = 'lectura' | 'tablero' | 'completo'
+type Width = 'reading' | 'board' | 'full'
 
-const ANCHOS: Record<Ancho, string> = {
+const WIDTHS: Record<Width, string> = {
   /**
-   * Formularios y textos: el horario, la tasa, un pedido.
+   * Forms and text: opening hours, the rate, an order.
    *
-   * Se para donde una línea deja de leerse cómoda. Estirar un formulario hasta
-   * el borde no lo mejora — sólo aleja la etiqueta de su campo.
+   * It stops where a line stops reading comfortably. Stretching a form to the
+   * edge does not improve it — it only pushes the label away from its field.
    */
-  lectura: 'max-w-3xl',
+  reading: 'max-w-3xl',
 
   /**
-   * Listas y rejillas: los pedidos, la carta, los clientes.
+   * Lists and grids: orders, the menu, customers.
    *
-   * Aquí sí compensa el ancho, porque lo que se gana es **cuántas caben a la
-   * vez**. El tope existe igualmente: más allá de esto la fila es tan larga que
-   * el ojo pierde el renglón entre el nombre y el importe.
+   * Here width pays off, because what it buys is how many fit at once. The cap
+   * still exists: beyond it the row is long enough that the eye loses the line
+   * between the name and the amount.
    */
-  tablero: 'max-w-7xl',
+  board: 'max-w-7xl',
 
-  /** Sin tope: la caja y la cocina, que son herramientas a pantalla completa. */
-  completo: '',
+  /** No cap: the till and the kitchen, full-screen tools. */
+  full: '',
 }
 
 /**
- * El contenedor de una pantalla.
+ * A screen's container.
  *
- * `mx-auto` es lo que la centra cuando sobra ancho, y el relleno crece con la
- * pantalla: 16 px en un teléfono son los que hacen falta, y en un portátil se
- * ven apretados contra el borde.
+ * `mx-auto` centres it when there is width to spare, and the padding grows with
+ * the screen: 16 px is what a phone needs and looks cramped on a laptop.
  */
 export function Page({
-  ancho = 'tablero',
+  width = 'board',
   className,
   children,
 }: {
-  ancho?: Ancho
+  width?: Width
   className?: string
   children: ReactNode
 }) {
   return (
-    <div className={cn('mx-auto w-full px-4 sm:px-6 lg:px-8', ANCHOS[ancho], className)}>
+    <div className={cn('mx-auto w-full px-4 sm:px-6 lg:px-8', WIDTHS[width], className)}>
       {children}
     </div>
   )
 }
 
 /**
- * Una rejilla de tarjetas que crece con la pantalla.
+ * A card grid that grows with the screen.
  *
- * Una columna en el teléfono —donde la tarjeta ES la fila— y hasta tres en un
- * portátil. En el tablero de pedidos eso es la diferencia entre ver siete de un
- * vistazo y ver veinte: con veintidós pedidos abiertos, los que no se ven son
- * los que no se atienden.
+ * One column on the phone — where the card IS the row — and up to three on a
+ * laptop. On the orders board that is the difference between seeing seven at a
+ * glance and seeing twenty.
  *
- * Los cortes van por CONTENIDO y no por tamaño de dispositivo. Una tarjeta de
- * pedido necesita unos 320 px para que el nombre del producto no se parta, así
- * que la segunda columna entra cuando caben dos, no cuando alguien decide que
- * eso es «una tablet».
+ * The breakpoints go by CONTENT, not by device size: an order card needs about
+ * 320 px for the product name not to wrap, so the second column arrives when
+ * two fit.
  */
 export function CardGrid({
-  columnas = 3,
+  columns = 3,
   className,
   children,
 }: {
-  /** El máximo. Con 2, no pasa de dos por ancha que sea la pantalla. */
-  columnas?: 2 | 3
+  /** The maximum. With 2, it never goes past two however wide the screen. */
+  columns?: 2 | 3
   className?: string
   children: ReactNode
 }) {
   return (
     <ul
       className={cn(
-        // Los cortes salen de medir la tarjeta, no de nombres de dispositivo:
-        // una de pedido necesita ~320 px para que el nombre del producto no se
-        // parta. A 768 px caben dos; a 1280, tres. El primer intento las metía
-        // en `lg`/`2xl` y un portátil de 1512 se quedaba en dos columnas de
-        // 600 px — el mismo desperdicio de antes, con un paso menos.
+        // Breakpoints come from measuring the card, not from device names: an order
+        // card needs ~320 px. Two fit at 768 px, three at 1280. The first attempt
+        // used `lg`/`2xl` and a 1512 px laptop stayed at two 600 px columns — the
+        // same waste as before, one step later.
         'grid grid-cols-1 gap-3 md:grid-cols-2',
-        columnas === 3 && 'xl:grid-cols-3',
+        columns === 3 && 'xl:grid-cols-3',
         className,
       )}
     >

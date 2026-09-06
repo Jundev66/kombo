@@ -1,10 +1,10 @@
-# La imagen de producción de la API.
+# The API's production image.
 #
-# La diferencia de fondo con la de desarrollo: aquí **el código va DENTRO de la
-# imagen**, no montado desde el disco. Una imagen que se construye una vez y se
-# despliega tal cual es una imagen que se puede volver a desplegar idéntica
-# mañana; una que lee el código de un directorio del servidor depende de que ese
-# directorio esté como alguien lo dejó.
+# The underlying difference from the development one: here the code lives
+# INSIDE the image rather than being mounted from disk. An image built once
+# and deployed as is can be redeployed identically tomorrow; one that reads
+# code from a directory on the server depends on that directory being as
+# somebody left it.
 FROM php:8.5-fpm-trixie AS base
 
 COPY --from=mlocati/php-extension-installer:latest /usr/bin/install-php-extensions /usr/local/bin/
@@ -20,12 +20,12 @@ RUN install-php-extensions \
         pcntl \
     && apt-get update \
     && apt-get install -y --no-install-recommends git gnupg curl ca-certificates \
-    # ── El cliente de PostgreSQL 18, y por qué hace falta el repositorio ──
+    # ── The PostgreSQL 18 client, and why the repository is needed ──
     #
-    # Debian trixie trae el cliente 17 y el servidor es el 18. Para `psql` da
-    # igual, pero `pg_dump` **se niega a volcar una base de versión superior** —
-    # y sin `pg_dump` no hay respaldos. El repositorio oficial de PostgreSQL es
-    # la única forma de tener el cliente 18 en Debian hoy.
+    # Debian trixie ships client 17 and the server is 18. For `psql` it makes no
+    # difference, but `pg_dump` refuses to dump a database of a higher version —
+    # and without `pg_dump` there are no backups. PostgreSQL's official
+    # repository is the only way to get client 18 on Debian today.
     && install -d /usr/share/postgresql-common/pgdg \
     && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
         -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
@@ -37,23 +37,23 @@ RUN install-php-extensions \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Dependencias ────────────────────────────────────────────────────────────
+# ── Dependencies ────────────────────────────────────────────────────────────
 #
-# En su propia capa y ANTES de copiar el código: `composer.json` cambia una vez
-# al mes y el código veinte veces al día. Al revés, cada despliegue volvería a
-# descargar todo Laravel.
+# In their own layer and BEFORE copying the code: `composer.json` changes once
+# a month and the code twenty times a day. The other way round, every
+# deployment would re-download all of Laravel.
 FROM base AS vendor
 
 WORKDIR /var/www/api
 
 COPY api/composer.json api/composer.lock ./
 
-# `--no-dev`: Pest, Pint y compañía no pintan nada en un servidor, y cada
-# paquete que no se usa es superficie que hay que actualizar igual.
-# `--no-scripts` porque `artisan` todavía no está aquí.
+# `--no-dev`: Pest, Pint and company have no place on a server, and every
+# unused package is surface that still has to be updated.
+# `--no-scripts` because `artisan` is not here yet.
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction
 
-# ── La imagen final ─────────────────────────────────────────────────────────
+# ── The final image ─────────────────────────────────────────────────────────
 FROM base AS api
 
 WORKDIR /var/www/api
@@ -62,8 +62,8 @@ COPY docker/php/php.prod.ini /usr/local/etc/php/conf.d/kombo.ini
 COPY --from=vendor /var/www/api/vendor ./vendor
 COPY api/ ./
 
-# El mapa de clases completo: en producción se resuelve una vez al construir y
-# no en cada petición.
+# The full class map: in production it is resolved once at build time rather
+# than on every request.
 RUN composer dump-autoload --optimize --classmap-authoritative \
     && chown -R www-data:www-data storage bootstrap/cache
 

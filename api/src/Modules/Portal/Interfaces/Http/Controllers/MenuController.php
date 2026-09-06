@@ -11,15 +11,11 @@ use App\Models\Catalog\ProductModel;
 use Illuminate\Http\JsonResponse;
 
 /**
- * La carta, como la ve el cliente.
+ * The menu, as the customer sees it. Not the dashboard listing renamed: no
+ * pagination, no switched-off or sold-out products, no permission filtering.
  *
- * **No es el listado del panel con otro nombre.** Aquí no hay paginación —el
- * cliente hace scroll, no pasa páginas—, no aparecen los productos apagados ni
- * los agotados, y no se filtra nada por permisos porque no hay usuario.
- *
- * Va todo en una llamada: categorías, productos y agregados. En un teléfono con
- * mala señal, tres peticiones para dibujar una carta son tres oportunidades de
- * que el cliente se vaya.
+ * Categories, products and add-ons in one call — on a phone with poor signal,
+ * three requests are three chances for the customer to leave.
  */
 final class MenuController
 {
@@ -31,8 +27,8 @@ final class MenuController
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get()
-            // Lo agotado no se ofrece. Enseñarlo en gris invita a preguntar
-            // por teléfono si de verdad no queda.
+            // What has run out is not offered: showing it greyed out invites a phone
+            // call asking whether there really is none left.
             ->reject(fn (ProductModel $p): bool => $p->track_stock && ($p->stock_qty ?? 0) <= 0);
 
         $categories = CategoryModel::query()
@@ -40,7 +36,7 @@ final class MenuController
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get()
-            // Una categoría vacía es un enlace que no lleva a ninguna parte.
+            // An empty category is a link that leads nowhere.
             ->filter(fn (CategoryModel $c): bool => $products->contains('category_id', $c->id));
 
         $groups = ModifierGroupModel::query()

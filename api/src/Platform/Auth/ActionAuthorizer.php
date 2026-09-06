@@ -10,17 +10,10 @@ use Platform\Audit\AuthorizedBy;
 use Platform\Capabilities\CurrentCapabilities;
 
 /**
- * Resuelve si una acción sensible se puede ejecutar, y a nombre de quién.
+ * Decides whether a sensitive action may run, and in whose name.
  *
- * El problema real: hay cosas que alguien de mostrador necesita hacer con un
- * cliente delante y el encargado al lado —anular un pedido cobrado, devolver
- * dinero, cambiar un precio—. Frenarlas hasta que uno cierre sesión y abra la
- * suya es inviable en la práctica, y lleva a que todos acaben usando la clave
- * del encargado. Eso es peor que no tener permisos: se pierde por completo el
- * rastro de quién hizo qué.
- *
- * La solución es el PIN: el cajero inicia, el encargado escribe cuatro dígitos
- * sin cerrar nada, y la acción **queda registrada a nombre de quien autorizó**.
+ * The cashier starts it, a manager types four digits without signing anyone
+ * out, and the action is recorded under whoever authorised it.
  */
 final class ActionAuthorizer
 {
@@ -30,10 +23,9 @@ final class ActionAuthorizer
     ) {}
 
     /**
-     * Devuelve null si quien pide puede hacerlo solo —entonces la acción va a
-     * su nombre— o el autorizador si hizo falta un PIN.
+     * Null when the caller may act alone; otherwise the authorizer.
      *
-     * @throws ValidationException cuando falta la autorización.
+     * @throws ValidationException when authorization is missing.
      */
     public function resolve(Request $request, string $permission): ?AuthorizedBy
     {
@@ -45,13 +37,8 @@ final class ActionAuthorizer
         $pin = $request->input('authorization_pin');
 
         if (! is_string($userId) || ! is_string($pin) || $userId === '' || $pin === '') {
-            // **422 con nombre de campo, no 403.**
-            //
-            // La diferencia importa en la pantalla: un 403 le dice a la caja
-            // «no puedes» y ahí se acaba. Un error de validación sobre
-            // `authorization_pin` le dice «esto tiene solución aquí mismo», y
-            // la caja sabe abrir el diálogo del PIN en vez de dejar al cajero
-            // mirando un mensaje sin salida con un cliente esperando.
+            // 422 with a field name rather than 403: it tells the till the PIN
+            // dialog can fix this, instead of a dead end with a customer waiting.
             throw ValidationException::withMessages([
                 'authorization_pin' => 'Esta acción necesita que la autorice un supervisor.',
             ]);

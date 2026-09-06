@@ -15,11 +15,10 @@ use Modules\Catalog\Interfaces\Http\Resources\ProductResource;
 use Platform\Capabilities\CurrentCapabilities;
 
 /**
- * La carta, por HTTP.
+ * The menu, over HTTP.
  *
- * El controlador no lleva reglas de negocio: valida la forma, llama al caso de
- * uso y devuelve. Si aquí apareciera un `if` sobre precios o existencias, esa
- * regla dejaría de valer para el bot y para la caja.
+ * No business rules here: validate shape, call the use case, return. An `if`
+ * about prices or stock would stop applying to the bot and to the till.
  */
 final class ProductController
 {
@@ -34,14 +33,14 @@ final class ProductController
                 fn ($q) => $q->where('category_id', $request->string('category')->toString()),
             )
             ->when(
-                $request->string('buscar')->isNotEmpty(),
-                // `ilike` y no `like`: nadie escribe «Reina Pepiada» con las
-                // mayúsculas exactas cuando está buscando con prisa.
-                fn ($q) => $q->where('name', 'ilike', '%'.$request->string('buscar')->toString().'%'),
+                $request->string('search')->isNotEmpty(),
+                // `ilike` rather than `like`: nobody types the exact capitalisation when
+                // searching in a hurry.
+                fn ($q) => $q->where('name', 'ilike', '%'.$request->string('search')->toString().'%'),
             )
-            // Sólo los de la carta, salvo que se pidan todos: el panel necesita
-            // ver los desactivados para reactivarlos, la caja no.
-            ->when(! $request->boolean('incluir_inactivos'), fn ($q) => $q->where('is_active', true))
+            // On-menu only unless all are asked for: the dashboard needs the
+            // deactivated ones to bring them back, the till does not.
+            ->when(! $request->boolean('include_inactive'), fn ($q) => $q->where('is_active', true))
             ->orderBy('sort_order')
             ->orderBy('name')
             ->paginate($perPage);
@@ -100,9 +99,8 @@ final class ProductController
             'modifier_group_ids.*' => ['uuid'],
         ]);
 
-        // `price_cents` NO está arriba, y es deliberado: el precio se cambia
-        // por su propia ruta, con su propio permiso y dejando rastro. Si se
-        // colara aquí, ese permiso aparte sería decorativo.
+        // `price_cents` is deliberately absent: the price goes through its own
+        // route and permission. Accepting it here would make that decorative.
         $product = $updateProduct->execute(
             productId: $id,
             name: $data['name'] ?? null,

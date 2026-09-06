@@ -1,38 +1,38 @@
 @import "tailwindcss";
 
 /*
- * El sistema visual de Kombo.
+ * Kombo's visual system.
  *
- * Sin tailwind.config.js y sin PostCSS: en Tailwind 4 el tema es CSS. Esto es
- * la única fuente de verdad de color, tipografía y espaciado, y las pantallas
- * usan las superficies semánticas de abajo —no los neutros crudos—.
+ * No tailwind.config.js and no PostCSS: in Tailwind 4 the theme is CSS. This is
+ * the single source of truth for colour, type and spacing, and screens use the
+ * semantic surfaces below rather than the raw neutrals.
  */
 
 /*
- * El modo oscuro va por ATRIBUTO en el <html>, no por preferencia del sistema.
+ * Dark mode goes by ATTRIBUTE on <html>, not by system preference.
  *
- * No es un gusto: la cocina es oscura siempre porque se lee de lejos y con luz
- * de plancha; la caja es clara siempre porque está bajo un fluorescente. Que
- * dependiera del teléfono de quien la abrió sería un sorteo.
+ * Not a taste: the kitchen is always dark because it is read from a distance
+ * under griddle light; the till is always light because it sits under a
+ * fluorescent. Leaving it to whoever's phone opened it would be a lottery.
  */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /*
- * `static` es obligatorio aquí: emite TODAS las variables, no sólo las que
- * alguna utilidad usa. Sin él, Tailwind elimina las que cree no usadas —y las
- * superficies semánticas, que se referencian desde otras variables y no desde
- * clases, apuntarían a la nada.
+ * `static` is required here: it emits EVERY variable, not only those some
+ * utility uses. Without it Tailwind drops the ones it thinks unused — and the
+ * semantic surfaces, referenced from other variables rather than from classes,
+ * would point at nothing.
  */
 @theme static {
-  /* ── Tipografía ─────────────────────────────────────────────────────────
-     La pila del sistema, cero webfonts. Son ~100 KB y un parpadeo de texto
-     que no compran nada en una pantalla que dice números. */
+  /* ── Typography ─────────────────────────────────────────────────────────
+     The system stack, zero webfonts. They are ~100 KB and a flash of unstyled
+     text, buying nothing on a screen that shows numbers. */
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
-  /* ── Neutros, ligeramente cálidos ───────────────────────────────────────
-     Un gris puro se lee frío y clínico. Esto es comida. */
+  /* ── Neutrals, slightly warm ────────────────────────────────────────────
+     A pure grey reads cold and clinical. This is food. */
   --color-ink-50: #faf9f7;
   --color-ink-100: #f2f0ed;
   --color-ink-200: #e4e1db;
@@ -45,8 +45,8 @@
   --color-ink-900: #1a1816;
   --color-ink-950: #0f0e0d;
 
-  /* ── Marca ──────────────────────────────────────────────────────────────
-     Verde de cocina: fresco, comestible, y distinto del verde de "correcto". */
+  /* ── Brand ──────────────────────────────────────────────────────────────
+     Kitchen green: fresh, edible, and distinct from the green of "correct". */
   --color-brand-50: #eef7f2;
   --color-brand-100: #d5ebe0;
   --color-brand-200: #aad7c1;
@@ -58,9 +58,9 @@
   --color-brand-800: #17452f;
   --color-brand-900: #0f2c1e;
 
-  /* ── Acento ─────────────────────────────────────────────────────────────
-     La acción principal y nada más. Naranja y no verde a propósito: el verde
-     está reservado para "esto salió bien", y "Cobrar" no es un estado. */
+  /* ── Accent ─────────────────────────────────────────────────────────────
+     The primary action and nothing else. Orange rather than green on purpose:
+     green is reserved for "this went well", and "Cobrar" is not a status. */
   --color-accent-50: #fef3ec;
   --color-accent-100: #fbe0cd;
   --color-accent-200: #f7bf9b;
@@ -72,9 +72,9 @@
   --color-accent-800: #6d2911;
   --color-accent-900: #4a1c0c;
 
-  /* ── Estado, y sólo estado ──────────────────────────────────────────────
-     Verde, ámbar y rojo no se usan para decorar. Si aparece rojo en la
-     pantalla de cocina es porque un pedido va tarde, no porque quedaba bonito. */
+  /* ── Status, and only status ────────────────────────────────────────────
+     Green, amber and red are not decoration. Red on the kitchen screen means
+     an order is running late, not that it looked nice. */
   --color-ok-50: #eaf7ef;
   --color-ok-500: #2e9e5b;
   --color-ok-700: #1f6b3e;
@@ -87,15 +87,15 @@
   --color-bad-500: #d93a3a;
   --color-bad-700: #93211f;
 
-  /* ── Toque ──────────────────────────────────────────────────────────────
-     56 px es el mínimo con el que se acierta un botón con el pulgar, de pie,
-     con prisa y a veces con guantes. */
+  /* ── Touch ──────────────────────────────────────────────────────────────
+     56 px is the minimum you can hit with a thumb, standing up, in a hurry and
+     sometimes wearing gloves. */
   --spacing-touch: 3.5rem;
   --spacing-touch-lg: 4.5rem;
 
-  /* ── La escala del dinero ───────────────────────────────────────────────
-     El número es el protagonista: el total, el vuelto y el saldo van en la
-     mayor escala de su pantalla. */
+  /* ── The money scale ────────────────────────────────────────────────────
+     The number is the protagonist: the total, the change and the balance go in
+     the largest scale on their screen. */
   --text-money-sm: 1.125rem;
   --text-money: 1.75rem;
   --text-money-lg: 2.75rem;
@@ -105,19 +105,18 @@
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
 
-  /* Sombras muy tenues a propósito: con luz que rebota en una superficie de
-     acero, una sombra marcada se ve como suciedad en la pantalla. */
+  /* Very faint shadows on purpose: with light bouncing off a steel surface, a
+     marked shadow looks like dirt on the screen. */
   --shadow-card: 0 1px 2px rgb(15 14 13 / 0.06), 0 1px 3px rgb(15 14 13 / 0.05);
   --shadow-raised: 0 2px 6px rgb(15 14 13 / 0.08), 0 6px 16px rgb(15 14 13 / 0.06);
   --shadow-sheet: 0 -4px 24px rgb(15 14 13 / 0.12);
 }
 
 /*
- * Superficies semánticas.
+ * Semantic surfaces.
  *
- * Las pantallas usan estas y nunca los neutros crudos. Así el modo oscuro es
- * una redefinición de ocho variables y no una segunda hoja de estilos que se
- * desincroniza en cuanto alguien toca la primera.
+ * Screens use these and never the raw neutrals, so dark mode is a redefinition
+ * of eight variables rather than a second stylesheet that drifts out of sync.
  */
 :root {
   --surface: var(--color-ink-50);
@@ -144,8 +143,8 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
-    /* El destello gris de Android al tocar hace que la interfaz parezca lenta
-       aunque responda al instante. */
+    /* Android's grey tap flash makes the interface look slow even when it
+       responds instantly. */
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -155,8 +154,8 @@
     font-family: var(--font-sans);
   }
 
-  /* Cifras de ancho fijo: sin esto, una columna de importes baila al
-     actualizarse y cuesta compararla de un vistazo. */
+  /* Tabular figures: without them a column of amounts jitters as it updates
+     and is hard to compare at a glance. */
   .tabular,
   input[type="number"],
   td[data-numeric],
@@ -164,15 +163,15 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Foco siempre visible. No es opcional: hay quien opera esto con teclado, y
-     quitarlo "porque se ve feo" deja a esa persona a ciegas. */
+  /* Focus always visible. Not optional: some people operate this with a
+     keyboard, and removing it "because it looks ugly" leaves them blind. */
   :focus-visible {
     outline: 2px solid var(--color-brand-500);
     outline-offset: 2px;
   }
 
-  /* Sin esto, el último botón de una barra fija queda debajo de la barra de
-     gestos del teléfono y no se puede tocar. */
+  /* Without this, the last button of a fixed bar sits under the phone's
+     gesture bar and cannot be tapped. */
   .pb-safe {
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }

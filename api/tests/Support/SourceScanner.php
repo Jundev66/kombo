@@ -9,12 +9,12 @@ use RecursiveIteratorIterator;
 use SplFileInfo;
 
 /**
- * Recorre el código propio del proyecto —nunca `vendor/`—.
+ * Walks the project's own code, never `vendor/`.
  *
- * Existe porque varias pruebas de arquitectura no se pueden expresar con las
- * expectativas de Pest: preguntan por el CONTENIDO de los ficheros (¿declara
- * tipos estrictos? ¿importa el framework desde una capa de dominio?), no por
- * las dependencias entre clases ya cargadas.
+ * It exists because several architecture tests cannot be expressed with Pest's
+ * expectations: they ask about the CONTENT of files (does it declare strict
+ * types? does it import the framework from a domain layer?) rather than about
+ * dependencies between already-loaded classes.
  */
 final class SourceScanner
 {

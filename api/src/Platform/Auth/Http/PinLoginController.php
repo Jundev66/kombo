@@ -14,15 +14,11 @@ use Platform\Audit\AuditLogger;
 use Platform\Capabilities\CurrentCapabilities;
 
 /**
- * La tercera puerta: quién está en esta pantalla ahora mismo.
+ * Third door: who is at this screen right now.
  *
- * Se toca el nombre, se teclean cuatro dígitos, y se entra. Devuelve un token
- * con la habilidad `station`, que sí opera — a nombre de la persona real, no
- * del dispositivo.
- *
- * El rate limit no es decorativo: **un PIN de cuatro dígitos son 10.000
- * combinaciones**, y sin tope probarlas todas es cuestión de un rato con un
- * script. Cinco intentos por minuto lo convierte en más de un día.
+ * Returns a `station` token that does operate — in the real person's name, not
+ * the device's. The rate limit matters: four digits is 10,000 combinations,
+ * and five tries a minute turns a scripted sweep into more than a day.
  */
 final class PinLoginController
 {
@@ -60,9 +56,8 @@ final class PinLoginController
 
         RateLimiter::clear($key);
 
-        // Entrar de nuevo revoca el turno anterior en esta misma pantalla: dos
-        // personas a la vez en la misma caja no es un escenario real, y dejar
-        // el token viejo vivo sí lo es.
+        // Signing in again revokes the previous shift on this screen: two people at
+        // once on the same till is not real, a stale live token is.
         $tokenName = "{$data['device']}·{$user->name}";
         $user->tokens()->where('name', $tokenName)->delete();
 
@@ -72,8 +67,7 @@ final class PinLoginController
             action: 'auth.pin_login',
             entityType: 'device',
             after: ['device' => $data['device']],
-            // A nombre de la PERSONA, no del token del dispositivo con el que
-            // llegó la petición. Es todo el sentido de esta puerta.
+            // In the PERSON's name, not the device token the request arrived with.
             actor: new Actor((string) $user->getKey(), (string) $user->name),
         );
 

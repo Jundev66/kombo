@@ -10,12 +10,11 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Un permiso concedido a un rol.
+ * A permission granted to a role.
  *
- * `requires_authorization` es el tercer estado, el que no tienen los sistemas
- * de permisos al uso: quien lo tiene puede **iniciar** la acción, pero se
- * ejecuta con el PIN de alguien que sí puede, y queda registrada a nombre de
- * quien autorizó.
+ * `requires_authorization` is the third state ordinary permission systems lack:
+ * the holder can START the action, but it runs against the PIN of someone who
+ * can, and is recorded in that person's name.
  */
 #[Fillable(['role_id', 'permission', 'requires_authorization'])]
 class RolePermission extends Model

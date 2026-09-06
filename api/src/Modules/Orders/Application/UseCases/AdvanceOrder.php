@@ -18,15 +18,12 @@ use Platform\Audit\AuditLogger;
 use Platform\Tenancy\TenantContext;
 
 /**
- * Mover un pedido al siguiente estado.
+ * Moving an order to the next state, with real optimistic locking: the `UPDATE`
+ * carries `where state_version = ?` and a 409 asks for a reload.
  *
- * Con **bloqueo optimista de verdad**: el `UPDATE` lleva
- * `where state_version = ?`. Si no afecta ninguna fila, es que alguien se
- * adelantó y se responde 409 pidiendo recargar.
- *
- * No es una precaución teórica: la caja y la pantalla de cocina miran el mismo
- * pedido y dos personas pulsan casi a la vez todos los días. Sin esto, quien
- * guarda segundo pisa lo que hizo el primero y **nadie se entera**.
+ * The till and the kitchen screen look at the same order and two people tap
+ * almost at once every day. Without this, whoever saves second overwrites the
+ * first and nobody finds out.
  */
 final class AdvanceOrder
 {
@@ -44,15 +41,14 @@ final class AdvanceOrder
 
         $current = $model->status;
 
-        // Repetir el paso en el que ya está no es error, y no gasta una
-        // versión: dos toques en «Confirmar» no pueden hacer saltar un mensaje
-        // rojo en mitad del servicio.
+        // Repeating the current step is not an error and spends no version: two
+        // taps on "Confirm" cannot raise a red message mid-service.
         if ($current === $next) {
             return $model;
         }
 
-        // La entidad de dominio decide si la transición vale. Lanza 409 con un
-        // mensaje que dice qué pasó, no «transición inválida».
+        // The domain entity decides whether the transition is valid, and throws a
+        // 409 saying what happened rather than "invalid transition".
         $order = OrderReader::toDomain($model);
         $order->moveTo($next);
 
@@ -83,23 +79,20 @@ final class AdvanceOrder
         );
 
         /*
-         * Confirmar es lo que manda el pedido a la COCINA.
+         * Confirming is what sends the order to the KITCHEN.
          *
-         * Va por evento y no por llamada directa porque `Orders` no puede
-         * conocer a `Kitchen` —hay una prueba de arquitectura que lo impide— y
-         * porque así el mismo momento puede disparar además el aviso al
-         * cliente sin que nadie toque este caso de uso.
+         * By event rather than a direct call: `Orders` cannot know `Kitchen` —
+         * an architecture test forbids it — and the same moment can also fire
+         * the customer notice without touching this use case.
          */
         if ($next === OrderStatus::Confirmed) {
             $this->events->dispatch($this->confirmedEvent($model, $byName));
         }
 
         /*
-         * Y el aviso delgado, para todo lo demás: el mensaje al cliente, y
-         * mañana los reportes de cuánto se tarda entre paso y paso.
-         *
-         * Delgado a propósito: cargar las líneas de un pedido cada vez que
-         * alguien toca «Entregado» sería trabajo para que no lo lea nadie.
+         * And the thin notice for everything else. Thin on purpose: loading an
+         * order's lines every time somebody taps "Delivered" would be work done
+         * for nobody to read.
          */
         $this->events->dispatch(new OrderAdvanced(
             tenantId: $this->context->id(),
@@ -113,16 +106,12 @@ final class AdvanceOrder
     }
 
     /**
-     * Arma el evento con todo lo que la cocina necesita.
+     * Assembles the event with everything the kitchen needs.
      *
-     * El tiempo de preparación sale del CATÁLOGO, no del pedido: no se guarda
-     * en la línea porque no es un dato del pedido sino de lo que se vende, y
-     * porque si el dueño ajusta el tiempo de la parrilla, las comandas
-     * siguientes deben usar el nuevo.
-     *
-     * Se toma el MÁXIMO de las líneas, no la suma: los platos se hacen a la
-     * vez, no en fila. Sumar daría media hora para dos arepas y el semáforo no
-     * marcaría nada como tarde nunca.
+     * Prep time comes from the CATALOG, not the order line: it is a fact about
+     * what is sold, and adjusting the grill's time should apply to the next
+     * ticket. The MAXIMUM across lines is taken, not the sum — dishes are made
+     * at the same time, and summing would give half an hour for two arepas.
      */
     private function confirmedEvent(OrderModel $model, ?string $byName): OrderConfirmed
     {
@@ -146,7 +135,7 @@ final class AdvanceOrder
                 productId: $item->product_id,
                 name: (string) $item->product_name,
                 quantity: (int) $item->quantity,
-                // Ya en texto: la cocina lee «Sin cebolla», no un id.
+                // Already text: the kitchen reads "No onion", not an id.
                 modifiers: $item->modifiers->pluck('name')->all(),
                 notes: $item->notes,
             ))->all(),

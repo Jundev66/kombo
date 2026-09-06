@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Modules\Orders\Domain\Exceptions;
 
 /**
- * Una cantidad que no tiene sentido: cero o negativa.
+ * A quantity that makes no sense: zero or negative.
  */
 final class InvalidQuantity extends OrderException
 {

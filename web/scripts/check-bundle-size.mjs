@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * El guardián del presupuesto de arranque.
+ * The startup budget's guard.
  *
- * Rompe el build si una aplicación se pasa. No es una métrica bonita: la
- * mayoría de estos negocios corren la caja en una PC vieja de mostrador y la
- * cocina en una tablet barata, muchas veces con una conexión mala. Cada 100 KB
- * de más son segundos de pantalla en blanco con un cliente esperando.
+ * It breaks the build when an app goes over. Not a vanity metric: most of these
+ * businesses run the till on an old counter PC and the kitchen on a cheap
+ * tablet, often on a bad connection. Every extra 100 KB is seconds of blank
+ * screen with a customer waiting.
  *
- * Subir un presupuesto es una decisión de producto, no de build.
+ * Raising a budget is a product decision, not a build one.
  */
 
 import { gzipSync } from 'node:zlib'
@@ -19,18 +19,18 @@ const here = dirname(fileURLToPath(import.meta.url))
 
 const APPS = [
   { name: 'portal', label: 'Portal del cliente', budgetKb: 180 },
-  { name: 'caja', label: 'Caja', budgetKb: 180 },
-  { name: 'panel', label: 'Panel del dueño', budgetKb: 220 },
+  { name: 'pos', label: 'Caja', budgetKb: 180 },
+  { name: 'dashboard', label: 'Panel del dueño', budgetKb: 220 },
   { name: 'kds', label: 'Pantalla de cocina', budgetKb: 120 },
   { name: 'admin', label: 'Super administración', budgetKb: 220 },
 ]
 
 /**
- * Lo que de verdad retrasa el arranque: el chunk de entrada, su CSS, y todo lo
- * que importa de forma estática (recursivamente).
+ * What actually delays startup: the entry chunk, its CSS, and everything it
+ * imports statically (recursively).
  *
- * Lo que se carga bajo demanda por code-splitting NO cuenta, porque no está en
- * el camino crítico. Contarlo penalizaría justo la técnica que queremos usar.
+ * What is loaded on demand by code splitting does NOT count, because it is not
+ * on the critical path. Counting it would penalise the very technique we want.
  */
 function startupFiles(manifest) {
   const entry = Object.values(manifest).find((chunk) => chunk.isEntry)

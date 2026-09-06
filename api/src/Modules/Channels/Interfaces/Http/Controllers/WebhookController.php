@@ -16,22 +16,15 @@ use Modules\Channels\Infrastructure\Services\MessageDeduplicator;
 use Platform\Tenancy\TenantSession;
 
 /**
- * La puerta por donde entran los mensajes.
+ * The door messages come in through. The order of the steps is not incidental:
  *
- * El orden de lo que pasa aquí no es casual — **cada paso está antes que el
- * siguiente por una razón concreta**:
- *
- *   1. **Resolver el negocio.** Sin esto no hay credenciales que consultar, y
- *      sin credenciales no hay firma que comprobar.
- *   2. **Comprobar la firma.** Antes que nada más. Cualquiera puede hacer un
- *      POST aquí.
- *   3. **Deduplicar.** Y en este orden, no al revés: si se deduplicara antes de
- *      firmar, un POST sin firma con el identificador de un mensaje legítimo lo
- *      quemaría, y el de verdad llegaría y se descartaría por repetido. Es un
- *      fallo silencioso y muy difícil de ver.
- *   4. **Responder 200 y encolar.** Meta corta a los 30 segundos y reintenta.
- *      Procesar en línea convierte una cocina lenta en una tormenta de
- *      mensajes repetidos.
+ *   1. Resolve the tenant — without it there are no credentials to look up.
+ *   2. Verify the signature, before anything else; anyone can POST here.
+ *   3. Deduplicate, in that order: deduplicating first would let an unsigned
+ *      POST burn a legitimate message's id, and the real one would arrive and
+ *      be discarded as a repeat. A silent failure, and hard to spot.
+ *   4. Answer 200 and enqueue. Meta cuts off at 30 seconds and retries, and
+ *      processing inline turns a slow kitchen into a storm.
  */
 final class WebhookController
 {
@@ -43,9 +36,8 @@ final class WebhookController
     ) {}
 
     /**
-     * La comprobación de alta de Meta: devuelve el `hub.challenge` tal cual.
-     *
-     * Se compara el token con el que el negocio configuró, en tiempo constante.
+     * Meta's registration check: returns the `hub.challenge` verbatim, after
+     * comparing the token in constant time.
      */
     public function verify(Request $request, string $channel): Response
     {
@@ -75,11 +67,9 @@ final class WebhookController
 
         if ($tenantId === null) {
             /*
-             * 200 aunque no se sepa de quién es.
-             *
-             * Meta reintenta cualquier cosa que no sea 200, y reintentar un
-             * mensaje para un negocio que ya no existe es gastar dos lados. Se
-             * registra y se cierra.
+             * 200 even when we do not know whose it is: Meta retries anything
+             * else, and retrying a message for a tenant that no longer exists
+             * wastes both ends.
              */
             Log::info('Webhook de un canal que no conocemos', ['channel' => $channel, 'external_id' => $externalId]);
 
@@ -94,22 +84,22 @@ final class WebhookController
 
         $adapter = $this->channels->for($account);
 
-        // ── 2. La firma, ANTES de tocar nada más.
+        // 2. The signature, before touching anything else.
         if (! $adapter->verifySignature($request->getContent(), $request->headers->all(), $account->webhook_secret)) {
             Log::warning('Webhook con firma inválida', ['channel' => $channel, 'tenant' => $tenantId]);
 
-            // 403 y no 200: esto no es un reintento que haya que cortar, es
-            // alguien llamando a una puerta que no es suya.
+            // 403 and not 200: this is not a retry to cut off, it is somebody knocking
+            // on a door that is not theirs.
             return response()->json(['message' => 'Firma inválida.'], 403);
         }
 
         foreach ($adapter->parse($payload) as $message) {
-            // ── 3. Deduplicar, ya con la firma comprobada.
+            // 3. Deduplicate, now that the signature is verified.
             if (! $this->dedup->firstTime($tenantId, $channel, $message->externalId)) {
                 continue;
             }
 
-            // ── 4. A la cola. Aquí no se cocina nada.
+            // 4. Onto the queue. Nothing is cooked here.
             ProcessIncomingMessage::dispatch($tenantId, $channel, $message);
         }
 
@@ -117,23 +107,22 @@ final class WebhookController
     }
 
     /**
-     * El identificador de la cuenta a la que va dirigido esto.
+     * The id of the account this is addressed to.
      *
-     * Vive en el controlador y no en el adaptador porque hace falta **antes**
-     * de saber qué adaptador usar: es el huevo y la gallina de un webhook
-     * multi-negocio.
+     * In the controller rather than the adapter because it is needed BEFORE we
+     * know which adapter to use: the chicken and egg of a multi-tenant webhook.
      *
      * @param  array<string, mixed>  $payload
      */
     private function externalIdOf(string $channel, array $payload): ?string
     {
         return match ($channel) {
-            // Meta lo pone dentro del cambio, en `metadata`.
+            // Meta puts it inside the change, in `metadata`.
             'whatsapp' => $payload['entry'][0]['changes'][0]['value']['metadata']['phone_number_id'] ?? null,
 
-            // Telegram no manda nada que identifique al bot: el mismo cuerpo
-            // sirve para cualquiera. Por eso su webhook lleva la cuenta en la
-            // dirección, que es lo que Telegram sí permite configurar por bot.
+            // Telegram sends nothing that identifies the bot, so its webhook carries
+            // the account in the address — the one thing Telegram lets you configure
+            // per bot.
             'telegram' => request()->route('externalId'),
 
             default => null,
@@ -143,11 +132,10 @@ final class WebhookController
     private function accountOf(string $tenantId, string $channel): ?ChannelAccountModel
     {
         /*
-         * Se entra al negocio a mano: aquí no hubo subdominio que lo pusiera.
-         *
-         * Y con la sesión ENTERA, no sólo con el parámetro de PostgreSQL: el
-         * ámbito global de Eloquent necesita además `TenantContext`, y sin él
-         * esta consulta devuelve cero filas aunque RLS ya esté bien puesto.
+         * The tenant is entered by hand: there was no subdomain to set it. And
+         * with the WHOLE session, not just the PostgreSQL parameter — Eloquent's
+         * global scope also needs `TenantContext`, or this query returns zero
+         * rows with RLS correctly in place.
          */
         $this->session->enter($tenantId);
 

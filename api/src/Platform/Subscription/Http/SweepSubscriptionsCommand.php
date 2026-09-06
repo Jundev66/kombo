@@ -8,44 +8,40 @@ use Illuminate\Console\Command;
 use Platform\Subscription\Subscriptions;
 
 /**
- * El trabajo diario que hace que los vencimientos signifiquen algo.
+ * The daily job that makes expiry dates mean something.
  *
- * Sin esto, `current_period_end` sería una fecha decorativa — que es
- * exactamente lo que pasó en el proyecto anterior: había un `plan_expires_at`
- * que no leía nadie, así que un negocio que dejó de pagar seguía operando para
- * siempre.
+ * Without it `current_period_end` would be decorative — exactly what happened
+ * in the previous project, where a `plan_expires_at` nobody read let a tenant
+ * that stopped paying operate forever.
  *
- * Avisa antes de cortar: a siete días y a tres. Cortarle a alguien sin haberle
- * avisado es la forma más rápida de perder un cliente que sí iba a pagar.
+ * It warns before cutting off: at seven days and at three.
  */
 final class SweepSubscriptionsCommand extends Command
 {
-    protected $signature = 'suscripciones:revisar';
+    protected $signature = 'subscriptions:check';
 
     protected $description = 'Marca los vencidos y suspende a los que agotaron la gracia';
 
     public function handle(Subscriptions $subscriptions): int
     {
         /*
-         * Primero se avisa, después se barre.
-         *
-         * En este orden y no al revés: barrer primero movería a «vencido» a
-         * alguien que hoy tocaba avisar, y ese cliente recibiría la suspensión
-         * sin haber recibido nunca el aviso.
+         * Warn first, then sweep. The other order would move someone due a
+         * warning today straight to "overdue", and they would receive the
+         * suspension without ever receiving the warning.
          */
-        $avisados = $subscriptions->dueForWarning();
+        $notified = $subscriptions->dueForWarning();
 
-        foreach ($avisados as $aviso) {
-            $this->line("Avisado: {$aviso['tenant_id']} vence en {$aviso['days_left']} días");
+        foreach ($notified as $notice) {
+            $this->line("Avisado: {$notice['tenant_id']} vence en {$notice['days_left']} días");
         }
 
-        ['past_due' => $vencidos, 'suspended' => $suspendidos] = $subscriptions->sweep();
+        ['past_due' => $expired, 'suspended' => $suspended] = $subscriptions->sweep();
 
         $this->info(sprintf(
             'Avisados: %d · Vencidos: %d · Suspendidos: %d',
-            count($avisados),
-            $vencidos,
-            $suspendidos,
+            count($notified),
+            $expired,
+            $suspended,
         ));
 
         return self::SUCCESS;

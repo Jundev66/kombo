@@ -8,12 +8,11 @@ use Platform\Modules\ModuleManifest;
 use Platform\Modules\Setting;
 
 /**
- * El reparto a domicilio.
+ * Home delivery.
  *
- * Se apaga entero, y hay negocios de comida que lo tienen apagado: un puesto de
- * la calle, una arepera donde todo el mundo pasa a buscar. Para ellos la
- * opción «delivery» no aparece en ningún sitio —ni en el portal, ni en la
- * caja— en vez de aparecer y no funcionar.
+ * Switched off wholesale for a street stall or an arepera where everybody
+ * collects: for them "delivery" appears nowhere, rather than appearing and not
+ * working.
  */
 final class DeliveryModule extends ModuleManifest
 {
@@ -50,7 +49,7 @@ final class DeliveryModule extends ModuleManifest
         return [
             'delivery.manage',
 
-            // El repartidor: sus entregas y nada más.
+            // The courier: their own deliveries and nothing else.
             'delivery.view_own',
             'delivery.mark_delivered',
         ];
@@ -63,17 +62,15 @@ final class DeliveryModule extends ModuleManifest
     {
         return [
             /*
-             * Lo mínimo para que salga un viaje.
+             * The minimum for a trip to be worth making. Zero is "no minimum".
              *
-             * Cero es «sin mínimo», que es el comportamiento de hoy. No es lo
-             * mismo que dejarlo sin poner: un mínimo mal entendido deja al
-             * cliente con el carrito lleno sin poder pedir y sin saber por qué,
-             * así que el portal lo dice desde la primera pantalla.
+             * A misunderstood minimum leaves the customer with a full basket
+             * unable to order, so the portal says it from the first screen.
              */
             'minimum_order_cents' => Setting::money(0),
 
-            // Cuánto se tarda, cuando la zona no lo diga. Lo que se le promete
-            // al cliente antes de que pida.
+            // How long it takes when the zone does not say. What the customer is
+            // promised before they order.
             'default_minutes' => Setting::int(45)->min(5),
         ];
     }

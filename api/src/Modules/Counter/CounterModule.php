@@ -8,15 +8,13 @@ use Platform\Modules\ModuleManifest;
 use Platform\Modules\Setting;
 
 /**
- * La caja del mostrador.
+ * The counter till.
  *
- * **No es de núcleo**: hay negocios de comida que sólo venden por el portal o
- * por WhatsApp —una cocina oculta, un emprendimiento desde casa— y para ellos
- * esta pantalla no existe. Se enciende cuando hay mostrador.
+ * Not core: a ghost kitchen or a home venture sells only through the portal or
+ * WhatsApp, and for them this screen does not exist.
  *
- * Hoy vende y cobra. **No abre turno, no cierra caja y no cuadra el efectivo**:
- * eso es otra fase, y meterlo ahora sería obligar a todo el mundo a hacer un
- * arqueo que la mayoría no pide.
+ * It sells and takes payment. It does not open shifts, close the till or
+ * reconcile cash — that is another phase.
  */
 final class CounterModule extends ModuleManifest
 {
@@ -40,8 +38,8 @@ final class CounterModule extends ModuleManifest
      */
     public function requires(): array
     {
-        // Sin la nota no se puede cobrar en el mostrador: al cliente hay que
-        // darle un papel.
+        // Without the note there is no charging at the counter: the customer has to
+        // be handed a piece of paper.
         return ['orders', 'documents'];
     }
 
@@ -59,14 +57,11 @@ final class CounterModule extends ModuleManifest
             'counter.sell',
 
             /*
-             * Anular una venta y descontar son las dos vías naturales para
-             * sacar mercancía o dinero sin que quede rastro de venta, así que
-             * cada una va con su par `_request`: el mostrador lo inicia y el
-             * encargado lo autoriza con su PIN.
+             * Voiding a sale and discounting are the two natural ways to get
+             * goods or money out with no trace, so each has its `_request`
+             * counterpart: the counter starts it, the manager authorises it.
              *
-             * Anular la venta es lo mismo que anular su nota —una nota por
-             * pedido, y no se puede reemitir—, y por eso hay un solo permiso
-             * para las dos cosas en vez de dos que siempre se conceden juntos.
+             * Voiding a sale is voiding its note, so one permission covers both.
              */
             'counter.void',
             'counter.void_request',
@@ -82,16 +77,13 @@ final class CounterModule extends ModuleManifest
     {
         return [
             /*
-             * Cómo se eligen los productos.
-             *
-             * En comida se toca la foto: son cuarenta productos y se buscan de
-             * un vistazo. El buscador es para quien tenga trescientos. El
-             * valor por defecto es el comportamiento de hoy.
+             * How products are picked. In food you tap the photo; the search
+             * box is for whoever has three hundred products.
              */
             'layout' => Setting::enum(['grid', 'search'], 'grid'),
 
-            // Cómo se entrega, por defecto. En un puesto de comida rápida casi
-            // todo es para llevar.
+            // How it is handed over by default. At a fast-food counter almost
+            // everything is takeaway.
             'default_service_type' => Setting::enum(['takeaway', 'dine_in', 'delivery'], 'takeaway'),
         ];
     }

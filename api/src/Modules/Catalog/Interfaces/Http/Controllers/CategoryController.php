@@ -10,11 +10,8 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Las secciones de la carta.
- *
- * Existen para que la caja tenga menos que mirar: arepas, bebidas, postres.
- * Una carta de sesenta productos sin categorías es una lista imposible de
- * recorrer con un cliente delante.
+ * The sections of the menu: arepas, drinks, desserts. A sixty-product menu with
+ * no categories is a list nobody can scan with a customer standing there.
  */
 final class CategoryController
 {
@@ -66,9 +63,8 @@ final class CategoryController
     {
         $category = CategoryModel::find($id) ?? throw new NotFoundHttpException('Esa categoría no existe.');
 
-        // Los productos NO se borran con ella: la clave foránea los deja sin
-        // categoría (`set null`). Borrar una sección de la carta no puede
-        // llevarse por delante lo que se vende en ella.
+        // Products are NOT deleted with it: the foreign key leaves them without a
+        // category (`set null`).
         $category->delete();
 
         return response()->json(status: 204);

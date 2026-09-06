@@ -9,12 +9,11 @@ use App\Models\Orders\OrderModel;
 use App\Models\Orders\OrderPaymentModel;
 
 /**
- * Cómo se ve un pedido hacia el cliente.
+ * How an order looks to the client: camelCase, always in cents, with the
+ * derived parts already resolved on the server.
  *
- * En camelCase y **siempre en centavos**. Y con lo derivado ya resuelto en el
- * servidor —el estado en palabras, lo que falta por cobrar, si está en la
- * cocina— para que el tablero, la caja y el bot no tengan que calcularlo cada
- * uno por su cuenta y acabar discrepando.
+ * The board, the till and the bot would otherwise each work out the state, the
+ * outstanding amount and the waiting time on their own, and end up disagreeing.
  */
 final class OrderResource
 {
@@ -38,17 +37,16 @@ final class OrderResource
             'customerName' => $order->customer_name,
             'customerPhone' => $order->customer_phone,
             'deliveryAddress' => $order->delivery_address,
-            // La zona, copiada en el pedido igual que el nombre del producto:
-            // una de hace seis meses se lee aunque el dueño la haya renombrado
-            // o dejado de repartir ahí.
+            // The zone, copied onto the order like the product name: an old one reads
+            // even if the owner renamed it or stopped delivering there.
             'deliveryZoneName' => $order->delivery_zone_name,
 
             'subtotalCents' => $order->subtotal_cents,
             'deliveryFeeCents' => $order->delivery_fee_cents,
             'totalCents' => $order->total_cents,
             'paidCents' => $order->paid_cents,
-            // Calculado, no guardado: dos campos que deberían coincidir acaban
-            // discrepando, y el que se mira es siempre el equivocado.
+            // Computed, not stored: two fields that ought to agree end up disagreeing,
+            // and the one being looked at is always the wrong one.
             'outstandingCents' => $order->outstandingCents(),
             'paymentStatus' => $order->payment_status,
             'currency' => $order->currency,
@@ -62,8 +60,8 @@ final class OrderResource
             'readyAt' => $order->ready_at?->toAtomString(),
             'deliveredAt' => $order->delivered_at?->toAtomString(),
 
-            // El tablero pinta «hace 7 min» sin depender del reloj del
-            // dispositivo, que en una tablet de local casi nunca está bien.
+            // The board paints "7 min ago" without the device's clock, which on a shop
+            // tablet is almost never right.
             'waitingSeconds' => $order->placed_at === null
                 ? 0
                 : max(0, (int) round(now()->diffInSeconds($order->placed_at, absolute: true))),
@@ -91,7 +89,7 @@ final class OrderResource
             'unitPriceCents' => $item->unit_price_cents,
             'lineTotalCents' => $item->line_total_cents,
             'notes' => $item->notes,
-            // Ya resueltos en texto: la cocina lee «Sin cebolla», no un id.
+            // Already text: the kitchen reads "No onion", not an id.
             'modifiers' => $item->relationLoaded('modifiers')
                 ? $item->modifiers->map(fn ($m): array => [
                     'name' => $m->name,
@@ -113,13 +111,9 @@ final class OrderResource
             'reference' => $payment->reference,
 
             /*
-             * La RUTA del archivo no sale de aquí.
-             *
-             * Lo que viaja es si hay comprobante y por dónde pedirlo: una
-             * dirección de la API que comprueba permiso y negocio antes de
-             * servir la foto. Mandar la ruta del disco sería invitar a que
-             * alguien construya con ella una URL directa el día que a alguien
-             * se le ocurra publicar la carpeta.
+             * The file PATH does not leave here — only whether there is a
+             * receipt and the API address to ask for it, which checks
+             * permission and tenant before serving the photo.
              */
             'hasReceipt' => $payment->receipt_url !== null,
             'receiptUrl' => $payment->receipt_url === null

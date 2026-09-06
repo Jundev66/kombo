@@ -18,18 +18,12 @@ use Platform\Tenancy\Tenant;
 use Platform\Tenancy\TenantSession;
 
 /**
- * «Ya está listo».
+ * "It's ready" — the message that saves the most work in the system. A customer
+ * who does not know how their order is going rings, and that call is absorbed
+ * by whoever is cooking.
  *
- * Es el mensaje que más trabajo ahorra de todo el sistema. Un cliente que no
- * sabe cómo va su pedido llama, y esa llamada se la come quien está cocinando
- * — que además tiene que dejar la plancha para contestarla.
- *
- * Va **por evento**, igual que la cocina, y por la misma razón: `Orders` no
- * sabe que los canales existen. Se puede borrar este módulo entero y los
- * pedidos siguen funcionando; sólo que nadie avisa a nadie.
- *
- * Y va **en la cola**: que WhatsApp esté lento no puede hacer que el cocinero
- * espere para marcar la comanda como lista.
+ * By event, like the kitchen: `Orders` does not know channels exist. And on the
+ * queue, so a slow WhatsApp cannot make the cook wait to mark a ticket ready.
  */
 final class NotifyCustomer implements ShouldQueue
 {
@@ -50,12 +44,11 @@ final class NotifyCustomer implements ShouldQueue
                 return;
             }
 
-            $texto = self::messageFor($event->status);
+            $text = self::messageFor($event->status);
 
-            // Hay estados que no se avisan: «confirmado» y «en preparación» son
-            // lo mismo para quien espera, y dos mensajes seguidos diciendo casi
-            // igual se leen como spam.
-            if ($texto === null) {
+            // Some states are not announced: "confirmed" and "preparing" are the same
+            // thing to whoever is waiting, and two near-identical messages read as spam.
+            if ($text === null) {
                 return;
             }
 
@@ -65,16 +58,16 @@ final class NotifyCustomer implements ShouldQueue
                 return;
             }
 
-            // Se le escribe por donde ÉL escribió. Buscar su teléfono en todos
-            // los canales y mandarle por dos sería duplicarle el aviso.
+            // They are written to wherever THEY wrote from. Looking their number up
+            // across every channel would double the notice.
             $conversation = ConversationModel::where('customer_phone', $order->customer_phone)
                 ->orWhere('external_chat_id', $order->customer_phone)
                 ->latest('last_message_at')
                 ->first();
 
             if ($conversation === null) {
-                // Pidió por el portal sin haber escrito nunca al bot. No hay
-                // por dónde avisarle, y está bien: el portal ya se lo enseña.
+                // They ordered through the portal without ever writing to the bot. Nowhere
+                // to tell them, and that is fine: the portal shows it.
                 return;
             }
 
@@ -84,16 +77,16 @@ final class NotifyCustomer implements ShouldQueue
                 return;
             }
 
-            $seguimiento = PortalLink::forTenant($tenant->slug, "/p/{$order->public_token}");
+            $tracking = PortalLink::forTenant($tenant->slug, "/p/{$order->public_token}");
 
-            $cuerpo = "Pedido #{$order->number}: {$texto}\n\n{$seguimiento}";
+            $body = "Pedido #{$order->number}: {$text}\n\n{$tracking}";
 
-            $this->channels->for($account)->send($conversation->external_chat_id, Reply::text($cuerpo));
+            $this->channels->for($account)->send($conversation->external_chat_id, Reply::text($body));
 
             MessageModel::create([
                 'conversation_id' => $conversation->id,
                 'direction' => 'out',
-                'content' => $cuerpo,
+                'content' => $body,
                 'message_type' => 'notification',
                 'metadata' => ['order_id' => $order->id, 'status' => $event->status],
             ]);
@@ -101,10 +94,10 @@ final class NotifyCustomer implements ShouldQueue
     }
 
     /**
-     * Qué se dice en cada estado, y qué NO se dice.
+     * What is said in each state, and what is not.
      *
-     * En palabras del cliente, no del negocio. Y sólo en los momentos que le
-     * cambian algo: si se avisa de todo, deja de leerlos.
+     * In the customer's words, and only at the moments that change something
+     * for them: notify about everything and they stop reading.
      */
     private static function messageFor(string $status): ?string
     {

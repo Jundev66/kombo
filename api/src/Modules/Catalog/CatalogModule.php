@@ -8,10 +8,9 @@ use Platform\Modules\ModuleManifest;
 use Platform\Modules\Setting;
 
 /**
- * La carta: qué vende este negocio y a cómo.
+ * The menu: what this tenant sells and at what price.
  *
- * Es de núcleo. Un negocio de comida sin carta no es nada, y absolutamente
- * todo lo demás —pedidos, cocina, caja, portal, bots— cuelga de aquí.
+ * Core. Orders, kitchen, till, portal and bots all hang off it.
  */
 final class CatalogModule extends ModuleManifest
 {
@@ -54,10 +53,8 @@ final class CatalogModule extends ModuleManifest
             'catalog.view',
             'catalog.manage',
 
-            // Cambiar precios va APARTE de gestionar el catálogo, y no es
-            // burocracia: es la vía natural para regalar mercancía. Quien
-            // arregla una descripción no tiene por qué poder bajar el precio
-            // de la parrilla a un dólar.
+            // Separate from managing the catalog, and not bureaucracy: it is the
+            // natural way to give merchandise away.
             'catalog.change_price',
         ];
     }
@@ -68,16 +65,12 @@ final class CatalogModule extends ModuleManifest
     public function settings(): array
     {
         return [
-            // Si los precios de la carta ya llevan el impuesto incluido. En
-            // comida rápida casi siempre sí: el cliente ve un número redondo
-            // y paga ese número. El valor por defecto es el comportamiento de
-            // hoy, así que nadie nota que la opción existe hasta que la
-            // necesita.
+            // Whether menu prices already include tax. In fast food they usually do.
+            // The default is today's behaviour, so nobody notices until they need it.
             'prices_include_tax' => Setting::bool(true),
 
-            // Cuántos productos mostrar por página en el panel. En una PC de
-            // mostrador, pedir doscientos de golpe es medio segundo de espera
-            // en cada pantallazo.
+            // Products per page in the dashboard. On a counter PC, two hundred at
+            // once is half a second of waiting on every screenful.
             'page_size' => Setting::int(50)->min(10)->max(200),
         ];
     }

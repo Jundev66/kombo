@@ -4,7 +4,7 @@ titulo: Una frase que diga QUÉ cambia, no cómo
 tipo: funcionalidad        # funcionalidad | arreglo | decision | plan
 estado: en-curso           # propuesto | en-curso | hecho | descartado
 fecha: AAAA-MM-DD
-toca: []                   # rutas: [api/src/Platform/Auth, web/apps/panel]
+toca: []                   # rutas: [api/src/Platform/Auth, web/apps/dashboard]
 relacionados: []           # otros códigos: [KMB-0003]
 ---
 

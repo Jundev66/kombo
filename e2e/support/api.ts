@@ -1,20 +1,19 @@
 import type { Page } from '@playwright/test'
 
 /**
- * Llama a la API **desde dentro de la página**, no desde Node.
+ * Calls the API FROM INSIDE the page, not from Node.
  *
- * Tres razones, y la primera muerde enseguida:
+ * Three reasons, and the first bites immediately:
  *
- * 1. `page.request` / `APIRequestContext` resuelve nombres con **Node**, así
- *    que NO ve `--host-resolver-rules`. Dentro del contenedor,
- *    `elsazon.localhost` sencillamente no existe y la petición falla con un
- *    error de DNS que parece que la API está caída.
- * 2. Desde la página viaja la **cookie de sesión de ese origen**, y cada
- *    negocio es su propio origen. Es justo lo que queremos ejercitar.
- * 3. **Preguntar es determinista; espiar no.** El servidor de desarrollo corre
- *    con StrictMode de React, que dispara cada efecto dos veces: un
- *    `waitForResponse` puede quedarse con la segunda respuesta del usuario
- *    ANTERIOR.
+ * 1. `page.request` resolves names with NODE, so it does not see
+ *    `--host-resolver-rules`. Inside the container `elsazon.localhost` simply
+ *    does not exist, and the request fails with a DNS error that looks like the
+ *    API being down.
+ * 2. From the page, that origin's session cookie travels — and each tenant is
+ *    its own origin, which is exactly what we want to exercise.
+ * 3. Asking is deterministic; spying is not. The dev server runs React
+ *    StrictMode, firing every effect twice, so a `waitForResponse` can capture
+ *    the PREVIOUS user's second response.
  */
 export async function apiFetch<T>(page: Page, path: string): Promise<T> {
     return page.evaluate(async (p: string) => {
@@ -37,7 +36,7 @@ export async function apiFetch<T>(page: Page, path: string): Promise<T> {
     }, path) as Promise<T>
 }
 
-/** El estado crudo de una respuesta, sin exigir que sea correcta. */
+/** A response's raw state, without requiring it to be successful. */
 export async function apiStatus(page: Page, path: string): Promise<number> {
     return page.evaluate(async (p: string) => {
         const response = await fetch(p, { credentials: 'same-origin' })
@@ -47,11 +46,10 @@ export async function apiStatus(page: Page, path: string): Promise<number> {
 }
 
 /**
- * Un POST desde dentro de la página, con la cookie de CSRF que Laravel exige.
+ * A POST from inside the page, with the CSRF cookie Laravel requires.
  *
- * Sirve para SEMBRAR lo que la prueba necesita —un pedido que todavía no se
- * puede crear desde ninguna pantalla— sin salirse del navegador y sin perder
- * la sesión del negocio.
+ * For SEEDING what a test needs — an order that cannot yet be created from any
+ * screen — without leaving the browser or losing the tenant's session.
  */
 export async function apiPost<T>(page: Page, path: string, body: unknown): Promise<T> {
     return page.evaluate(

@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 /*
- * Los reportes.
+ * The reports.
  *
- * Cuatro preguntas que un dueño de comida se hace de verdad: cuánto vendí,
- * qué se vende más, a qué hora entra la gente, y cómo me pagan. Las pruebas
- * están escritas contra esas respuestas, no contra la forma del JSON.
+ * Four questions a food business owner actually asks: how much did I sell, what
+ * sells most, what time do people come in, and how do they pay me. The tests
+ * are written against those answers, not against the shape of the JSON.
  */
 
 use App\Models\Catalog\ProductModel;
@@ -25,14 +25,14 @@ use Platform\Subscription\Subscriptions;
 use Platform\Tenancy\TenantStatus;
 
 beforeEach(function (): void {
-    $sufijo = Str::lower(Str::random(6));
+    $suffix = Str::lower(Str::random(6));
 
-    $this->slug = "elsazon-{$sufijo}";
-    $this->tenant = makeTenant($this->slug, plan: 'negocio');
+    $this->slug = "elsazon-{$suffix}";
+    $this->tenant = makeTenant($this->slug, plan: 'business');
 
     actingForTenant($this->tenant);
-    foreach (['core', 'catalog', 'orders', 'reports'] as $modulo) {
-        enableModule($this->tenant, $modulo);
+    foreach (['core', 'catalog', 'orders', 'reports'] as $module) {
+        enableModule($this->tenant, $module);
     }
 
     $this->maria = makeUser($this->tenant, 'maria@ejemplo.com', 'María');
@@ -43,13 +43,13 @@ beforeEach(function (): void {
 });
 
 /**
- * Un pedido vendido: confirmado, y opcionalmente cobrado.
+ * A sold order: confirmed, and optionally paid.
  *
- * Se usa el camino normal —los mismos casos de uso que usa la caja— y no un
- * `insert` a mano: una prueba que siembra filas a mano puede pasar en verde
- * con el flujo real roto.
+ * It goes the normal way — the same use cases the till uses — rather than a
+ * hand-written `insert`: a test that seeds rows by hand can pass green with the
+ * real flow broken.
  */
-function vender(string $productId, int $quantity = 1, ?string $method = null, ?Carbon $cuando = null): OrderModel
+function sell(string $productId, int $quantity = 1, ?string $method = null, ?Carbon $when = null): OrderModel
 {
     $order = app(PlaceOrder::class)->execute(
         items: [['product_id' => $productId, 'quantity' => $quantity]],
@@ -67,188 +67,187 @@ function vender(string $productId, int $quantity = 1, ?string $method = null, ?C
         );
     }
 
-    if ($cuando !== null) {
-        // Se mueven las dos fechas: el reporte agrupa por `confirmed_at` y la
-        // hora del día sale de `placed_at`. En UTC, que es lo que guarda la
-        // columna: una cadena sin huso es justo el fallo que estas pruebas
-        // vienen a fijar.
+    if ($when !== null) {
+        // Both dates move: the report groups by `confirmed_at` and the hour of day
+        // comes from `placed_at`. In UTC, which is what the column stores — a string
+        // with no timezone is exactly the bug these tests pin.
         OrderModel::where('id', $order->id)->update([
-            'confirmed_at' => $cuando->copy()->utc(),
-            'placed_at' => $cuando->copy()->utc(),
+            'confirmed_at' => $when->copy()->utc(),
+            'placed_at' => $when->copy()->utc(),
         ]);
     }
 
     return $order->refresh();
 }
 
-function reporte(string $slug, string $periodo = 'hoy'): TestResponse
+function salesReport(string $slug, string $period = 'today'): TestResponse
 {
     return test()->withHeaders(browsingAs($slug))
-        ->getJson(urlFor($slug, "/api/v1/reports/sales?periodo={$periodo}"));
+        ->getJson(urlFor($slug, "/api/v1/reports/sales?period={$period}"));
 }
 
-it('dice cuánto se vendió y cuánto entró, que no es lo mismo', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('says how much was sold and how much came in, which are not the same', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    // Uno cobrado y otro no: el de domicilio que se paga al llegar.
-    vender($this->arepa->id, 2, method: 'cash_usd');
-    vender($this->arepa->id, 1);
+    // One paid and one not: the delivery order paid on arrival.
+    sell($this->arepa->id, 2, method: 'cash_usd');
+    sell($this->arepa->id, 1);
 
-    $resumen = reporte($this->slug)->assertOk()->json('data.summary');
+    $summary = salesReport($this->slug)->assertOk()->json('data.summary');
 
-    expect($resumen['orders'])->toBe(2)
-        ->and($resumen['soldCents'])->toBe(900)
-        ->and($resumen['collectedCents'])->toBe(600)
-        // La diferencia es lo que falta por cobrar, y es de las primeras cosas
-        // que un dueño mira.
-        ->and($resumen['outstandingCents'])->toBe(300)
-        ->and($resumen['averageTicketCents'])->toBe(450);
+    expect($summary['orders'])->toBe(2)
+        ->and($summary['soldCents'])->toBe(900)
+        ->and($summary['collectedCents'])->toBe(600)
+        // The difference is what is still owed, one of the first things an owner
+        // looks at.
+        ->and($summary['outstandingCents'])->toBe(300)
+        ->and($summary['averageTicketCents'])->toBe(450);
 });
 
-it('un pedido sin confirmar NO es una venta', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('an unconfirmed order is NOT a sale', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    // Entró, pero el negocio todavía no lo aceptó.
+    // It arrived, but the tenant has not accepted it yet.
     app(PlaceOrder::class)->execute(
         items: [['product_id' => $this->arepa->id, 'quantity' => 1]],
         channel: 'portal',
     );
 
-    expect(reporte($this->slug)->json('data.summary.orders'))->toBe(0);
+    expect(salesReport($this->slug)->json('data.summary.orders'))->toBe(0);
 });
 
-it('lo cancelado no cuenta como vendido, pero se dice cuánto fue', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('cancelled does not count as sold, but how much is reported', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    $order = vender($this->arepa->id, 1, method: 'cash_usd');
+    $order = sell($this->arepa->id, 1, method: 'cash_usd');
     app(CancelOrder::class)
         ->execute((string) $order->id, 'El cliente se arrepintió');
 
-    vender($this->jugo->id, 1, method: 'cash_usd');
+    sell($this->jugo->id, 1, method: 'cash_usd');
 
-    $resumen = reporte($this->slug)->json('data.summary');
+    $summary = salesReport($this->slug)->json('data.summary');
 
-    expect($resumen['orders'])->toBe(1)
-        ->and($resumen['soldCents'])->toBe(100)
-        // Cuántos se cayeron es información, no ruido: si son muchos, algo
-        // pasa en la cocina o en el precio.
-        ->and($resumen['cancelled'])->toBe(1);
+    expect($summary['orders'])->toBe(1)
+        ->and($summary['soldCents'])->toBe(100)
+        // How many fell through is information, not noise: a lot of them means
+        // something is wrong in the kitchen or in the price.
+        ->and($summary['cancelled'])->toBe(1);
 });
 
-it('el ticket promedio con cero pedidos es cero, no una división por cero', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('the average ticket with zero orders is zero, not a division by zero', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    expect(reporte($this->slug)->json('data.summary.averageTicketCents'))->toBe(0);
+    expect(salesReport($this->slug)->json('data.summary.averageTicketCents'))->toBe(0);
 });
 
-it('dice lo que más se vende, de mayor a menor', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('says what sells most, highest first', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    vender($this->jugo->id, 10, method: 'cash_usd');   // 10 × 100 = 1.000
-    vender($this->arepa->id, 5, method: 'cash_usd');   //  5 × 300 = 1.500
+    sell($this->jugo->id, 10, method: 'cash_usd');   // 10 × 100 = 1,000
+    sell($this->arepa->id, 5, method: 'cash_usd');   //  5 × 300 = 1,500
 
-    $productos = reporte($this->slug)->json('data.byProduct');
+    $products = salesReport($this->slug)->json('data.byProduct');
 
-    // Ordenado por lo que DEJA, no por cuántas unidades salieron: diez jugos
-    // se ven mucho y venden menos que cinco areperas.
-    expect($productos[0]['name'])->toBe('Reina Pepiada')
-        ->and($productos[0]['totalCents'])->toBe(1500)
-        ->and($productos[0]['quantity'])->toBe(5)
-        ->and($productos[1]['name'])->toBe('Jugo');
+    // Ordered by what it LEAVES, not by units sold: ten juices look busy and
+    // earn less than five areperas.
+    expect($products[0]['name'])->toBe('Reina Pepiada')
+        ->and($products[0]['totalCents'])->toBe(1500)
+        ->and($products[0]['quantity'])->toBe(5)
+        ->and($products[1]['name'])->toBe('Jugo');
 });
 
-it('lo vendido se agrupa por el nombre que tenía en su momento', function (): void {
-    // Si el dueño renombra y sube el precio, son dos ofertas distintas y
-    // mezclarlas escondería justo el efecto que quiere medir.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('sales are grouped by the name it had at the time', function (): void {
+    // If the owner renames and raises the price, they are two different offers,
+    // and merging them would hide the effect being measured.
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    vender($this->arepa->id, 1, method: 'cash_usd');
+    sell($this->arepa->id, 1, method: 'cash_usd');
 
     $this->arepa->update(['name' => 'Reina Pepiada GRANDE']);
 
-    vender($this->arepa->id, 1, method: 'cash_usd');
+    sell($this->arepa->id, 1, method: 'cash_usd');
 
-    $nombres = array_column(reporte($this->slug)->json('data.byProduct'), 'name');
+    $names = array_column(salesReport($this->slug)->json('data.byProduct'), 'name');
 
-    expect($nombres)->toContain('Reina Pepiada')
+    expect($names)->toContain('Reina Pepiada')
         ->toContain('Reina Pepiada GRANDE');
 });
 
-it('las 24 horas vienen SIEMPRE, con cero donde no hubo nada', function (): void {
-    // Una pantalla que tenga que rellenar los huecos acabaría rellenándolos
-    // distinto que el que exporte a una hoja de cálculo.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('all 24 hours come back ALWAYS, with zero where there was nothing', function (): void {
+    // A screen that had to fill the gaps would fill them differently from
+    // whoever exports to a spreadsheet.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $horas = reporte($this->slug)->json('data.byHour');
+    $hours = salesReport($this->slug)->json('data.byHour');
 
-    expect($horas)->toHaveCount(24)
-        ->and($horas[0]['hour'])->toBe(0)
-        ->and($horas[23]['hour'])->toBe(23)
-        ->and($horas[13]['orders'])->toBe(0);
+    expect($hours)->toHaveCount(24)
+        ->and($hours[0]['hour'])->toBe(0)
+        ->and($hours[23]['hour'])->toBe(23)
+        ->and($hours[13]['orders'])->toBe(0);
 });
 
-it('la hora es la del NEGOCIO, no la del servidor', function (): void {
+it('the clock is the TENANT\'s, not the server\'s', function (): void {
     /*
-     * Es el fallo que pone el pico del almuerzo a las cuatro de la tarde: el
-     * contenedor corre en UTC y Caracas está cuatro horas atrás.
+     * The bug that puts the lunch peak at four in the afternoon: the container
+     * runs in UTC and Caracas is four hours behind.
      *
-     * Con el reloj FIJADO: si dependiera de a qué hora corra la suite, pasaría
-     * por la mañana y fallaría de madrugada, que es la peor clase de prueba.
+     * With the clock FROZEN: depending on when the suite runs, it would pass in
+     * the morning and fail at night — the worst kind of test.
      */
     test()->travelTo(Carbon::parse('2026-03-10 15:00', 'America/Caracas'));
 
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    vender(
+    sell(
         $this->arepa->id,
         1,
         method: 'cash_usd',
-        cuando: Carbon::parse('2026-03-10 12:00', 'America/Caracas'),
+        when: Carbon::parse('2026-03-10 12:00', 'America/Caracas'),
     );
 
-    $horas = reporte($this->slug)->json('data.byHour');
+    $hours = salesReport($this->slug)->json('data.byHour');
 
-    expect($horas[12]['orders'])->toBe(1)
-        // Las 16:00 UTC son el mediodía de Caracas. Si el reporte agrupara por
-        // la hora del servidor, el pico aparecería aquí.
-        ->and($horas[16]['orders'])->toBe(0);
+    expect($hours[12]['orders'])->toBe(1)
+        // 16:00 UTC is midday in Caracas. Grouping by the server's hour would put
+        // the peak here.
+        ->and($hours[16]['orders'])->toBe(0);
 
     test()->travelBack();
 });
 
-it('dice cómo pagan, y sólo cuenta lo confirmado', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('says how they pay, counting only what is confirmed', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    vender($this->arepa->id, 1, method: 'cash_usd');
-    vender($this->arepa->id, 2, method: 'cash_usd');
+    sell($this->arepa->id, 1, method: 'cash_usd');
+    sell($this->arepa->id, 2, method: 'cash_usd');
 
-    // Un pago móvil esperando revisión todavía NO es dinero.
-    $order = vender($this->jugo->id, 1);
+    // A mobile payment awaiting review is NOT money yet.
+    $order = sell($this->jugo->id, 1);
     app(RegisterPayment::class)->execute(
         orderId: (string) $order->id,
         method: 'pago_movil',
         amountCents: 100,
     );
 
-    $metodos = reporte($this->slug)->json('data.byPaymentMethod');
+    $methods = salesReport($this->slug)->json('data.byPaymentMethod');
 
-    expect($metodos)->toHaveCount(1)
-        ->and($metodos[0]['method'])->toBe('cash_usd')
-        ->and($metodos[0]['totalCents'])->toBe(900);
+    expect($methods)->toHaveCount(1)
+        ->and($methods[0]['method'])->toBe('cash_usd')
+        ->and($methods[0]['totalCents'])->toBe(900);
 });
 
-it('dice por dónde entró cada pedido', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('says which channel each order came in through', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    vender($this->arepa->id, 1, method: 'cash_usd');
+    sell($this->arepa->id, 1, method: 'cash_usd');
 
     $order = app(PlaceOrder::class)->execute(
         items: [['product_id' => $this->arepa->id, 'quantity' => 1]],
@@ -256,200 +255,197 @@ it('dice por dónde entró cada pedido', function (): void {
     );
     app(AdvanceOrder::class)->execute((string) $order->id, OrderStatus::Confirmed);
 
-    $canales = collect(reporte($this->slug)->json('data.byChannel'))->keyBy('channel');
+    $channels = collect(salesReport($this->slug)->json('data.byChannel'))->keyBy('channel');
 
-    expect($canales['counter']['orders'])->toBe(1)
-        ->and($canales['portal']['orders'])->toBe(1);
+    expect($channels['counter']['orders'])->toBe(1)
+        ->and($channels['portal']['orders'])->toBe(1);
 });
 
-it('«ayer» es ayer en la hora del negocio, y no arrastra lo de hoy', function (): void {
+it('"yesterday" is yesterday in the tenant\'s timezone, and drags in none of today', function (): void {
     test()->travelTo(Carbon::parse('2026-03-10 15:00', 'America/Caracas'));
 
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    vender($this->arepa->id, 1, method: 'cash_usd');
-    vender(
+    sell($this->arepa->id, 1, method: 'cash_usd');
+    sell(
         $this->jugo->id,
         1,
         method: 'cash_usd',
-        cuando: Carbon::parse('2026-03-09 12:00', 'America/Caracas'),
+        when: Carbon::parse('2026-03-09 12:00', 'America/Caracas'),
     );
 
-    expect(reporte($this->slug, 'hoy')->json('data.summary.orders'))->toBe(1)
-        ->and(reporte($this->slug, 'ayer')->json('data.summary.orders'))->toBe(1)
-        ->and(reporte($this->slug, 'ayer')->json('data.summary.soldCents'))->toBe(100);
+    expect(salesReport($this->slug, 'today')->json('data.summary.orders'))->toBe(1)
+        ->and(salesReport($this->slug, 'yesterday')->json('data.summary.orders'))->toBe(1)
+        ->and(salesReport($this->slug, 'yesterday')->json('data.summary.soldCents'))->toBe(100);
 
     test()->travelBack();
 });
 
-it('el mes incluye lo de hoy y lo de ayer', function (): void {
-    // Con el reloj fijado a mitad de mes: así no hay que preguntarse qué pasa
-    // cuando la suite corre un día 1, que es la clase de rama que nadie prueba.
+it('the month includes today\'s and yesterday\'s', function (): void {
+    // Clock frozen mid-month, so there is no question of what happens when the
+    // suite runs on the 1st — the kind of branch nobody tests.
     test()->travelTo(Carbon::parse('2026-03-10 15:00', 'America/Caracas'));
 
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    vender($this->arepa->id, 1, method: 'cash_usd');
-    vender(
+    sell($this->arepa->id, 1, method: 'cash_usd');
+    sell(
         $this->jugo->id,
         1,
         method: 'cash_usd',
-        cuando: Carbon::parse('2026-03-09 12:00', 'America/Caracas'),
+        when: Carbon::parse('2026-03-09 12:00', 'America/Caracas'),
     );
 
-    expect(reporte($this->slug, 'mes')->json('data.summary.orders'))->toBe(2)
-        // Y no arrastra lo del mes pasado.
-        ->and(reporte($this->slug, 'mes')->json('data.summary.soldCents'))->toBe(400);
+    expect(salesReport($this->slug, 'month')->json('data.summary.orders'))->toBe(2)
+        // And it does not drag in last month's.
+        ->and(salesReport($this->slug, 'month')->json('data.summary.soldCents'))->toBe(400);
 
     test()->travelBack();
 });
 
-it('quien no puede ver las ventas, no las ve', function (): void {
-    // Hay negocios donde el encargado opera todo el día y el dueño prefiere
-    // que no vea los totales.
+it('whoever cannot see the sales does not see them', function (): void {
+    // In some tenants the manager works all day and the owner would rather they
+    // did not see the totals.
     actingForTenant($this->tenant);
 
     $carlos = makeUser($this->tenant, 'carlos@ejemplo.com', 'Carlos', pin: '4567');
     giveRole($this->tenant, $carlos, 'kitchen');
 
-    entrarComo($this->slug, 'carlos@ejemplo.com');
+    loginAs($this->slug, 'carlos@ejemplo.com');
 
-    reporte($this->slug)->assertForbidden();
+    salesReport($this->slug)->assertForbidden();
 });
 
-it('un negocio sin reportes no tiene reportes', function (): void {
-    $sufijo = Str::lower(Str::random(6));
-    $slug = "sinreportes-{$sufijo}";
-    $otro = makeTenant($slug, plan: 'inicial');
+it('a tenant without reports has no reports', function (): void {
+    $suffix = Str::lower(Str::random(6));
+    $slug = "noreports-{$suffix}";
+    $other = makeTenant($slug, plan: 'starter');
 
-    actingForTenant($otro);
-    foreach (['core', 'catalog', 'orders'] as $modulo) {
-        enableModule($otro, $modulo);
+    actingForTenant($other);
+    foreach (['core', 'catalog', 'orders'] as $module) {
+        enableModule($other, $module);
     }
 
-    $pedro = makeUser($otro, 'pedro@ejemplo.com', 'Pedro');
-    giveRole($otro, $pedro, 'owner');
+    $pedro = makeUser($other, 'pedro@ejemplo.com', 'Pedro');
+    giveRole($other, $pedro, 'owner');
 
-    entrarComo($slug, 'pedro@ejemplo.com');
+    loginAs($slug, 'pedro@ejemplo.com');
 
-    // 404 y no 403: que un módulo no exista es información sobre el contrato.
-    reporte($slug)->assertNotFound();
+    // 404 and not 403: a missing module is contract information.
+    salesReport($slug)->assertNotFound();
 });
 
-it('los reportes de un negocio no ven las ventas de otro', function (): void {
-    // RLS ya lo garantiza, pero estas consultas llevan uniones y `groupBy`
-    // escritos a mano: es justo donde un `where` olvidado no se nota.
-    $sufijo = Str::lower(Str::random(6));
-    $vecino = makeTenant("vecino-{$sufijo}", plan: 'negocio');
+it('one tenant\'s reports do not see another\'s sales', function (): void {
+    // RLS already guarantees it, but these queries carry hand-written joins and
+    // `groupBy`s: exactly where a forgotten `where` goes unnoticed.
+    $suffix = Str::lower(Str::random(6));
+    $neighbour = makeTenant("vecino-{$suffix}", plan: 'business');
 
-    actingForTenant($vecino);
-    foreach (['core', 'catalog', 'orders', 'reports'] as $modulo) {
-        enableModule($vecino, $modulo);
+    actingForTenant($neighbour);
+    foreach (['core', 'catalog', 'orders', 'reports'] as $module) {
+        enableModule($neighbour, $module);
     }
 
     $pizza = ProductModel::create(['name' => 'Margarita', 'price_cents' => 900]);
-    vender($pizza->id, 3, method: 'cash_usd');
+    sell($pizza->id, 3, method: 'cash_usd');
 
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    vender($this->arepa->id, 1, method: 'cash_usd');
+    sell($this->arepa->id, 1, method: 'cash_usd');
 
-    $data = reporte($this->slug)->json('data');
+    $data = salesReport($this->slug)->json('data');
 
     expect($data['summary']['soldCents'])->toBe(300)
         ->and(array_column($data['byProduct'], 'name'))->toBe(['Reina Pepiada']);
 });
 
-it('el reporte no consulta la base una vez por producto', function (): void {
+it('the report does not query the database once per product', function (): void {
     /*
-     * El N+1 es el defecto que más se nota en una máquina modesta, y un
-     * reporte es donde más fácil se cuela: basta con recorrer los pedidos y
-     * pedirle las líneas a cada uno.
+     * N+1 is the defect that shows most on a modest machine, and a report is
+     * where it slips in most easily: walking the orders and asking each for its
+     * lines.
      *
-     * Se cuentan las consultas y se exige que no crezcan con los datos.
+     * The queries are counted, and required not to grow with the data.
      */
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
     foreach (range(1, 10) as $i) {
-        vender($this->arepa->id, 1, method: 'cash_usd');
+        sell($this->arepa->id, 1, method: 'cash_usd');
     }
 
     DB::flushQueryLog();
     DB::enableQueryLog();
 
-    reporte($this->slug)->assertOk();
+    salesReport($this->slug)->assertOk();
 
-    $consultas = count(DB::getQueryLog());
+    $queries = count(DB::getQueryLog());
     DB::disableQueryLog();
 
-    // Cinco bloques de reporte más lo que cuesta resolver la sesión y las
-    // capacidades. Lo que importa es que no dependa de cuántos pedidos hay.
-    expect($consultas)->toBeLessThan(20);
+    // Five report blocks plus resolving the session and capabilities. What
+    // matters is that it does not depend on how many orders there are.
+    expect($queries)->toBeLessThan(20);
 });
 
-it('una venta de las nueve de la noche cuenta como de HOY', function (): void {
+it('a nine-in-the-evening sale counts as TODAY\'s', function (): void {
     /*
-     * El fallo que esta prueba fija: el rango se calcula en la hora del negocio
-     * pero viaja a la base como texto SIN huso, y PostgreSQL lo lee en UTC. Con
-     * Caracas cuatro horas atrás, las ventas de después de las ocho de la noche
-     * caían fuera de «hoy» — y a las once de la mañana todo parecía correcto,
-     * que es lo que lo hace difícil de ver.
+     * The bug this pins: the range is computed in the tenant's timezone but
+     * travels to the database as text WITHOUT one, and PostgreSQL reads it in
+     * UTC. With Caracas four hours behind, sales after eight in the evening fell
+     * outside "today" — and at eleven in the morning everything looked correct.
      */
     $tenant = $this->tenant;
     $slug = $this->slug;
     $arepa = $this->arepa;
 
-    // Las nueve de la noche en Caracas: la una de la madrugada del día
-    // siguiente en UTC.
+    // Nine at night in Caracas: one in the morning the next day, in UTC.
     test()->travelTo(Carbon::parse('2026-03-10 21:00', 'America/Caracas'));
 
-    entrarComo($slug, 'maria@ejemplo.com');
+    loginAs($slug, 'maria@ejemplo.com');
     actingForTenant($tenant);
 
-    vender($arepa->id, 1, method: 'cash_usd');
+    sell($arepa->id, 1, method: 'cash_usd');
 
-    expect(reporte($slug, 'hoy')->json('data.summary.orders'))->toBe(1)
-        ->and(reporte($slug, 'ayer')->json('data.summary.orders'))->toBe(0);
+    expect(salesReport($slug, 'today')->json('data.summary.orders'))->toBe(1)
+        ->and(salesReport($slug, 'yesterday')->json('data.summary.orders'))->toBe(0);
 
     test()->travelBack();
 });
 
-it('exportar da un archivo que se abre en una hoja de cálculo', function (): void {
+it('exporting gives a file that opens in a spreadsheet', function (): void {
     /*
-     * Esto es lo que hace verdad la frase del middleware de suspensión: «lee y
-     * exporta». Sin un botón de exportar, esa promesa era una frase bonita en
-     * un comentario.
+     * This is what makes the suspension middleware's promise true: "reads and
+     * exports". Without an export button it was a nice line in a comment.
      */
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    vender($this->arepa->id, 2, method: 'cash_usd');
+    sell($this->arepa->id, 2, method: 'cash_usd');
 
-    $respuesta = test()->withHeaders(browsingAs($this->slug))
-        ->get(urlFor($this->slug, '/api/v1/reports/export?periodo=mes'))
+    $response = test()->withHeaders(browsingAs($this->slug))
+        ->get(urlFor($this->slug, '/api/v1/reports/export?period=month'))
         ->assertOk();
 
-    $csv = $respuesta->streamedContent();
+    $csv = $response->streamedContent();
 
-    // El BOM: sin él, Excel en Windows enseña «Reina Pepiáda».
+    // The BOM: without it, Excel on Windows shows "Reina Pepiáda".
     expect($csv)->toStartWith("\xEF\xBB\xBF")
         ->and($csv)->toContain('numero;fecha;estado')
         ->and($csv)->toContain('2x Reina Pepiada')
-        // Coma decimal: una hoja en español lee «6.00» como seiscientos.
+        // Decimal comma: a Spanish spreadsheet reads "6.00" as six hundred.
         ->and($csv)->toContain('6,00');
 });
 
-it('un negocio suspendido sigue pudiendo exportar lo suyo', function (): void {
-    // Sus pedidos son suyos aunque nos deba tres meses. Lo que se corta es
-    // seguir operando gratis, no el acceso a sus datos.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('a suspended tenant can still export what is theirs', function (): void {
+    // Their orders are theirs even owing us three months. What is cut off is
+    // carrying on for free, not access to their data.
+    loginAs($this->slug, 'maria@ejemplo.com');
     actingForTenant($this->tenant);
 
-    vender($this->arepa->id, 1, method: 'cash_usd');
+    sell($this->arepa->id, 1, method: 'cash_usd');
 
     app(Subscriptions::class)
         ->setTenantStatus($this->tenant, TenantStatus::Suspended);
@@ -459,13 +455,13 @@ it('un negocio suspendido sigue pudiendo exportar lo suyo', function (): void {
         ->assertOk();
 });
 
-it('quien no ve las ventas tampoco las exporta', function (): void {
+it('whoever cannot see the sales cannot export them either', function (): void {
     actingForTenant($this->tenant);
 
     $carlos = makeUser($this->tenant, 'carlos-export@ejemplo.com', 'Carlos');
     giveRole($this->tenant, $carlos, 'kitchen');
 
-    entrarComo($this->slug, 'carlos-export@ejemplo.com');
+    loginAs($this->slug, 'carlos-export@ejemplo.com');
 
     test()->withHeaders(browsingAs($this->slug))
         ->get(urlFor($this->slug, '/api/v1/reports/export'))

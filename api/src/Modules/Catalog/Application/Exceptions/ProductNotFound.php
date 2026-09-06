@@ -7,12 +7,10 @@ namespace Modules\Catalog\Application\Exceptions;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Ese producto no existe **en este negocio**.
+ * That product does not exist in this tenant.
  *
- * 404 y no 403: si el identificador es de otro negocio, RLS hace que la
- * consulta ni lo encuentre, así que decir «no puedes» sería confirmar que
- * existe. Aquí las dos situaciones —no existe, o es de otro— dan exactamente
- * la misma respuesta, que es lo correcto.
+ * 404 and not 403: an id from another tenant is invisible to RLS anyway, and
+ * "you may not" would confirm it exists.
  */
 final class ProductNotFound extends NotFoundHttpException
 {

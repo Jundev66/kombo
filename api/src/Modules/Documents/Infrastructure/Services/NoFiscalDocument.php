@@ -7,15 +7,10 @@ namespace Modules\Documents\Infrastructure\Services;
 use Modules\Documents\Domain\Ports\FiscalDocument;
 
 /**
- * La implementación por defecto: **no se emiten documentos fiscales**.
+ * The default implementation: no fiscal documents are issued.
  *
- * Existe para que el flujo de la caja pueda preguntar sin ramificarse en
- * `if (hay adaptador fiscal)`. Devuelve que no, siempre, y el sistema sigue
- * emitiendo su nota de entrega.
- *
- * Es también la respuesta honesta a «¿y si mañana me homologo?»: se escribe
- * otro adaptador, se enlaza en su sitio, y ni la caja ni los pedidos se
- * enteran.
+ * It exists so the till's flow can ask without branching. It answers no,
+ * always, and the system carries on issuing its delivery note.
  */
 final class NoFiscalDocument implements FiscalDocument
 {

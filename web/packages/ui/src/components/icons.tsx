@@ -1,23 +1,17 @@
 import type { ComponentType, ReactNode } from 'react'
 
 /**
- * Los iconos, dibujados a mano y en línea.
+ * The icons, drawn by hand and inline.
  *
- * **No es una librería, y no por gusto.** El presupuesto de arranque son 180 KB
- * en la caja y 120 KB en la cocina, y cualquier paquete de iconos se lleva una
- * parte que no vuelve. Estos son quince trazos: pesan menos de un kilobyte
- * entre todos, y cada uno se exporta por separado para que la aplicación que no
- * lo usa no lo arrastre.
+ * Not a library, and not out of preference: the startup budget is 180 KB at the
+ * till and 120 KB in the kitchen, and any icon package takes a slice that never
+ * comes back. These are fifteen strokes weighing under a kilobyte in total,
+ * each exported separately so an app that does not use one does not carry it.
  *
- * Antes eran emojis. Funcionaban, pero cada sistema operativo dibuja el suyo:
- * la misma pantalla se veía distinta en la tablet de la cocina, en el teléfono
- * del dueño y en la PC del mostrador, y algunos ni siquiera existían en la
- * fuente de un Android viejo —donde salía un cuadrito—. Un icono que a veces es
- * un cuadrito no es un icono.
- *
- * Heredan el color (`currentColor`) y el grosor no cambia con el tamaño: a
- * 24 px en una barra y a 20 px en una lista tienen que verse de la misma
- * familia.
+ * They used to be emoji. Every operating system draws its own, so the same
+ * screen looked different on the kitchen tablet, the owner's phone and the
+ * counter PC — and some did not exist in an old Android's font, where a square
+ * appeared instead. An icon that is sometimes a square is not an icon.
  */
 export type Icon = ComponentType<{ className?: string }>
 
@@ -30,8 +24,8 @@ function Glyph({ children, className }: { children: ReactNode; className?: strin
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
-      // Decorativos: la etiqueta de texto va siempre al lado, así que
-      // anunciarlos otra vez sería repetir cada entrada del menú dos veces.
+      // Decorative: the text label is always alongside, so announcing them would
+      // repeat every menu entry twice.
       aria-hidden="true"
       className={className ?? 'size-6'}
     >
@@ -40,7 +34,7 @@ function Glyph({ children, className }: { children: ReactNode; className?: strin
   )
 }
 
-/** Pedidos. */
+/** Orders. */
 export const ReceiptIcon: Icon = (props) => (
   <Glyph {...props}>
     <path d="M6 2h12v20l-3-2-3 2-3-2-3 2Z" />
@@ -48,7 +42,7 @@ export const ReceiptIcon: Icon = (props) => (
   </Glyph>
 )
 
-/** La carta. */
+/** The menu. */
 export const MenuIcon: Icon = (props) => (
   <Glyph {...props}>
     <path d="M6 2v5a2 2 0 0 0 4 0V2M8 9v13" />
@@ -56,14 +50,14 @@ export const MenuIcon: Icon = (props) => (
   </Glyph>
 )
 
-/** Categorías. */
+/** Categories. */
 export const FolderIcon: Icon = (props) => (
   <Glyph {...props}>
     <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
   </Glyph>
 )
 
-/** Agregados. */
+/** Add-ons. */
 export const PlusCircleIcon: Icon = (props) => (
   <Glyph {...props}>
     <circle cx="12" cy="12" r="9" />
@@ -71,7 +65,7 @@ export const PlusCircleIcon: Icon = (props) => (
   </Glyph>
 )
 
-/** Entregas. */
+/** Deliveries. */
 export const TruckIcon: Icon = (props) => (
   <Glyph {...props}>
     <path d="M2 6h11v10H2ZM13 9.5h4l3 3V16h-7" />
@@ -80,7 +74,7 @@ export const TruckIcon: Icon = (props) => (
   </Glyph>
 )
 
-/** Un cliente. */
+/** A customer. */
 export const UserIcon: Icon = (props) => (
   <Glyph {...props}>
     <circle cx="12" cy="8" r="4" />
@@ -88,7 +82,7 @@ export const UserIcon: Icon = (props) => (
   </Glyph>
 )
 
-/** Zonas de reparto. */
+/** Delivery zones. */
 export const PinIcon: Icon = (props) => (
   <Glyph {...props}>
     <path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z" />
@@ -96,7 +90,7 @@ export const PinIcon: Icon = (props) => (
   </Glyph>
 )
 
-/** Ventas. */
+/** Sales. */
 export const ChartIcon: Icon = (props) => (
   <Glyph {...props}>
     <path d="M3 21h18" />
@@ -104,14 +98,14 @@ export const ChartIcon: Icon = (props) => (
   </Glyph>
 )
 
-/** WhatsApp y los canales. */
+/** WhatsApp and the channels. */
 export const ChatIcon: Icon = (props) => (
   <Glyph {...props}>
     <path d="M21 12a8 8 0 0 1-8 8H8l-5 3 1.2-4.3A8 8 0 0 1 11 4h2a8 8 0 0 1 8 8Z" />
   </Glyph>
 )
 
-/** El horario. */
+/** Opening hours. */
 export const ClockIcon: Icon = (props) => (
   <Glyph {...props}>
     <circle cx="12" cy="12" r="9" />
@@ -119,7 +113,7 @@ export const ClockIcon: Icon = (props) => (
   </Glyph>
 )
 
-/** El equipo. */
+/** The team. */
 export const UsersIcon: Icon = (props) => (
   <Glyph {...props}>
     <circle cx="9" cy="8" r="3.5" />
@@ -128,7 +122,7 @@ export const UsersIcon: Icon = (props) => (
   </Glyph>
 )
 
-/** La tasa del día. */
+/** The rate of the day. */
 export const BanknoteIcon: Icon = (props) => (
   <Glyph {...props}>
     <rect x="2" y="6" width="20" height="12" rx="2" />
@@ -137,7 +131,7 @@ export const BanknoteIcon: Icon = (props) => (
   </Glyph>
 )
 
-/** La caja del mostrador. */
+/** The counter till. */
 export const RegisterIcon: Icon = (props) => (
   <Glyph {...props}>
     <path d="M3 9 4.5 4h15L21 9M4 9v11h16V9" />
@@ -145,7 +139,7 @@ export const RegisterIcon: Icon = (props) => (
   </Glyph>
 )
 
-/** La cocina. */
+/** The kitchen. */
 export const FlameIcon: Icon = (props) => (
   <Glyph {...props}>
     <path d="M12 22a6 6 0 0 0 6-6c0-5-6-14-6-14S6 11 6 16a6 6 0 0 0 6 6Z" />
@@ -153,7 +147,7 @@ export const FlameIcon: Icon = (props) => (
   </Glyph>
 )
 
-/** «Más». */
+/** "More". */
 export const MoreIcon: Icon = (props) => (
   <Glyph {...props}>
     <circle cx="5" cy="12" r="1.25" fill="currentColor" />
@@ -162,7 +156,7 @@ export const MoreIcon: Icon = (props) => (
   </Glyph>
 )
 
-/** Esto sale de esta aplicación. */
+/** This leaves the app. */
 export const ExternalIcon: Icon = (props) => (
   <Glyph {...props}>
     <path d="M8 16 16 8M9.5 8H16v6.5" />

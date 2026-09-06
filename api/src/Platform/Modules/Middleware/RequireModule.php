@@ -11,19 +11,12 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Exige que el negocio tenga encendido este módulo.
+ * Requires the tenant to have this module enabled.
  *
- * Responde **404, no 403**, y la diferencia es deliberada:
- *
- * - Que un módulo no exista para un negocio es información sobre **su
- *   contrato**, no sobre sus permisos. Para una cocina oculta que sólo vende
- *   por el portal, la caja sencillamente no existe: no hay nada que pedirle al
- *   dueño, ni nada que explicarle.
- * - Un 403 diría «esto existe pero no puedes», que es exactamente lo que no
- *   queremos: invita a insistir y filtra qué funcionalidades hay.
- *
- * (Al revés que `permission:`, que sí responde 403 — ahí la decisión es del
- * propio dueño y hay que decírselo claro.)
+ * Answers 404, not 403, and deliberately: a module a tenant does not have is a
+ * fact about their contract, not their permissions. A 403 would say "this
+ * exists but you may not", which invites insistence and leaks the feature list.
+ * (`permission:` does answer 403 — there the owner decides, so say it plainly.)
  */
 final class RequireModule
 {

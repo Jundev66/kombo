@@ -1,84 +1,88 @@
 # Kombo
 
-Sistema de pedidos de comida **multi-negocio**. Un solo despliegue atiende a
-todos los clientes: cada negocio entra por su subdominio y ve únicamente sus
-datos, garantizado por Row Level Security de PostgreSQL.
+**Multi-tenant** food ordering system. A single deployment serves every
+customer: each business enters through its own subdomain and sees only its own
+data, guaranteed by PostgreSQL Row Level Security.
 
-Un pedido entra por una de tres puertas —el **portal** del cliente, un **bot**
-de WhatsApp o Telegram, o la **caja** del mostrador— y las tres desembocan en
-la misma **pantalla de cocina**. Cuando la comanda está lista, sale de cocina y
-el cliente se entera por donde pidió.
+An order arrives through one of three doors — the customer **portal**, a
+WhatsApp or Telegram **bot**, or the **counter** till — and all three end up on
+the same **kitchen screen**. When the order is ready it leaves the kitchen and
+the customer hears about it wherever they ordered.
 
 **Laravel 13 · PHP 8.5 · PostgreSQL 18 · Redis 8 · React 19 · Vite 8 ·
 TypeScript 7 · Tailwind 4 · Playwright**
 
-## Arrancar
+## Getting started
 
 ```bash
-make up      # levantar todo
-make setup   # primera vez: clave, migraciones, base de pruebas
-make demo    # sembrar los negocios de demostración
+make up      # bring everything up
+make setup   # first run: app key, migrations, test database
+make demo    # seed the demo businesses
 ```
 
 ```
-http://elsazon.localhost:8010/          portal del cliente
-http://elsazon.localhost:8010/panel/    panel del dueño
-http://elsazon.localhost:8010/caja/     caja
-http://elsazon.localhost:8010/cocina/   pantalla de cocina
-http://admin.localhost:8010/            super administración
+http://elsazon.localhost:8010/            customer portal
+http://elsazon.localhost:8010/dashboard/   owner dashboard
+http://elsazon.localhost:8010/pos/         counter till
+http://elsazon.localhost:8010/kds/         kitchen screen
+http://admin.localhost:8010/               platform administration
 ```
 
-## Verificar
+## Verifying
 
 ```bash
-make check   # arquitectura, aislamiento, suite, estilo, tipos y presupuesto
-make e2e     # pruebas de usuario por el navegador
+make check   # architecture, isolation, test suite, style, types and bundle budget
+make e2e     # end-to-end tests through a real browser
 ```
 
-## Poner esto en un servidor
+## Putting this on a server
 
-- **[`docs/despliegue.md`](docs/despliegue.md)** — de un VPS vacío a un negocio
-  tomando pedidos: DNS comodín, Cloudflare, `compose.prod.yml`, y las cuatro
-  comprobaciones que se hacen al terminar.
-- **[`docs/canales.md`](docs/canales.md)** — conectar el WhatsApp y el Telegram
-  de cada negocio: de dónde sale cada credencial y qué hacer cuando el bot no
-  contesta.
-- **[`docs/respaldos.md`](docs/respaldos.md)** — qué se guarda, dónde, y sobre
-  todo **cómo se restaura**. Restaura uno el día del despliegue: un respaldo que
-  nadie ha restaurado nunca no es un respaldo.
+- **[`docs/despliegue.md`](docs/despliegue.md)** — from an empty VPS to a
+  business taking orders: wildcard DNS, Cloudflare, `compose.prod.yml`, and the
+  four checks to run once you are done.
+- **[`docs/canales.md`](docs/canales.md)** — connecting each business's WhatsApp
+  and Telegram: where every credential comes from, and what to do when the bot
+  stops answering.
+- **[`docs/respaldos.md`](docs/respaldos.md)** — what gets backed up, where, and
+  above all **how to restore it**. Restore one on deployment day: a backup
+  nobody has ever restored is not a backup.
 
-## Para entender el sistema
+## Understanding the system
 
-El punto de entrada es **[`AGENTS.md`](AGENTS.md)** — el mapa, los invariantes
-y lo que no se puede romper. Sirve igual a una persona nueva que a cualquier IA
-que entre al repositorio. Cada carpeta grande tiene el suyo:
+The entry point is **[`AGENTS.md`](AGENTS.md)** — the map, the invariants, and
+what must not be broken. It serves a new teammate and any AI that opens the
+repository equally well. Every large directory has its own:
 [`api/`](api/AGENTS.md), [`web/`](web/AGENTS.md), [`e2e/`](e2e/AGENTS.md).
 
-`CLAUDE.md`, `GEMINI.md`, `.cursorrules` y `.github/copilot-instructions.md`
-son punteros de tres líneas que traen ahí: cada herramienta busca su propio
-nombre y **el texto es uno solo**. Si mañana entras con otra que lee un nombre
-distinto, se añade el puntero — no se copia el texto.
+`CLAUDE.md`, `GEMINI.md`, `.cursorrules` and `.github/copilot-instructions.md`
+are three-line pointers back to it: each tool looks for its own name, and
+**there is only one text**. If tomorrow you bring in a tool that reads a
+different filename, you add the pointer — you do not copy the text.
 
-Y **[`docs/trabajos/`](docs/trabajos/README.md)** es el porqué de cómo están
-las cosas: un trabajo por carpeta con su código `KMB-XXXX`, con lo que se
-descartó, lo que falló al hacerlo y cómo se verificó. Los códigos se citan
-desde los comentarios del código, así que un `// KMB-0009` en el sitio exacto
-lleva al documento que lo explica.
+And **[`docs/trabajos/`](docs/trabajos/README.md)** is the why behind how things
+are: one job per directory under a `KMB-XXXX` code, recording what was
+discarded, what went wrong while doing it, and how it was verified. The codes
+are cited from the code itself, so a `// KMB-0009` at the exact spot leads to
+the document that explains it.
 
 ```bash
-make trabajo t="Lo que voy a hacer"   # abrir el siguiente
-make trabajos                         # regenerar el índice
+make trabajo t="What I am about to do"   # open the next one
+make trabajos                            # regenerate the index
 ```
 
-## Nota sobre documentos fiscales
+Documentation under `docs/` and `AGENTS.md` is written in Spanish; the code and
+its comments are in English.
 
-La caja emite **notas de entrega**, no facturas: documento comercial con
-correlativo propio, con `No es una factura` impreso. El sistema no calcula IVA
-como débito fiscal, no lleva libro de ventas y no numera con rangos de la
-autoridad. Una nota de entrega no sustituye a la factura ni elimina las
-obligaciones tributarias del negocio; emitir facturas exige los medios
-autorizados por el SENIAT.
+## A note on fiscal documents
 
-Hay un puerto `FiscalDocument` con implementación nula por si un negocio se
-homologa más adelante. Mientras no exista ese adaptador, no hay opción
-escondida que convierta una nota en factura.
+The till issues **delivery notes**, not invoices: a commercial document with its
+own sequence, printed with `No es una factura` ("this is not an invoice") on it.
+The system does not compute VAT as a fiscal debit, keeps no sales ledger, and
+does not number documents from ranges assigned by the tax authority. A delivery
+note does not replace an invoice and does not remove the business's tax
+obligations; issuing invoices requires the means authorised by SENIAT, the
+Venezuelan tax authority.
+
+There is a `FiscalDocument` port with a null implementation, in case a business
+gets certified later on. Until that adapter exists, there is no hidden switch
+that turns a note into an invoice.

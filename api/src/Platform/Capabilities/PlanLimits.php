@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace Platform\Capabilities;
 
 /**
- * Los techos del plan.
+ * The plan ceilings.
  *
- * **`null` significa ILIMITADO, nunca cero.** Cero sería «ninguno», que es una
- * respuesta distinta y mucho peor de depurar: un plan con `max_users = 0`
- * dejaría al dueño fuera de su propio negocio, y el mensaje de error diría
- * «alcanzaste el límite de usuarios» sin que nadie entienda por qué.
+ * `null` means UNLIMITED, never zero. Zero would mean "none", a different
+ * answer that would lock an owner out of their own tenant.
  */
 final readonly class PlanLimits
 {
@@ -35,10 +33,10 @@ final readonly class PlanLimits
     }
 
     /**
-     * ¿Añadir uno más pasaría del techo?
+     * Would one more go over the ceiling?
      *
-     * Se pregunta con el conteo ACTUAL, antes de crear. `>=` y no `>` porque
-     * con 8 de 8 usuarios el noveno ya no cabe.
+     * Asked with the CURRENT count, before creating. `>=` and not `>` because
+     * at 8 of 8 users the ninth no longer fits.
      */
     public function exceeds(?int $limit, int $current): bool
     {

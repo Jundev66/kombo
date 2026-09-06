@@ -9,15 +9,13 @@ use Modules\Orders\Domain\Events\OrderPlaced;
 use Platform\Capabilities\CurrentCapabilities;
 
 /**
- * Lleva la cuenta de quién compra.
+ * Keeps track of who buys.
  *
- * Se actualiza **al hacer el pedido**, no al entregarlo: lo que esta ficha
- * contesta es «¿este número ya pidió antes?», y para eso da igual cómo acabe.
- * Un pedido cancelado también dice que esa persona existe y qué le gusta.
+ * Updated when the order is PLACED, not delivered: the question is "has this
+ * number ordered before?", and a cancelled order answers it too.
  *
- * Va SÍNCRONO y no en la cola, al revés que los avisos: es un `update` de una
- * fila, y encolarlo costaría más que hacerlo. Lo que sí hace es callarse si el
- * módulo está apagado.
+ * Synchronous rather than queued — it is a one-row update — and silent when the
+ * module is switched off.
  */
 final class RememberCustomer
 {
@@ -31,8 +29,8 @@ final class RememberCustomer
 
         $phone = trim((string) $event->customerPhone);
 
-        // Sin teléfono no hay a quién recordar. Pasa en el mostrador, donde la
-        // mayoría de la gente no lo deja — y está bien.
+        // No phone number, nobody to remember. That happens at the counter, where
+        // most people do not leave one, and that is fine.
         if ($phone === '') {
             return;
         }
@@ -55,8 +53,8 @@ final class RememberCustomer
         }
 
         $customer->update([
-            // El nombre se actualiza si viene uno: la gente lo escribe mejor la
-            // segunda vez, y el de un pedido viejo no tiene por qué mandar.
+            // The name is updated when one comes in: people spell it better the second
+            // time, and an old order's version need not win.
             'name' => $event->customerName ?? $customer->name,
             'orders_count' => $customer->orders_count + 1,
             'spent_cents' => $customer->spent_cents + $event->totalCents,

@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace Modules\Channels\Infrastructure\Services;
 
 /**
- * La dirección pública del portal de un negocio.
+ * The public address of a tenant's portal.
  *
- * Vive aquí y no en `url()` por una razón concreta: los enlaces que manda el
- * bot se arman **fuera de una petición HTTP**. Un aviso de «tu pedido está
- * listo» sale de la cola, donde no hay `Host` del que deducir el negocio —
- * `url()` daría la dirección del último trabajo que corrió, que puede ser de
- * otro cliente.
+ * Here rather than `url()` because the bot's links are assembled outside an
+ * HTTP request: a notice leaves from the queue, where `url()` would give the
+ * address of the last job that ran — possibly a different tenant's.
  */
 final class PortalLink
 {

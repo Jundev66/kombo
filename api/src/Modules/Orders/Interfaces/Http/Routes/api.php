@@ -18,17 +18,16 @@ Route::prefix('api/v1')
         Route::post('/orders', [OrderController::class, 'store'])
             ->middleware('permission:orders.create');
 
-        // Confirmar y avanzar comparten ruta porque son el mismo gesto: mover
-        // el pedido un paso. El permiso distingue quién puede dar el primero
-        // —que es el que lo manda a la cocina— de quién puede dar los demás.
+        // Confirming and advancing share a route because they are the same gesture:
+        // one step forward. The permission distinguishes who may take the first —
+        // the one that sends it to the kitchen — from the rest.
         Route::post('/orders/{id}/advance', [OrderController::class, 'advance'])
             ->middleware('permission.any:orders.confirm,orders.advance');
 
         /*
-         * `permission.any` a propósito: pasar por aquí significa poder
-         * INICIAR la cancelación, no ejecutarla. Quien sólo tiene el permiso
-         * `_request` llega al caso de uso, y allí ActionAuthorizer le pide el
-         * PIN de un supervisor.
+         * `permission.any` on purpose: getting through means being able to
+         * START the cancellation, not carry it out. `_request` reaches the use
+         * case, where ActionAuthorizer asks for a supervisor's PIN.
          */
         Route::post('/orders/{id}/cancel', [OrderController::class, 'cancel'])
             ->middleware('permission.any:orders.cancel,orders.cancel_request');
@@ -36,15 +35,15 @@ Route::prefix('api/v1')
         Route::post('/orders/{id}/payments', [OrderController::class, 'pay'])
             ->middleware('permission:orders.create');
 
-        // Dar por bueno un pago móvil mirando el comprobante. Es una decisión
-        // sobre dinero, así que va con su propio permiso.
+        // Taking a mobile payment as good by looking at the receipt. A decision
+        // about money, so it has its own permission.
         Route::post('/orders/{id}/payments/{paymentId}/confirm', [OrderController::class, 'confirmPayment'])
             ->middleware('permission:payments.confirm');
 
         /*
-         * La foto del comprobante, servida por el controlador y no como
-         * archivo suelto: lleva el nombre de quien pagó, su cédula y el saldo
-         * de su cuenta, así que verla exige el mismo permiso que confirmarla.
+         * The receipt photo, served by the controller rather than as a loose
+         * file: it carries the payer's ID number and balance, so viewing it
+         * requires the same permission as confirming it.
          */
         Route::get('/orders/{id}/payments/{paymentId}/receipt', ReceiptViewController::class)
             ->middleware('permission:payments.confirm');

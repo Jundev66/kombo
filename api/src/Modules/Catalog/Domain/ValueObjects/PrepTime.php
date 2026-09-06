@@ -7,21 +7,19 @@ namespace Modules\Catalog\Domain\ValueObjects;
 use Modules\Catalog\Domain\Exceptions\InvalidPrepTime;
 
 /**
- * Cuánto tarda en salir un plato.
+ * How long a dish takes to come out. The kitchen screen's traffic light comes
+ * from here; without it "running late" is a hunch.
  *
- * De aquí sale el **semáforo de la pantalla de cocina**: sin esto, «va tarde»
- * sería una corazonada del cocinero y no un dato. Es opcional porque no todo
- * lo que se vende se prepara —una malta se saca de la nevera— y obligar a
- * poner un tiempo a las bebidas sería ruido en el formulario.
+ * Optional, because a malta comes out of the fridge.
  */
 final readonly class PrepTime
 {
-    /** Por encima de esto casi seguro es un cero de más al teclear. */
+    /** Above this it is almost certainly one zero too many while typing. */
     private const MAX_MINUTES = 240;
 
     private function __construct(public ?int $minutes) {}
 
-    /** No se prepara: se sirve y ya. */
+    /** Not prepared: served as it is. */
     public static function none(): self
     {
         return new self(null);

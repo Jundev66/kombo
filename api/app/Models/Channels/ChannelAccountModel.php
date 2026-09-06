@@ -10,12 +10,11 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * La cuenta de un negocio en un canal.
+ * A tenant's account on a channel.
  *
- * **Las credenciales van cifradas en la base**, no en texto plano. Aquí dentro
- * está el token permanente con el que se puede escribir a todos los clientes
- * del negocio en su nombre: un volcado que se filtre no puede ser además una
- * lista de tokens listos para usar.
+ * Credentials are stored ENCRYPTED: what sits in here is the permanent token
+ * that can write to every customer in the tenant's name, and a leaked dump must
+ * not also be a list of ready-to-use tokens.
  */
 #[Fillable([
     'channel', 'external_id', 'label', 'credentials', 'webhook_secret',
@@ -32,9 +31,7 @@ class ChannelAccountModel extends Model
     protected function casts(): array
     {
         return [
-            // `encrypted:array` guarda un JSON cifrado y lo devuelve como
-            // arreglo. Si mañana rota la clave de la aplicación, esto deja de
-            // descifrarse — que es exactamente lo que tiene que pasar.
+            // `encrypted:array` stores encrypted JSON and hands back an array.
             'credentials' => 'encrypted:array',
             'webhook_secret' => 'encrypted',
             'is_active' => 'boolean',
@@ -42,7 +39,7 @@ class ChannelAccountModel extends Model
         ];
     }
 
-    /** Una credencial suelta, sin tener que acordarse de la forma del arreglo. */
+    /** A single credential, without recalling the shape of the array. */
     public function credential(string $key): ?string
     {
         $value = ($this->credentials ?? [])[$key] ?? null;

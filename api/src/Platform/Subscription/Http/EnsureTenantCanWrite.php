@@ -11,32 +11,25 @@ use Platform\Tenancy\TenantContext;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Un negocio suspendido **entra, lee y exporta. No escribe.**
+ * A suspended tenant signs in, reads and exports. It does not write.
  *
- * Las dos mitades de esa frase importan. Borrarle el acceso a sus propios datos
- * a alguien que confió en el sistema no es una palanca de cobro aceptable: sus
- * pedidos, sus clientes y su carta siguen siendo suyos, y tiene que poder
- * sacarlos aunque nos deba tres meses. Lo que se corta es seguir operando
- * gratis.
+ * Both halves matter: their orders, customers and menu are still theirs and
+ * they must be able to get them out even owing us three months. What is cut off
+ * is carrying on for free.
  *
- * **Un solo middleware, no un `if` en cada controlador.** Es exactamente donde
- * falló el proyecto anterior: la comprobación estaba puesta en 2 de unos 20
- * controladores, así que un negocio suspendido seguía trabajando con
- * normalidad por las otras 18 puertas. Aquí va en el grupo `api` entero, y
- * añadir un módulo nuevo no puede olvidarse de ella porque nadie la escribe.
+ * One middleware, not an `if` per controller — that is exactly where the
+ * previous project failed, with the check wired into 2 of some 20 controllers.
  */
 final class EnsureTenantCanWrite
 {
-    /** Lo que no cambia nada, y por tanto nunca se bloquea. */
+    /** Methods that change nothing, and are therefore never blocked. */
     private const LECTURA = ['GET', 'HEAD', 'OPTIONS'];
 
     /**
-     * Lo que se deja pasar aunque esté suspendido.
+     * What is let through even while suspended.
      *
-     * Salir tiene que funcionar siempre —dejar a alguien encerrado en una
-     * sesión que no puede cerrar es de mal gusto— y entrar también: si no
-     * pudiera entrar, no podría leer ni exportar nada, que es justo lo que sí
-     * se le permite.
+     * Signing out has to work always, and so does signing in: without it they
+     * could not read or export, which is precisely what they are allowed.
      */
     private const SIEMPRE = ['auth.login', 'auth.logout', 'auth.device', 'auth.pin'];
 
@@ -49,8 +42,8 @@ final class EnsureTenantCanWrite
         }
 
         if (! $this->context->has()) {
-            // Sin negocio no hay suscripción que comprobar: es la super
-            // administración, o un webhook que resuelve el suyo por dentro.
+            // With no tenant there is no subscription to check: platform administration,
+            // or a webhook that resolves its own inside.
             return $next($request);
         }
 
@@ -67,13 +60,9 @@ final class EnsureTenantCanWrite
         }
 
         /*
-         * 402 y no 403.
-         *
-         * 403 dice «no tienes permiso», que es mentira y manda al dueño a
-         * revisar los roles de su equipo. 402 dice lo que pasa de verdad: hay
-         * algo que pagar. Y el mensaje lleva el motivo, porque un error sin
-         * explicación en la pantalla de alguien que está trabajando es una
-         * llamada al soporte.
+         * 402, not 403. A 403 says "you lack permission", which is untrue and
+         * sends the owner to check their team's roles. 402 says what is
+         * actually happening, and the message carries the reason.
          */
         return new JsonResponse([
             'message' => $tenant->status->value === 'suspended'

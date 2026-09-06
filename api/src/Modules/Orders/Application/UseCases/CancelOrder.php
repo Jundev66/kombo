@@ -16,11 +16,10 @@ use Platform\Audit\AuthorizedBy;
 use Platform\Tenancy\TenantContext;
 
 /**
- * Cancelar un pedido.
+ * Cancelling an order. Always with a reason, always into the audit log.
  *
- * Siempre con MOTIVO, y siempre a la bitácora. Cancelar es la vía natural para
- * sacar comida sin cobrarla, así que la pregunta que esto viene a responder no
- * es «¿se puede?» sino «¿quién lo hizo, cuándo y por qué?».
+ * Cancelling is the natural way to get food out without charging, so the
+ * question to answer is not "can it be done?" but "who did it, when and why?".
  */
 final class CancelOrder
 {
@@ -37,9 +36,9 @@ final class CancelOrder
 
         $current = $model->status;
 
-        // El dominio comprueba que no esté ya cerrado. Cancelar se salta la
-        // tabla de transiciones —el cliente se arrepiente cuando quiere— pero
-        // un pedido entregado no revive.
+        // The domain checks it is not already closed. Cancelling skips the
+        // transition table — customers change their mind whenever they like — but a
+        // delivered order does not come back to life.
         $order = OrderReader::toDomain($model);
         $order->cancel($reason);
 
@@ -68,17 +67,14 @@ final class CancelOrder
             before: ['status' => $current->value],
             after: ['status' => OrderStatus::Cancelled->value],
             reason: $reason,
-            // Si lo autorizó un supervisor con su PIN, queda a su nombre. Es
-            // toda la razón de que el mostrador sólo pueda SOLICITARLO.
+            // If a supervisor authorised it with their PIN, it is recorded in their
+            // name. That is the whole reason the counter can only REQUEST it.
             authorizedBy: $authorizedBy,
         );
 
         /*
-         * Que alguien deje de cocinar esto.
-         *
-         * Por evento, como la confirmación y por la misma razón: `Orders` no
-         * conoce a `Kitchen`. Si el módulo de cocina no existe, no lo escucha
-         * nadie y no pasa nada.
+         * Somebody should stop cooking this. By event, like confirmation: if
+         * the kitchen module does not exist, nobody listens and nothing happens.
          */
         $this->events->dispatch(new OrderCancelled(
             tenantId: $this->context->id(),

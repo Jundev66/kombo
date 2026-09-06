@@ -14,11 +14,10 @@ use Modules\Channels\Infrastructure\Services\ChannelFactory;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Los chats, para cuando el bot no alcanza.
+ * The chats, for when the bot cannot cope.
  *
- * Contestar a mano **toma la conversación**: mientras el encargado está
- * escribiendo, el bot se calla. Sin eso, el cliente recibe un menú automático
- * encima de la respuesta de una persona, que es la peor versión de las dos.
+ * Replying by hand takes the conversation over and silences the bot; otherwise
+ * the customer gets an automated menu on top of a person's answer.
  */
 final class ConversationController
 {
@@ -88,8 +87,8 @@ final class ConversationController
             'metadata' => ['by' => auth()->id()],
         ]);
 
-        // Contestar a mano TOMA la conversación. Es lo que apaga al bot
-        // mientras dura, sin que nadie tenga que acordarse de apagarlo.
+        // Replying by hand TAKES the conversation over, silencing the bot for the
+        // duration with nobody having to remember to.
         $conversation->update([
             'is_human_takeover' => true,
             'takeover_at' => now(),
@@ -100,7 +99,7 @@ final class ConversationController
         return response()->json(['data' => ['ok' => true]]);
     }
 
-    /** Devolverle la conversación al bot. */
+    /** Handing the conversation back to the bot. */
     public function release(string $id): JsonResponse
     {
         $conversation = ConversationModel::find($id)

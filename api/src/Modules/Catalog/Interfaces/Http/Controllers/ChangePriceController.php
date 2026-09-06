@@ -10,13 +10,9 @@ use Modules\Catalog\Application\UseCases\ChangePrice;
 use Modules\Catalog\Interfaces\Http\Resources\ProductResource;
 
 /**
- * Cambiar el precio tiene su propia ruta y su propio permiso
- * (`catalog.change_price`).
- *
- * No es ceremonia: cambiar precios es la vía natural para regalar mercancía.
- * Quien arregla una descripción no tiene por qué poder bajar la parrilla a un
- * dólar, y cuando el margen del mes no cuadre, la bitácora dirá quién lo tocó
- * y cuándo.
+ * Changing the price gets its own route and permission
+ * (`catalog.change_price`), because it is the natural way to give merchandise
+ * away — and the audit log then says who touched it and when.
  */
 final class ChangePriceController
 {

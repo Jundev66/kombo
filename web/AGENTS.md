@@ -7,9 +7,9 @@ Lee antes el `AGENTS.md` de la raíz.
 | App | Ruta | Quién | Presupuesto |
 |---|---|---|---|
 | `portal` | `/` | Cliente final | 180 KB |
-| `caja` | `/caja/` | Mostrador | 180 KB |
-| `panel` | `/panel/` | Dueño y encargado | 220 KB |
-| `kds` | `/cocina/` | Cocina | 120 KB |
+| `pos` | `/pos/` | Mostrador | 180 KB |
+| `dashboard` | `/dashboard/` | Dueño y encargado | 220 KB |
+| `kds` | `/kds/` | Cocina | 120 KB |
 | `admin` | `admin.*` | Plataforma | 220 KB |
 
 Las cuatro primeras van bajo el **mismo origen** a propósito: el navegador

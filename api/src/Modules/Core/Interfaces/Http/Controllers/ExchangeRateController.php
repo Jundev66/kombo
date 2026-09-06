@@ -13,11 +13,11 @@ use Platform\Tenancy\TenantContext;
 use Shared\Domain\ValueObjects\ExchangeRate;
 
 /**
- * La tasa del día.
+ * The rate of the day.
  *
- * El dueño la carga desde el teléfono, normalmente antes de abrir. Es un gesto
- * de diez segundos que condiciona todo lo que se cobra ese día, así que la
- * pantalla que lo hace tiene que ser la más simple del sistema.
+ * The owner enters it from their phone before opening. A ten-second gesture
+ * that governs everything charged that day, so this screen has to be the
+ * simplest in the system.
  */
 final class ExchangeRateController
 {
@@ -26,7 +26,7 @@ final class ExchangeRateController
         private readonly TenantContext $context,
     ) {}
 
-    /** La vigente hoy, o la más reciente que haya. */
+    /** Today's, or the most recent one there is. */
     public function current(): JsonResponse
     {
         $rate = DB::table('exchange_rates')
@@ -34,8 +34,8 @@ final class ExchangeRateController
             ->first();
 
         if ($rate === null) {
-            // Sin tasa no se puede cobrar en bolívares, y hay que decirlo
-            // claro en vez de devolver un cero que parezca válido.
+            // With no rate there is no charging in bolívares, and that is said plainly
+            // rather than returning a zero that looks valid.
             return response()->json(['data' => null]);
         }
 
@@ -44,8 +44,8 @@ final class ExchangeRateController
                 'rate' => (float) $rate->rate,
                 'source' => $rate->source,
                 'effectiveDate' => $rate->effective_date,
-                // Para que la pantalla pueda avisar «esta tasa es de ayer»
-                // sin tener que calcular fechas en el cliente.
+                // So the screen can warn "this rate is from yesterday" without doing date
+                // arithmetic on the client.
                 'isToday' => $rate->effective_date === now()->toDateString(),
             ],
         ]);
@@ -58,20 +58,19 @@ final class ExchangeRateController
             'source' => ['nullable', 'string', 'in:bcv,custom'],
         ]);
 
-        // El value object valida que sea mayor que cero: una tasa de cero
-        // convertiría todos los precios en cero, y el primero en enterarse
-        // sería el cliente.
+        // The value object rejects zero: it would turn every price into zero, and
+        // the first to find out would be the customer.
         $rate = ExchangeRate::of($data['rate']);
         $source = $data['source'] ?? 'custom';
         $today = now()->toDateString();
 
-        $anterior = DB::table('exchange_rates')
+        $previous = DB::table('exchange_rates')
             ->where('effective_date', $today)
             ->where('source', $source)
             ->value('rate');
 
-        // Corregir la del día es REEMPLAZARLA, no acumular tres versiones y
-        // no saber cuál se usó al cobrar.
+        // Correcting today's REPLACES it rather than stacking versions with no
+        // idea which was used to charge.
         DB::table('exchange_rates')->upsert(
             [[
                 'id' => (string) Str::uuid7(),
@@ -89,7 +88,7 @@ final class ExchangeRateController
         $this->audit->record(
             action: 'core.exchange_rate_set',
             entityType: 'exchange_rate',
-            before: $anterior === null ? null : ['rate' => (float) $anterior],
+            before: $previous === null ? null : ['rate' => (float) $previous],
             after: ['rate' => $rate->asFloat(), 'source' => $source],
         );
 

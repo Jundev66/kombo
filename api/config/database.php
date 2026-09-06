@@ -87,12 +87,11 @@ return [
         ],
 
         /*
-         * Con la que conecta la APLICACIÓN, en cada petición.
+         * What the APPLICATION connects with, on every request.
          *
-         * `kombo_app` no es superusuario y no tiene BYPASSRLS: está sujeto a
-         * las políticas de Row Level Security igual que cualquiera. Ese es el
-         * punto — el aislamiento entre negocios deja de depender de que el
-         * código esté bien escrito.
+         * `kombo_app` is not a superuser and has no BYPASSRLS: it is subject to
+         * the RLS policies like anyone else. That is the point — isolation
+         * stops depending on the code being written correctly.
          */
         'pgsql' => [
             'driver' => 'pgsql',
@@ -110,17 +109,13 @@ return [
         ],
 
         /*
-         * SÓLO para migraciones:  php artisan migrate --database=pgsql_owner
+         * ONLY for migrations:  php artisan migrate --database=pgsql_owner
          *
-         * `kombo_owner` es dueño del esquema y superusuario, así que puede
-         * crear tablas, activar RLS y revocar privilegios. La aplicación nunca
-         * usa esta conexión.
+         * `kombo_owner` owns the schema and is a superuser. The application
+         * never uses this connection.
          *
-         * Cuidado con los seeders: corren como el dueño, y el dueño se salta
-         * RLS. Una consulta que DECIDE algo ("¿ya existe esta fila?") no puede
-         * apoyarse en el aislamiento ambiental dentro de un seeder — hay que
-         * filtrar por `tenant_id` a mano. RLS es la última defensa, no la
-         * primera, y no está puesta cuando escribe el dueño del esquema.
+         * Careful with seeders: they run as the owner and bypass RLS, so a
+         * query that DECIDES something has to filter by `tenant_id` by hand.
          */
         'pgsql_owner' => [
             'driver' => 'pgsql',

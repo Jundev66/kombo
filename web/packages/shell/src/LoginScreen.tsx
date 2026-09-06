@@ -4,13 +4,13 @@ import { useState, type FormEvent } from 'react'
 import { login, useSession } from './session'
 
 /**
- * La pantalla de entrar.
+ * The sign-in screen.
  *
- * Muestra el nombre y el logo **del negocio**, no los de la plataforma. Por eso
- * `/me` responde sin sesión: un login que dice «Kombo» en vez de «Arepera El
- * Sazón» parece de otro producto y siembra la duda de si uno está donde cree.
+ * It shows the TENANT's name and logo, not the platform's — which is why `/me`
+ * answers without a session. A login saying "Kombo" instead of "Arepera El
+ * Sazón" looks like another product.
  *
- * Y **no hay campo «¿a cuál de tus negocios?»**: el subdominio ya lo dijo.
+ * And there is no "which of your businesses?" field: the subdomain already said.
  */
 export function LoginScreen() {
   const { capabilities } = useSession()
@@ -90,8 +90,8 @@ function messageFor(error: unknown): string {
     return 'No se pudo contactar al servidor.'
   }
 
-  // 419 es «la sesión caducó», no «la contraseña está mal». Decir lo segundo
-  // manda a la persona a probar contraseñas que sí son correctas.
+  // 419 is "the session expired", not "wrong password". Saying the latter
+  // sends the person off trying passwords that are in fact correct.
   if (error.status === 419) {
     return 'La sesión caducó. Recarga la página e inténtalo otra vez.'
   }

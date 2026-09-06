@@ -10,14 +10,11 @@ use Modules\Orders\Domain\Events\OrderCancelled;
 use Platform\Capabilities\CurrentCapabilities;
 
 /**
- * Sacar del tablero lo que ya no hay que cocinar.
+ * Takes off the board what no longer needs cooking.
  *
- * La comanda **no se borra**: queda con estado `cancelled` y su hora. Que la
- * comida se haya empezado a hacer es un hecho, y borrarlo dejaría al dueño sin
- * saber cuánta materia prima se perdió en el mes.
- *
- * Lo que sí pasa es que desaparece de la pantalla en el siguiente sondeo —
- * cinco segundos— para que nadie siga con ella.
+ * The ticket is not deleted, only marked `cancelled` with its timestamp: the
+ * food having been started is a fact, and the owner will want to know how much
+ * stock was lost. It leaves the screen on the next poll.
  */
 final class CancelKitchenTicket
 {
@@ -33,14 +30,14 @@ final class CancelKitchenTicket
 
         $ticket = KitchenTicketModel::where('order_id', $event->orderId)->first();
 
-        // Puede no haber comanda: un pedido cancelado antes de confirmarse
-        // nunca llegó a la cocina.
+        // There may be no ticket: an order cancelled before confirmation never
+        // reached the kitchen.
         if ($ticket === null) {
             return;
         }
 
-        // Si ya salió de la cocina, la comida está hecha y entregada: cancelar
-        // el cobro no la devuelve a la plancha.
+        // If it has already left the kitchen the food is made and delivered:
+        // cancelling the payment does not put it back on the griddle.
         if ($ticket->status === TicketStatus::Served || $ticket->status === TicketStatus::Cancelled) {
             return;
         }

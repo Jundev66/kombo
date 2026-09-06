@@ -8,17 +8,15 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * Roles y permisos. Sin `spatie/laravel-permission`, y por razones concretas:
+ * Roles and permissions, without `spatie/laravel-permission`, for concrete
+ * reasons:
  *
- * - **No hay tabla `permissions`.** Los permisos los aporta el manifiesto de
- *   cada módulo, así que los de un módulo apagado sencillamente no existen en
- *   el sistema. Una tabla los volvería datos que hay que sincronizar en cada
- *   despliegue y que quedan huérfanos cuando un módulo se va.
- * - **El dueño no se modela con «todos los permisos asignados»** sino con
- *   `is_owner`, que devuelve `['*']` y se expande contra los módulos que el
- *   negocio tenga encendidos hoy.
- * - **Existe un tercer estado** que spatie no modela: `requires_authorization`
- *   — puedes INICIAR la acción, pero se ejecuta con el PIN de otro.
+ * - There is no `permissions` table: permissions come from each module's
+ *   manifest, so a switched-off module's simply do not exist. A table would
+ *   make them data to synchronise on every deployment.
+ * - The owner is `is_owner`, not "every permission assigned": `['*']` expanded
+ *   against whichever modules the tenant has on today.
+ * - There is a third state spatie does not model: `requires_authorization`.
  */
 return new class extends Migration
 {
@@ -28,9 +26,8 @@ return new class extends Migration
             $table->string('code');
             $table->string('name');
 
-            // Los roles de sistema los trae el paquete del negocio al
-            // registrarse y no se pueden editar ni borrar; el dueño puede
-            // crear los suyos encima.
+            // System roles arrive with the industry pack at sign-up and cannot be
+            // edited or deleted; the owner can create their own on top.
             $table->boolean('is_system')->default(false);
             $table->boolean('is_owner')->default(false);
 
@@ -40,11 +37,11 @@ return new class extends Migration
         TenantSchema::create('role_permissions', function (Blueprint $table): void {
             TenantSchema::references($table, 'role_id', 'roles', onDelete: 'cascade');
 
-            // Texto, no clave foránea: no existe tabla `permissions`.
+            // Text, not a foreign key: there is no `permissions` table.
             $table->string('permission');
 
-            // El tercer estado. `false` = puede ejecutarlo solo.
-            // `true` = puede iniciarlo, y hace falta el PIN de alguien que sí.
+            // The third state. `false` = they can carry it out alone; `true` = they can
+            // start it, and someone else's PIN is required.
             $table->boolean('requires_authorization')->default(false);
 
             TenantSchema::uniquePerTenant($table, ['role_id', 'permission'], 'uq_role_permissions');

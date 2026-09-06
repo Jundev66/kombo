@@ -10,15 +10,14 @@ use Modules\Catalog\Interfaces\Http\Controllers\ProductController;
 use Modules\Catalog\Interfaces\Http\Controllers\ProductPhotoController;
 
 /*
- * Las rutas de la carta.
+ * The menu's routes.
  *
- * Las declara el MANIFIESTO del módulo y las carga PlatformServiceProvider;
- * `routes/api.php` no sabe que existen. Se cargan siempre, y `module:catalog`
- * decide si responden — así, encender un módulo abre sus rutas en el instante
- * en que se escribe la fila, sin desplegar.
+ * Declared by the module's manifest and loaded by PlatformServiceProvider;
+ * `routes/api.php` does not know they exist. They are always loaded, and
+ * `module:catalog` decides whether they answer.
  *
- * Se declara el prefijo y el grupo `api` completos porque `loadRoutesFrom` no
- * aplica el grupo de `withRouting`.
+ * The prefix and the full `api` group are declared here because
+ * `loadRoutesFrom` does not apply the group from `withRouting`.
  */
 Route::prefix('api/v1')
     ->middleware(['api', 'auth:sanctum', 'module:catalog'])
@@ -35,14 +34,13 @@ Route::prefix('api/v1')
         Route::patch('/catalog/products/{id}', [ProductController::class, 'update'])
             ->middleware('permission:catalog.manage');
 
-        // Permiso APARTE: cambiar precios es la vía natural para regalar
-        // mercancía, y no tiene por qué poder hacerlo quien arregla una
-        // descripción.
+        // A separate permission: changing prices is the natural way to give
+        // merchandise away.
         Route::post('/catalog/products/{id}/price', ChangePriceController::class)
             ->middleware('permission:catalog.change_price');
 
-        // La foto va con `catalog.manage`, no con `change_price`: cambiar la
-        // imagen de un plato no mueve dinero.
+        // The photo goes with `catalog.manage`, not `change_price`: changing an
+        // image does not move money.
         Route::post('/catalog/products/{id}/photo', [ProductPhotoController::class, 'store'])
             ->middleware('permission:catalog.manage');
 

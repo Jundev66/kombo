@@ -17,53 +17,46 @@ use Platform\Subscription\Http\RequirePlatformUser;
 use Platform\Subscription\Http\TenantAdminController;
 
 /*
- * Rutas de PLATAFORMA solamente.
+ * PLATFORM routes only.
  *
- * Las rutas de un módulo NO se declaran aquí: las declara su manifiesto
- * (`routes()`) y las carga PlatformServiceProvider bajo el middleware
- * `module:{codigo}`. Añadir un módulo no toca este fichero, y eso es
- * deliberado: es lo que hace que encender la caja o los canales sea una fila
- * en `tenant_modules` y no un despliegue.
+ * A module's routes are declared by its manifest and loaded by
+ * PlatformServiceProvider under `module:{code}`. Adding a module does not touch
+ * this file, which is what makes turning one on a row rather than a deployment.
  */
 
 /*
- * `/me` va SIN `auth:sanctum` a propósito: la pantalla de login necesita el
- * nombre y el logo del negocio antes de que nadie entre. Sin sesión devuelve
- * el negocio y cero permisos, que es justo lo que hace falta para pintarla.
+ * `/me` deliberately goes WITHOUT `auth:sanctum`: the login screen needs the
+ * tenant's name and logo before anyone signs in.
  */
 Route::get('/me', MeController::class)->name('me');
 
-// Las tres puertas de entrada. Ninguna exige estar ya dentro.
+// The three ways in. None requires already being inside.
 Route::post('/auth/login', LoginController::class)->name('auth.login');
 Route::post('/auth/device', DeviceTokenController::class)->name('auth.device');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/auth/logout', LogoutController::class)->name('auth.logout');
 
-    // Estas dos se piden con el token del DISPOSITIVO, que no puede hacer nada
-    // más: ver la lista de nombres y validar un PIN.
+    // These two use the DEVICE token, which can do nothing else: list the names
+    // and validate a PIN.
     Route::get('/auth/staff', StaffController::class)->name('auth.staff');
     Route::post('/auth/pin', PinLoginController::class)->name('auth.pin');
 });
 
 /*
- * ── La super administración ──────────────────────────────────────────────
+ * ── Platform administration ──────────────────────────────────────────────
  *
- * Vive en `admin.dominio` y **sólo ahí**: `domain()` hace que estas rutas ni
- * siquiera existan en el subdominio de un cliente. No es una comodidad de
- * organización — es lo que impide que la sesión de un empleado de un negocio
- * llegue a tocar la facturación de todos los demás.
- *
- * Entrar es una segunda cerradura: el guard `platform` es otro, con su propia
- * tabla de usuarios.
+ * Lives at `admin.domain` and only there: `domain()` makes these routes not
+ * exist on a customer's subdomain, so one tenant's employee session can never
+ * reach everybody else's billing. The `platform` guard is a second lock.
  */
 Route::domain((string) config('kombo.admin_host'))->group(function (): void {
     Route::post('/platform/auth/login', [PlatformAuthController::class, 'login'])
         ->middleware('throttle:10,1')
         ->name('platform.login');
 
-    // Responde también sin sesión: la pantalla de entrada necesita saber dónde
-    // está antes de que nadie entre.
+    // Answers without a session too: the entry screen needs to know where it is
+    // before anyone signs in.
     Route::get('/platform/me', [PlatformAuthController::class, 'me'])->name('platform.me');
 
     Route::middleware(RequirePlatformUser::class)->group(function (): void {
@@ -79,8 +72,8 @@ Route::domain((string) config('kombo.admin_host'))->group(function (): void {
         Route::post('/platform/tenants/{id}/status', [TenantAdminController::class, 'changeStatus']);
         Route::post('/platform/tenants/{id}/plan', [TenantAdminController::class, 'changePlan']);
 
-        // Modo soporte: SÓLO lectura, y queda escrito. Entrar en casa de un
-        // cliente sin que quede rastro es lo que no se hace.
+        // Support mode: READ-ONLY, and written down. Walking into a customer's
+        // house leaving no trace is the thing you do not do.
         Route::get('/platform/tenants/{id}/support', [TenantAdminController::class, 'support']);
 
         Route::get('/platform/plans', [PlanAdminController::class, 'index']);
@@ -89,17 +82,16 @@ Route::domain((string) config('kombo.admin_host'))->group(function (): void {
 });
 
 /*
- * ── El equipo del negocio ────────────────────────────────────────────────
+ * ── The tenant's team ────────────────────────────────────────────────────
  *
- * Va en `routes/api.php` y no en un módulo porque los usuarios y los roles son
- * de la PLATAFORMA: existen antes que cualquier módulo y no se pueden apagar.
- * Un negocio sin equipo no es un negocio con una función menos, es un negocio
- * al que nadie puede entrar.
+ * Here rather than in a module because users and roles belong to the PLATFORM:
+ * they exist before any module and cannot be turned off. A tenant with no team
+ * is one nobody can get into.
  */
 /*
- * Sin `prefix('api/v1')`: este fichero YA se carga con ese prefijo. Los de los
- * módulos lo declaran porque `loadRoutesFrom` no aplica el grupo, y ésa es la
- * asimetría que hace escribir `api/v1/api/v1/team` sin darse cuenta.
+ * No `prefix('api/v1')`: this file is already loaded under it. Module files
+ * declare it because `loadRoutesFrom` does not apply the group — the asymmetry
+ * that gets `api/v1/api/v1/team` written by mistake.
  */
 Route::middleware(['api', 'auth:sanctum'])
     ->group(function (): void {
@@ -112,8 +104,8 @@ Route::middleware(['api', 'auth:sanctum'])
         Route::patch('/team/{id}', [TeamController::class, 'update'])
             ->middleware('permission:users.manage');
 
-        // Da de baja: desactiva, no borra. Un usuario borrado se lleva por
-        // delante quién confirmó aquel pedido.
+        // Deactivates rather than deletes: a deleted user takes with them who
+        // confirmed that order.
         Route::delete('/team/{id}', [TeamController::class, 'destroy'])
             ->middleware('permission:users.manage');
     });

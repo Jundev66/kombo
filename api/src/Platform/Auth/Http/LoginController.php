@@ -14,15 +14,11 @@ use Illuminate\Validation\ValidationException;
 use Platform\Audit\AuditLogger;
 
 /**
- * La primera puerta: correo y contraseña, con cookie de sesión.
+ * First door: email and password, with a session cookie.
  *
- * Es la del panel y la del portal, donde hay un teclado y tiempo para
- * escribir. La caja y la cocina entran por otra (token de dispositivo + PIN).
- *
- * **No se pregunta a qué negocio.** El subdominio ya lo dijo, y el middleware
- * de negocio corrió antes que esto: `User::where('email', ...)` ya está
- * filtrado por RLS, así que el mismo correo en dos negocios entra al que
- * corresponde sin un campo extra en el formulario.
+ * The business never has to be asked for: the subdomain already said, and RLS
+ * has already scoped the lookup, so the same email in two tenants signs into
+ * the right one.
  */
 final class LoginController
 {
@@ -36,9 +32,8 @@ final class LoginController
         ]);
 
         if (! $request->hasSession()) {
-            // Sin esto el fallo es un 500 con «Session store not set», que no
-            // dice nada. Pasa cuando la caja llama a /auth/login en vez de a
-            // /auth/device.
+            // Without this the failure is a 500 saying "Session store not set", which
+            // happens when the till calls /auth/login instead of /auth/device.
             return response()->json([
                 'message' => 'Esta pantalla entra con el token del dispositivo, no con contraseña. Usa /auth/device.',
             ], 400);
@@ -48,9 +43,8 @@ final class LoginController
 
         $user = User::where('email', $credentials['email'])->first();
 
-        // Se compara el hash AUNQUE el usuario no exista, contra un dummy. Sin
-        // esto, un correo que existe tarda notablemente más que uno que no, y
-        // eso basta para averiguar quién trabaja aquí.
+        // The hash is compared even when the user does not exist, against a dummy:
+        // otherwise response time reveals which emails are registered.
         $valid = $user !== null
             ? Hash::check($credentials['password'], $user->password)
             : Hash::check($credentials['password'], '$2y$12$'.str_repeat('a', 53));
@@ -64,10 +58,9 @@ final class LoginController
         }
 
         if (! $user->is_active) {
-            // Mensaje DISTINTO a propósito: quien llega aquí ya demostró saber
-            // la contraseña, así que no hay nada que proteger, y decirle
-            // «credenciales incorrectas» lo mandaría a buscar un problema que
-            // no existe.
+            // Deliberately a different message: whoever gets here already proved they
+            // know the password, so "wrong credentials" would send them hunting a
+            // problem that does not exist.
             throw ValidationException::withMessages([
                 'email' => 'Tu usuario está desactivado. Habla con el dueño del negocio.',
             ]);

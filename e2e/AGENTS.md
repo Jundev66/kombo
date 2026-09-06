@@ -52,7 +52,7 @@ salen tres reglas:
 3. **Los ayudantes se autocorrigen**: `cerrarTurno()` no hace nada si no hay
    turno abierto.
 
-La marca `[e2e]` no es sólo para leer los datos: `demo:limpiar` —que `run.sh`
+La marca `[e2e]` no es sólo para leer los datos: `demo:clean` —que `run.sh`
 corre antes de cada vuelta— **da de baja a la gente marcada así**. Sin eso, cada
 corrida deja una cuenta activa más, y como las plazas del plan tienen techo
 llega el día en que «Sumar a alguien» aparece deshabilitado. La prueba falla
@@ -90,14 +90,14 @@ clientes.
 ./e2e/run.sh                        # todas (siembra antes)
 ./e2e/run.sh tests/cocina.spec.ts   # una
 ./e2e/run.sh --grep "comanda"
-./e2e/run.sh --limpio               # rehaciendo la base primero
+./e2e/run.sh --clean               # rehaciendo la base primero
 ```
 
 La versión de `@playwright/test` está fijada **exacta** y debe coincidir con la
 etiqueta de la imagen en `compose.yml`. Una diferencia se manifiesta como un
 fallo de protocolo a mitad de prueba, que parece intermitencia y no lo es.
 
-Trazas en `resultados/`, informe en `reportes/`.
+Trazas en `results/`, informe en `reports/`.
 
 ## Dos trampas que cuestan una tarde
 

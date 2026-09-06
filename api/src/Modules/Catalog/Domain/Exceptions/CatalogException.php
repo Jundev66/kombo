@@ -7,10 +7,9 @@ namespace Modules\Catalog\Domain\Exceptions;
 use Shared\Domain\Exceptions\UserError;
 
 /**
- * Algo del catálogo no cumple sus reglas.
+ * Something in the catalog breaks its rules.
  *
- * Extiende `UserError` porque todas estas son cosas que le pasan a una persona
- * escribiendo en un formulario, no fallos del sistema: se renderizan como 422
- * con el nombre del campo, para que la pantalla las pinte donde tocan.
+ * Extends `UserError`: these happen to a person typing into a form, so they
+ * render as 422 with the field name.
  */
 abstract class CatalogException extends UserError {}

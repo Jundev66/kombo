@@ -31,10 +31,8 @@ final class DeliveryNoteController
     }
 
     /**
-     * Reimprimir.
-     *
-     * Se cuenta cuántas veces: una nota reimpresa cinco veces es una pregunta
-     * que alguien va a querer hacerse.
+     * Reprinting. How many times is counted: a note reprinted five times is a
+     * question somebody will want to ask.
      */
     public function reprint(string $id): JsonResponse
     {
@@ -46,8 +44,7 @@ final class DeliveryNoteController
     }
 
     /*
-     * No hay `void()` aquí. Anular una nota es anular la venta entera —una
-     * nota por pedido, y no se reemite—, así que esa operación vive en la caja,
-     * que es la que sabe cancelar el pedido además del papel.
+     * No `void()` here. Voiding a note is voiding the whole sale, so that
+     * operation lives at the till, which knows how to cancel the order too.
      */
 }

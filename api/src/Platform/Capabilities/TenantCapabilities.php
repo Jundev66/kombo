@@ -5,18 +5,16 @@ declare(strict_types=1);
 namespace Platform\Capabilities;
 
 /**
- * Qué puede hacer este negocio, con este plan, y este usuario dentro de él.
+ * What this tenant, on this plan, with this user inside it, can do.
  *
- * Ya resuelto: el servidor combinó plan × módulos encendidos × configuración ×
- * permisos del usuario, y esto es el resultado. El frontend lo pinta y no
- * decide nada.
+ * Already resolved: the frontend paints it and decides nothing.
  */
 final readonly class TenantCapabilities
 {
     /**
-     * @param  list<string>  $modules  Encendidos Y permitidos por el plan.
-     * @param  list<string>  $permissions  Los del usuario, ya filtrados por módulo activo.
-     * @param  array<string, mixed>  $settings  Claves `modulo.opcion`, con el valor efectivo.
+     * @param  list<string>  $modules  Enabled AND allowed by the plan.
+     * @param  list<string>  $permissions  The user's, filtered by active module.
+     * @param  array<string, mixed>  $settings  `module.option` keys, effective values.
      * @param  list<array{module: string, name: string, requiresPlan: string}>  $upgradeable
      */
     public function __construct(
@@ -38,11 +36,11 @@ final readonly class TenantCapabilities
     }
 
     /**
-     * LA comprobación del sistema.
+     * THE check.
      *
-     * Siempre la conjunción: **módulo encendido Y permiso concedido**. Un
-     * permiso de un módulo apagado nunca concede acceso, aunque el rol lo
-     * tenga escrito — al apagar el módulo, ese permiso dejó de existir.
+     * Always the conjunction: module enabled AND permission granted. A
+     * permission of a disabled module never grants access, even when the role
+     * has it written down — disabling the module unmade that permission.
      */
     public function allows(string $module, string $permission): bool
     {

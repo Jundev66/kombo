@@ -10,7 +10,7 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Una zona de reparto: un barrio con su tarifa.
+ * A delivery zone: a neighbourhood and its fee.
  */
 #[Fillable(['name', 'fee_cents', 'estimated_minutes', 'is_active', 'sort_order'])]
 class DeliveryZoneModel extends Model

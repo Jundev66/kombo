@@ -3,12 +3,11 @@
 declare(strict_types=1);
 
 /*
- * Cada canal aplica SUS límites, no un mínimo común.
+ * Each channel applies ITS limits, not a lowest common denominator.
  *
- * Es la razón de que haya un puerto y dos adaptadores en vez de una clase con
- * `if ($canal === 'whatsapp')`. Si el motor conociera los límites, escribiría
- * para el más pobre de los dos y Telegram quedaría igual de estrecho que
- * WhatsApp sin ninguna razón.
+ * The reason there is a port and two adapters rather than one class full of
+ * `if ($channel === 'whatsapp')`. Knowing the limits, the engine would write for
+ * the poorer of the two and cramp Telegram for no reason.
  */
 
 use App\Models\Channels\ChannelAccountModel;
@@ -27,7 +26,7 @@ beforeEach(function (): void {
     actingForTenant($this->tenant);
 });
 
-function cuenta(string $channel, array $credentials): ChannelAccountModel
+function account(string $channel, array $credentials): ChannelAccountModel
 {
     return ChannelAccountModel::create([
         'channel' => $channel,
@@ -39,83 +38,83 @@ function cuenta(string $channel, array $credentials): ChannelAccountModel
 }
 
 /** @return list<ReplyOption> */
-function opciones(int $cuantas): array
+function options(int $howMany): array
 {
     return array_map(
         fn (int $i): ReplyOption => new ReplyOption("o:{$i}", "Opción número {$i}"),
-        range(1, $cuantas),
+        range(1, $howMany),
     );
 }
 
-it('WhatsApp parte en tandas de tres, porque no admite más', function (): void {
-    $adapter = new WhatsAppChannel(cuenta('whatsapp', ['access_token' => 't']));
+it('WhatsApp splits into batches of three, because it takes no more', function (): void {
+    $adapter = new WhatsAppChannel(account('whatsapp', ['access_token' => 't']));
 
-    $adapter->send('584141234567', Reply::withOptions('Elige', opciones(7)));
+    $adapter->send('584141234567', Reply::withOptions('Elige', options(7)));
 
-    // Siete opciones son tres mensajes: 3 + 3 + 1.
+    // Seven options are three messages: 3 + 3 + 1.
     Http::assertSentCount(3);
 
-    $primero = true;
-    Http::assertSent(function (Request $request) use (&$primero): bool {
-        $botones = $request['interactive']['action']['buttons'] ?? [];
+    $firstItem = true;
+    Http::assertSent(function (Request $request) use (&$firstItem): bool {
+        $buttons = $request['interactive']['action']['buttons'] ?? [];
 
-        expect(count($botones))->toBeLessThanOrEqual(3);
+        expect(count($buttons))->toBeLessThanOrEqual(3);
 
-        // El texto va sólo en el primero: repetir la pregunta entera en cada
-        // tanda haría que el cliente la lea tres veces sin saber cuál contestar.
-        if ($primero) {
+        // The text goes only in the first: repeating the whole question in each
+        // batch would have the customer read it three times.
+        if ($firstItem) {
             expect($request['interactive']['body']['text'])->toBe('Elige');
-            $primero = false;
+            $firstItem = false;
         }
 
         return true;
     });
 });
 
-it('WhatsApp recorta los títulos largos en vez de fallar', function (): void {
-    $adapter = new WhatsAppChannel(cuenta('whatsapp', ['access_token' => 't']));
+it('WhatsApp trims long titles instead of failing', function (): void {
+    $adapter = new WhatsAppChannel(account('whatsapp', ['access_token' => 't']));
 
-    // Que un producto se llame así no puede ser un error del sistema: es sólo
-    // un nombre que no cabe en un botón de veinte caracteres.
+    // A product being called that cannot be a system error: it is just a name
+    // that does not fit on a twenty-character button.
     $adapter->send('584141234567', Reply::withOptions('Elige', [
         new ReplyOption('p:1', 'Arepa de pernil con queso amarillo y aguacate'),
     ]));
 
     Http::assertSent(function (Request $request): bool {
-        $titulo = $request['interactive']['action']['buttons'][0]['reply']['title'];
+        $title = $request['interactive']['action']['buttons'][0]['reply']['title'];
 
-        expect(mb_strlen($titulo))->toBeLessThanOrEqual(20)
-            ->and($titulo)->toEndWith('…');
+        expect(mb_strlen($title))->toBeLessThanOrEqual(20)
+            ->and($title)->toEndWith('…');
 
         return true;
     });
 });
 
-it('Telegram manda las ocho opciones en UN mensaje', function (): void {
-    $adapter = new TelegramChannel(cuenta('telegram', ['bot_token' => 't']));
+it('Telegram sends all eight options in ONE message', function (): void {
+    $adapter = new TelegramChannel(account('telegram', ['bot_token' => 't']));
 
-    $adapter->send('99', Reply::withOptions('Elige', opciones(8)));
+    $adapter->send('99', Reply::withOptions('Elige', options(8)));
 
-    // Un solo envío: recortarlo a tres sería traer aquí un límite que este
-    // canal no tiene.
+    // One send: trimming to three would import a limit this channel does not
+    // have.
     Http::assertSentCount(1);
 
     Http::assertSent(function (Request $request): bool {
-        $teclado = json_decode((string) $request['reply_markup'], true);
-        $botones = array_merge(...$teclado['inline_keyboard']);
+        $keyboard = json_decode((string) $request['reply_markup'], true);
+        $buttons = array_merge(...$keyboard['inline_keyboard']);
 
-        expect($botones)->toHaveCount(8)
-            // Los títulos NO se recortan: aquí caben enteros.
-            ->and($botones[0]['text'])->toBe('Opción número 1');
+        expect($buttons)->toHaveCount(8)
+            // Titles are NOT trimmed: they fit whole here.
+            ->and($buttons[0]['text'])->toBe('Opción número 1');
 
         return true;
     });
 });
 
-it('Telegram descarta un botón cuyo identificador no cabe en 64 bytes', function (): void {
-    // Y falla de la peor manera si se manda igual: la API lo acepta y al
-    // tocarlo no pasa nada, sin error en ningún sitio.
-    $adapter = new TelegramChannel(cuenta('telegram', ['bot_token' => 't']));
+it('Telegram discards a button whose id does not fit in 64 bytes', function (): void {
+    // And it fails in the worst way if sent anyway: the API accepts it and
+    // tapping does nothing, with no error anywhere.
+    $adapter = new TelegramChannel(account('telegram', ['bot_token' => 't']));
 
     $adapter->send('99', Reply::withOptions('Elige', [
         new ReplyOption('ver_categoria_'.str_repeat('a', 80), 'Demasiado largo'),
@@ -123,58 +122,58 @@ it('Telegram descarta un botón cuyo identificador no cabe en 64 bytes', functio
     ]));
 
     Http::assertSent(function (Request $request): bool {
-        $teclado = json_decode((string) $request['reply_markup'], true);
-        $botones = array_merge(...$teclado['inline_keyboard']);
+        $keyboard = json_decode((string) $request['reply_markup'], true);
+        $buttons = array_merge(...$keyboard['inline_keyboard']);
 
-        expect($botones)->toHaveCount(1)
-            ->and($botones[0]['callback_data'])->toBe('c:1');
+        expect($buttons)->toHaveCount(1)
+            ->and($buttons[0]['callback_data'])->toBe('c:1');
 
         return true;
     });
 });
 
-it('sin credenciales no se llama a nadie, y no revienta', function (): void {
-    // Un canal a medio configurar no puede tumbar el trabajo que lo llamó: el
-    // aviso es un extra, la comida es el producto.
-    $adapter = new WhatsAppChannel(cuenta('whatsapp', []));
+it('with no credentials nobody is called, and nothing blows up', function (): void {
+    // A half-configured channel cannot bring down the job that called it: the
+    // notice is an extra, the food is the product.
+    $adapter = new WhatsAppChannel(account('whatsapp', []));
 
     $adapter->send('584141234567', Reply::text('hola'));
 
     Http::assertNothingSent();
 });
 
-it('un canal caído no tumba lo que lo llamó', function (): void {
+it('a channel that is down does not bring down what called it', function (): void {
     Http::fake(['*' => Http::response(['error' => 'nope'], 500)]);
 
-    $adapter = new TelegramChannel(cuenta('telegram', ['bot_token' => 't']));
+    $adapter = new TelegramChannel(account('telegram', ['bot_token' => 't']));
 
-    // No lanza: si lanzara, marcar una comanda como lista fallaría porque
-    // Telegram está caído.
+    // It does not throw: if it did, marking a ticket ready would fail because
+    // Telegram is down.
     $adapter->send('99', Reply::text('hola'));
 
     expect(true)->toBeTrue();
 });
 
-it('la firma de WhatsApp se compara en tiempo constante y contra el cuerpo CRUDO', function (): void {
-    $adapter = new WhatsAppChannel(cuenta('whatsapp', ['access_token' => 't']));
+it('WhatsApp\'s signature is compared in constant time against the RAW body', function (): void {
+    $adapter = new WhatsAppChannel(account('whatsapp', ['access_token' => 't']));
 
-    $cuerpo = '{"hola":"mundo"}';
-    $firma = 'sha256='.hash_hmac('sha256', $cuerpo, 'secreto');
+    $body = '{"hola":"mundo"}';
+    $signature = 'sha256='.hash_hmac('sha256', $body, 'secreto');
 
-    expect($adapter->verifySignature($cuerpo, ['x-hub-signature-256' => [$firma]], 'secreto'))->toBeTrue()
-        // Un espacio de diferencia en el cuerpo y la firma ya no cuadra: por eso
-        // se firma lo que llegó y no lo que se obtiene al volver a serializar.
-        ->and($adapter->verifySignature('{"hola": "mundo"}', ['x-hub-signature-256' => [$firma]], 'secreto'))->toBeFalse()
-        // Sin secreto configurado no se acepta nada. Dejar pasar «mientras se
-        // configura» es dejar la puerta abierta el tiempo que tarde alguien en
-        // encontrarla.
-        ->and($adapter->verifySignature($cuerpo, ['x-hub-signature-256' => [$firma]], null))->toBeFalse();
+    expect($adapter->verifySignature($body, ['x-hub-signature-256' => [$signature]], 'secreto'))->toBeTrue()
+        // One space of difference and the signature no longer matches, which is why
+        // what arrived is signed rather than what re-serialising produces.
+        ->and($adapter->verifySignature('{"hola": "mundo"}', ['x-hub-signature-256' => [$signature]], 'secreto'))->toBeFalse()
+        // With no configured secret nothing is accepted. Letting it through "while
+        // it is being configured" leaves the door open as long as it takes somebody
+        // to find it.
+        ->and($adapter->verifySignature($body, ['x-hub-signature-256' => [$signature]], null))->toBeFalse();
 });
 
-it('Telegram entiende un botón tocado, que no llega como mensaje', function (): void {
-    $adapter = new TelegramChannel(cuenta('telegram', ['bot_token' => 't']));
+it('Telegram understands a tapped button, which does not arrive as a message', function (): void {
+    $adapter = new TelegramChannel(account('telegram', ['bot_token' => 't']));
 
-    $mensajes = $adapter->parse([
+    $messages = $adapter->parse([
         'update_id' => 1,
         'callback_query' => [
             'id' => '77',
@@ -184,15 +183,15 @@ it('Telegram entiende un botón tocado, que no llega como mensaje', function ():
         ],
     ]);
 
-    expect($mensajes)->toHaveCount(1)
-        ->and($mensajes[0]->chatId)->toBe('12345')
-        ->and($mensajes[0]->intent())->toBe('c:2')
-        ->and($mensajes[0]->senderName)->toBe('Ana Pérez');
+    expect($messages)->toHaveCount(1)
+        ->and($messages[0]->chatId)->toBe('12345')
+        ->and($messages[0]->intent())->toBe('c:2')
+        ->and($messages[0]->senderName)->toBe('Ana Pérez');
 });
 
-it('Telegram descarta lo que no es un mensaje', function (): void {
-    $adapter = new TelegramChannel(cuenta('telegram', ['bot_token' => 't']));
+it('Telegram discards what is not a message', function (): void {
+    $adapter = new TelegramChannel(account('telegram', ['bot_token' => 't']));
 
-    // Ediciones, mensajes de canal, gente que entra a un grupo.
+    // Edits, channel posts, people joining a group.
     expect($adapter->parse(['update_id' => 1, 'edited_message' => ['text' => 'x']]))->toBe([]);
 });

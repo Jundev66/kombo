@@ -10,11 +10,11 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Un cliente del negocio.
+ * A customer of the tenant.
  *
- * El teléfono va cifrado y al lado su hash: el cifrado de Laravel no es
- * determinista, así que sin el hash no habría forma de encontrar a alguien por
- * su número sin descifrar la tabla entera.
+ * The phone number is stored encrypted with its hash alongside: Laravel's
+ * encryption is not deterministic, so without the hash there would be no way to
+ * find someone by number without decrypting the whole table.
  */
 #[Fillable(['phone', 'phone_hash', 'name', 'notes', 'orders_count', 'spent_cents', 'last_order_at'])]
 class CustomerModel extends Model
@@ -34,16 +34,16 @@ class CustomerModel extends Model
     }
 
     /**
-     * El hash con el que se busca.
+     * The hash used to search.
      *
-     * Con la clave de la aplicación por delante: sin ella, dos despliegues
-     * distintos producirían el mismo hash para el mismo número, y ese hash
-     * sería una tabla arcoíris trivial —los teléfonos tienen once dígitos—.
+     * Keyed with the application key: without it, two deployments would produce
+     * the same hash for the same number, and eleven-digit phone numbers make
+     * that a trivial rainbow table.
      */
     public static function hashOf(string $phone): string
     {
-        $normalizado = preg_replace('/\D/', '', $phone) ?? $phone;
+        $normalized = preg_replace('/\D/', '', $phone) ?? $phone;
 
-        return hash_hmac('sha256', $normalizado, (string) config('app.key'));
+        return hash_hmac('sha256', $normalized, (string) config('app.key'));
     }
 }

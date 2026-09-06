@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
-# Las pruebas de usuario, por el navegador.
+# The end-to-end tests, through the browser.
 #
-#   ./e2e/run.sh                       todas
-#   ./e2e/run.sh tests/cocina.spec.ts  una
-#   ./e2e/run.sh --grep "comanda"      las que digan eso
-#   ./e2e/run.sh --limpio              rehaciendo la base antes
+#   ./e2e/run.sh                        all
+#   ./e2e/run.sh tests/kitchen.spec.ts  one
+#   ./e2e/run.sh --grep "ticket"        the ones matching
+#   ./e2e/run.sh --clean               rebuilding the database first
 #
-# Siembra SIEMPRE antes de correr. Es la diferencia entre una suite que se
-# puede correr dos veces seguidas y una que hay que reparar a mano cada vez.
+# It ALWAYS seeds before running: the difference between a suite you can run
+# twice in a row and one that has to be repaired by hand each time.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -16,7 +16,7 @@ cd "$(dirname "$0")/.."
 CLEAN=0
 ARGS=()
 for arg in "$@"; do
-    if [[ "$arg" == "--limpio" ]]; then CLEAN=1; else ARGS+=("$arg"); fi
+    if [[ "$arg" == "--clean" ]]; then CLEAN=1; else ARGS+=("$arg"); fi
 done
 
 if ! docker compose ps --status running --services 2>/dev/null | grep -q '^nginx$'; then
@@ -32,21 +32,21 @@ fi
 echo "→ Sembrando los negocios de demostración…"
 docker compose exec -T api php artisan db:seed --force
 
-# El resolutor cachea el negocio en Redis. Si la siembra cambió un
-# identificador y no se limpia, el síntoma engaña: /me responde bien —viene de
-# caché— y TODAS las consultas devuelven cero filas, porque RLS filtra por un
-# identificador que ya no existe.
+# The resolver caches the tenant in Redis. If seeding changed an id and the
+# cache is not cleared, the symptom misleads: /me answers correctly — from
+# cache — while every query returns zero rows, because RLS filters by an id
+# that no longer exists.
 docker compose exec -T api php artisan cache:clear >/dev/null
 
-# Se cierra lo que quedó abierto de corridas anteriores.
+# Whatever earlier runs left open is closed.
 #
-# Las pantallas de trabajo enseñan lo que está VIVO y tienen tope: sin esto,
-# los pedidos de las pruebas de ayer se acumulan hasta llenarlas, y los que
-# crea esta corrida dejan de caber. La pantalla lo AVISA —para eso está el
-# aviso— pero la prueba que busca el suyo no lo encuentra y falla por un motivo
-# que no tiene nada que ver con lo que estaba probando.
+# The working screens show what is LIVE and have a cap: without this,
+# yesterday's test orders pile up until they fill them, and the ones this run
+# creates no longer fit. The screen SAYS SO — that is what the notice is for —
+# but the test looking for its own does not find it and fails for a reason
+# unrelated to what it was checking.
 echo "→ Cerrando lo que quedó abierto de otras corridas…"
-docker compose exec -T api php artisan demo:limpiar --horas=0 >/dev/null
+docker compose exec -T api php artisan demo:clean --hours=0 >/dev/null
 
 echo "→ Corriendo las pruebas…"
 exec docker compose run --rm e2e npx playwright test "${ARGS[@]}"

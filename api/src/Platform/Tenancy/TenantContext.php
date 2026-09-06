@@ -7,15 +7,11 @@ namespace Platform\Tenancy;
 use Platform\Tenancy\Exceptions\TenantNotResolved;
 
 /**
- * Quién es el negocio de esta petición.
+ * Which tenant this request belongs to.
  *
- * Singleton explícito, registrado a mano en PlatformServiceProvider: un ciclo
- * de vida accidental no es un ciclo de vida. Si esto se resolviera dos veces
- * por petición el fallo sería intermitente y carísimo de encontrar.
- *
- * Es sólo la mitad de la historia. La otra mitad la lleva TenantDatabaseGuard,
- * que escribe el mismo identificador en la conexión de PostgreSQL para que RLS
- * lo lea. Esta clase es comodidad para el código; la garantía está allá.
+ * Half the story: TenantDatabaseGuard writes the same id onto the PostgreSQL
+ * connection for RLS to read. This class is convenience for the code; the
+ * guarantee is over there.
  */
 final class TenantContext
 {
@@ -27,7 +23,7 @@ final class TenantContext
     }
 
     /**
-     * @throws TenantNotResolved cuando no hay negocio — a propósito.
+     * @throws TenantNotResolved when there is no tenant — on purpose.
      */
     public function current(): Tenant
     {
@@ -45,8 +41,8 @@ final class TenantContext
     }
 
     /**
-     * Sólo para pruebas y para trabajos en cola que cambian de negocio. En una
-     * petición normal no hay razón para llamarlo.
+     * For tests and for queued jobs that switch tenant. A normal request has no
+     * reason to call it.
      */
     public function forget(): void
     {

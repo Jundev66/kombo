@@ -8,15 +8,11 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * Quién se llevó el pedido.
+ * Who took the order out. Without it, `delivery.view_own` existed with no way
+ * to know which deliveries were theirs.
  *
- * Sin esto, «mis entregas» no significaba nada: el permiso `delivery.view_own`
- * existía y no había forma de saber cuáles eran las suyas.
- *
- * Va el identificador **y el nombre copiado**, como todo lo que se escribe en
- * un documento: el día que un repartidor se dé de baja, el pedido de hace tres
- * meses tiene que seguir diciendo quién lo llevó — es con eso con lo que se le
- * paga.
+ * Id AND copied name: the day a courier leaves, an old order still has to say
+ * who took it — that is what they get paid on.
  */
 return new class extends Migration
 {
@@ -28,8 +24,8 @@ return new class extends Migration
         });
 
         Schema::table('orders', function (Blueprint $table): void {
-            // Sirve exacto a «lo que llevo yo»: la consulta que hace la
-            // pantalla del repartidor cada vez que se refresca.
+            // Serves "what I am carrying" exactly: the query the courier's screen
+            // makes on every refresh.
             TenantSchema::index($table, ['courier_id', 'status'], 'idx_orders_repartidor');
         });
     }

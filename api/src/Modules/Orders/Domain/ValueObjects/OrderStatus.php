@@ -5,35 +5,30 @@ declare(strict_types=1);
 namespace Modules\Orders\Domain\ValueObjects;
 
 /**
- * Por dónde va un pedido.
- *
- * La tabla de transiciones vive aquí y en ningún otro sitio. Es lo que impide
- * que el portal, la caja, el bot y la cocina tengan cada uno su propia idea de
- * qué puede pasar después — que es como acaban existiendo pedidos entregados
- * que vuelven a la plancha.
+ * Where an order has got to. The transition table lives here and nowhere else.
  *
  *   pending_payment ──► placed ──► confirmed ──► preparing ──► ready
- *   (pago móvil,        (llegó,    (el negocio   (cocina lo    (cocina
- *    esperando           esperando  lo acepta →   tomó)         terminó)
- *    comprobante)        respuesta) ENTRA A                        │
- *                                   COCINA)                        ▼
- *                                              delivered ◄── out_for_delivery
+ *                                  (goes to the kitchen)          │
+ *                                                                 ▼
+ *                                            delivered ◄── out_for_delivery
  *
- *   cualquiera no terminal ──► cancelled
+ *   any non-terminal ──► cancelled
+ *
+ * One table, or the portal, the till, the bot and the kitchen each grow their
+ * own idea of what can happen next — which is how delivered orders end up back
+ * on the griddle.
  */
 enum OrderStatus: string
 {
-    /** Pagó por transferencia y falta que alguien lo dé por bueno. */
+    /** Paid by transfer; somebody still has to take it as good. */
     case PendingPayment = 'pending_payment';
 
-    /** Llegó al negocio y espera respuesta. */
+    /** It reached the tenant and is awaiting an answer. */
     case Placed = 'placed';
 
     /**
-     * El negocio lo aceptó.
-     *
-     * **Ésta es la transición que manda el pedido a la cocina.** Es el único
-     * camino: la cocina no consulta `orders` por su cuenta.
+     * The tenant accepted it. This is the transition that sends the order to
+     * the kitchen, and it is the only path.
      */
     case Confirmed = 'confirmed';
 
@@ -53,9 +48,8 @@ enum OrderStatus: string
             self::Placed => [self::Confirmed, self::Cancelled],
             self::Confirmed => [self::Preparing, self::Cancelled],
             self::Preparing => [self::Ready, self::Cancelled],
-            // Desde «listo» se bifurca: o sale a la calle, o se lo llevan del
-            // mostrador. Las dos son válidas y las decide el tipo de servicio,
-            // no el estado.
+            // From "ready" it forks: out on the road, or collected at the counter.
+            // The service type decides, not the state.
             self::Ready => [self::OutForDelivery, self::Delivered, self::Cancelled],
             self::OutForDelivery => [self::Delivered, self::Cancelled],
             self::Delivered, self::Cancelled => [],
@@ -67,25 +61,25 @@ enum OrderStatus: string
         return in_array($next, $this->allowedNext(), true);
     }
 
-    /** De aquí no se vuelve. */
+    /** There is no coming back from here. */
     public function isTerminal(): bool
     {
         return $this->allowedNext() === [];
     }
 
-    /** ¿Está en la cocina ahora mismo? */
+    /** Is it in the kitchen right now? */
     public function isInKitchen(): bool
     {
         return in_array($this, [self::Confirmed, self::Preparing], true);
     }
 
-    /** ¿Sigue vivo, o ya se cerró de una forma u otra? */
+    /** Still live, or closed one way or another? */
     public function isOpen(): bool
     {
         return ! $this->isTerminal();
     }
 
-    /** Lo que ve una persona. Sin jerga y sin estados internos. */
+    /** What a person sees. No jargon and no internal states. */
     public function label(): string
     {
         return match ($this) {

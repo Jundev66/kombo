@@ -10,9 +10,9 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Un agregado de una línea: «sin cebolla», «extra queso».
+ * An add-on to a line: "no onion", "extra cheese".
  *
- * `price_delta_cents` puede ser NEGATIVO. El nombre va copiado.
+ * `price_delta_cents` can be NEGATIVE. The name is stored as a copy.
  */
 #[Fillable(['order_item_id', 'modifier_id', 'name', 'price_delta_cents', 'sort_order'])]
 class OrderItemModifierModel extends Model

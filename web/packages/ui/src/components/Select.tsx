@@ -38,11 +38,11 @@ export function Textarea({
 }
 
 /**
- * Un interruptor.
+ * A switch.
  *
- * Es un `checkbox` de verdad por debajo, no un `div` con `onClick`: así lo
- * alcanza el teclado, lo anuncia un lector de pantalla, y `getByRole('switch')`
- * lo encuentra en las pruebas sin inventarse selectores.
+ * A real `checkbox` underneath rather than a `div` with `onClick`: that way the
+ * keyboard reaches it, a screen reader announces it, and `getByRole('switch')`
+ * finds it in tests without inventing selectors.
  */
 export function Toggle({
   checked,

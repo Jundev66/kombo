@@ -3,18 +3,18 @@ import tailwind from '@tailwindcss/vite'
 import type { UserConfig } from 'vite'
 
 interface AppOptions {
-  /** Bajo qué ruta se sirve: '/', '/caja/', '/panel/', '/cocina/'. */
+  /** Which path it is served under: '/', '/pos/', '/dashboard/', '/kds/'. */
   base: string
-  /** Presupuesto de arranque en KB gzip. Lo vigila scripts/check-bundle-size.mjs. */
+  /** Startup budget in KB gzipped. Watched by scripts/check-bundle-size.mjs. */
   budgetKb: number
 }
 
 /**
- * La configuración que comparten las cinco aplicaciones.
+ * The configuration the five apps share.
  *
- * Cada `vite.config.ts` es una línea. Todo lo que no sea "bajo qué ruta se
- * sirve" y "cuánto puede pesar" vive aquí, para que una decisión de
- * infraestructura se tome una vez y no cinco.
+ * Each `vite.config.ts` is one line. Everything that is not "which path it is
+ * served under" and "how much it may weigh" lives here, so an infrastructure
+ * decision is taken once rather than five times.
  */
 export function sharedConfig({ base, budgetKb }: AppOptions): UserConfig {
   return {
@@ -22,8 +22,8 @@ export function sharedConfig({ base, budgetKb }: AppOptions): UserConfig {
 
     plugins: [
       react(),
-      // Tailwind 4 como plugin de Vite: sin postcss.config, sin
-      // tailwind.config.js. El tema vive en CSS, en packages/ui/src/theme.css.
+      // Tailwind 4 as a Vite plugin: no postcss.config, no tailwind.config.js. The
+      // theme lives in CSS, in packages/ui/src/theme.css.
       tailwind(),
     ],
 
@@ -32,19 +32,17 @@ export function sharedConfig({ base, budgetKb }: AppOptions): UserConfig {
       port: 5173,
       strictPort: true,
 
-      // Todo entra por nginx en el 8010, así que el cliente de recambio en
-      // caliente tiene que conectarse ahí y no al 5173 interno del contenedor.
+      // Everything comes in through nginx on 8010, so hot module replacement has to
+      // connect there rather than to the container's internal 5173.
       hmr: { clientPort: 8010 },
 
-      // Comodín, igual que el server_name de nginx: un negocio nuevo no toca
-      // esta línea. Sin esto, Vite responde "Blocked request" a cualquier
-      // subdominio que no esté enumerado — y enumerar negocios aquí sería
-      // enumerar clientes.
+      // A wildcard, like nginx's server_name: a new tenant does not touch this
+      // line. Without it, Vite answers "Blocked request" to any subdomain not
+      // listed — and listing tenants here would be listing customers.
       allowedHosts: ['.localhost'],
 
-      // Los eventos del sistema de archivos no cruzan el volumen de Docker en
-      // macOS. Sin polling, guardar un fichero no recarga nada y se pierden
-      // veinte minutos buscando por qué.
+      // Filesystem events do not cross the Docker volume on macOS. Without
+      // polling, saving a file reloads nothing and twenty minutes go missing.
       watch: { usePolling: true, interval: 300 },
     },
 
@@ -52,20 +50,19 @@ export function sharedConfig({ base, budgetKb }: AppOptions): UserConfig {
       target: 'es2023',
       cssCodeSplit: true,
 
-      // Lo lee el guardián de presupuesto para saber qué entra en el arranque.
+      // Read by the budget guard to know what is in the startup path.
       manifest: true,
 
-      // El aviso propio del bundler mide SIN comprimir, así que con el
-      // presupuesto real (gzip) grita en falso. El guardián de verdad es
-      // scripts/check-bundle-size.mjs, que mide gzip y sólo el camino de
-      // arranque, y que rompe el build. Esto es sólo para que el ruido no tape
-      // un aviso que sí importe.
+      // The bundler's own warning measures UNCOMPRESSED, so it cries wolf against
+      // a gzip budget. The real guard is scripts/check-bundle-size.mjs, which
+      // measures gzip on the startup path only and breaks the build. This is just
+      // so the noise does not bury a warning that matters.
       chunkSizeWarningLimit: budgetKb * 3,
 
       rollupOptions: {
         output: {
-          // React aparte: cambia poco y así el navegador del cajero no vuelve
-          // a descargarlo en cada despliegue. En una conexión lenta se nota.
+          // React separately: it changes little, so the cashier's browser does not
+          // re-download it on every deployment.
           manualChunks(id: string) {
             if (id.includes('node_modules/react') || id.includes('node_modules/scheduler')) {
               return 'react'

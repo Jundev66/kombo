@@ -8,11 +8,10 @@ use Platform\Modules\ModuleManifest;
 use Platform\Modules\Setting;
 
 /**
- * Los documentos que se entregan al cliente.
+ * The documents handed to the customer. Today one: the delivery note.
  *
- * Hoy sólo uno: la **nota de entrega**. Es un documento comercial, no fiscal —
- * el papel lo dice— y no sustituye a la factura ni elimina las obligaciones
- * tributarias del negocio.
+ * A commercial document, not a fiscal one — the paper says so — and it neither
+ * replaces an invoice nor removes the tenant's tax obligations.
  */
 final class DocumentsModule extends ModuleManifest
 {
@@ -58,9 +57,8 @@ final class DocumentsModule extends ModuleManifest
             'notes.issue',
             'notes.reprint',
 
-            // No hay `notes.void`: como sólo puede haber una nota por pedido y
-            // no se reemite, anular el papel es anular la venta entera. Ese
-            // permiso vive en la caja (`counter.void`), que es donde se hace.
+            // No `notes.void`: with one note per order and no reissue, voiding the
+            // paper is voiding the whole sale, so that permission lives at the till.
         ];
     }
 
@@ -70,13 +68,11 @@ final class DocumentsModule extends ModuleManifest
     public function settings(): array
     {
         return [
-            // Lo que va debajo del total: horario, dirección, «gracias por su
-            // compra». Lo escribe el dueño una vez.
+            // What goes below the total: hours, address, "thank you for your custom".
             'footer_text' => Setting::text('')->maxLength(300),
 
-            // Si los precios de la carta ya llevan impuesto incluido. Aquí sólo
-            // afecta a cómo se muestra el total en el papel: este sistema NO
-            // calcula IVA como débito fiscal.
+            // Whether menu prices include tax. Here it only affects how the total is
+            // shown on paper: this system does NOT compute VAT as a fiscal debit.
             'prices_include_tax' => Setting::bool(true),
         ];
     }

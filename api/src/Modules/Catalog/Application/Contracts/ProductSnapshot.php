@@ -7,14 +7,11 @@ namespace Modules\Catalog\Application\Contracts;
 use Shared\Domain\ValueObjects\Money;
 
 /**
- * Lo que otros módulos necesitan saber de un producto. **No es la entidad.**
+ * What other modules need to know about a product. Not the entity: with the
+ * domain `Product`, `Orders` could call `changePriceTo()` from outside.
  *
- * La diferencia importa: si `Orders` recibiera el `Product` de dominio, podría
- * llamar a `changePriceTo()` desde fuera del módulo que defiende esa regla. Un
- * objeto de sólo lectura hace que eso ni se plantee.
- *
- * Lleva el precio porque quien cobra lo necesita — y lo saca de aquí, nunca de
- * lo que mandó el navegador.
+ * It carries the price because whoever charges needs it — from here, never from
+ * what the browser sent.
  */
 final readonly class ProductSnapshot
 {
@@ -28,7 +25,7 @@ final readonly class ProductSnapshot
         public ?int $prepMinutes,
     ) {}
 
-    /** ¿Se le puede vender esta cantidad a alguien ahora mismo? */
+    /** Can this quantity be sold right now? */
     public function isSellable(int $quantity = 1): bool
     {
         if (! $this->isActive) {

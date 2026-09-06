@@ -10,10 +10,10 @@ use Modules\Customers\Application\Listeners\RememberCustomer;
 use Modules\Orders\Domain\Events\OrderPlaced;
 
 /**
- * Todo el enganche: una línea.
+ * The whole hook-up: one line.
  *
- * `Orders` no sabe que este módulo existe. Se puede borrar la carpeta entera y
- * los pedidos siguen igual — sólo que nadie lleva la cuenta de quién compra.
+ * `Orders` does not know this module exists. Delete the directory and orders
+ * carry on — only nobody keeps track of who buys.
  */
 final class CustomersServiceProvider extends ServiceProvider
 {

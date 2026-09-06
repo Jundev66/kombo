@@ -10,8 +10,8 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Un pago de un pedido. Puede haber VARIOS: aquí se cobra mezclado —tres
- * dólares en efectivo y el resto en bolívares por pago móvil—.
+ * A payment against an order. There can be SEVERAL: people pay in a mix here —
+ * some cash, the rest by mobile transfer.
  */
 #[Fillable(['order_id', 'method', 'amount_cents', 'currency', 'exchange_rate',
     'reference', 'receipt_url', 'status', 'confirmed_by', 'confirmed_at', 'created_by'])]

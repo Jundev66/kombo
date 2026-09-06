@@ -4,7 +4,7 @@ titulo: Las dos vistas de pedidos de un cliente
 tipo: arreglo
 estado: hecho
 fecha: 2026-08-29
-toca: [web/apps/portal, web/apps/panel/src/screens/CustomersScreen.tsx, api/src/Modules/Portal]
+toca: [web/apps/portal, web/apps/dashboard/src/screens/CustomersScreen.tsx, api/src/Modules/Portal]
 relacionados: [KMB-0009, KMB-0010]
 ---
 

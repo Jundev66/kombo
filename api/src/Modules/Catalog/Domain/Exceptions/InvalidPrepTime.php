@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Modules\Catalog\Domain\Exceptions;
 
 /**
- * Un tiempo de preparación negativo, o tan largo que seguro es un error de tecleo.
+ * A negative prep time, or one so long it is certainly a typo.
  */
 final class InvalidPrepTime extends CatalogException
 {

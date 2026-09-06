@@ -14,13 +14,11 @@ use Platform\Audit\AuditLogger;
 use Shared\Domain\ValueObjects\Money;
 
 /**
- * Cambiar el precio de un producto.
+ * Changing a product's price.
  *
- * Tiene caso de uso propio, y no es ceremonia. Cambiar precios es la vía
- * natural para regalar mercancía, así que va con **su propio permiso**
- * (`catalog.change_price`, aparte de `catalog.manage`) y **siempre deja rastro
- * en la bitácora con el antes y el después**. Quien arregla una descripción no
- * tiene por qué poder bajar la parrilla a un dólar.
+ * Its own use case because changing prices is the natural way to give
+ * merchandise away: separate permission (`catalog.change_price`) and always a
+ * before/after entry in the audit log.
  */
 final class ChangePrice
 {
@@ -43,15 +41,13 @@ final class ChangePrice
             priceUpdatedAt: $model->price_updated_at,
         );
 
-        $antes = $product->price()->cents;
+        $before = $product->price()->cents;
 
-        // La entidad decide si esto cuenta como un cambio. Si el precio es el
-        // mismo, no mueve la fecha — y aquí tampoco se anota nada, porque una
-        // bitácora llena de «cambió el precio de 3,00 a 3,00» es una bitácora
-        // que nadie lee.
+        // The entity decides whether this counts as a change. An unchanged price
+        // moves no date and logs nothing: "changed from 3.00 to 3.00" is noise.
         $product->changePriceTo(Money::fromCents($newPriceCents));
 
-        if ($product->price()->cents === $antes) {
+        if ($product->price()->cents === $before) {
             return $model;
         }
 
@@ -63,7 +59,7 @@ final class ChangePrice
             action: 'catalog.price_changed',
             entityType: 'product',
             entityId: (string) $model->id,
-            before: ['price_cents' => $antes],
+            before: ['price_cents' => $before],
             after: ['price_cents' => $product->price()->cents],
         );
 

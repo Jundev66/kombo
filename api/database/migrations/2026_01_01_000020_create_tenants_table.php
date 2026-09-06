@@ -8,12 +8,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Los negocios. Tabla de PLATAFORMA, y sin RLS por una razón de huevo y
- * gallina: se consulta para AVERIGUAR de qué negocio hablamos, así que no
- * puede filtrarse por el negocio en contexto.
+ * The tenants. A PLATFORM table, without RLS for a chicken-and-egg reason: it
+ * is queried to FIND OUT which tenant we are talking about.
  *
- * Es la única tabla de la que cuelga todo lo demás, y dar de alta un cliente
- * es exactamente una fila aquí: ni DNS, ni certificado, ni despliegue.
+ * The one table everything else hangs off, and signing up a customer is exactly
+ * one row here: no DNS, no certificate, no deployment.
  */
 return new class extends Migration
 {
@@ -22,10 +21,9 @@ return new class extends Migration
         Schema::create('tenants', function (Blueprint $table): void {
             $table->uuid('id')->primary();
 
-            // El subdominio. Único en todo el sistema, en minúsculas, y con
-            // una lista de reservados en el resolutor (`admin`, `www`, `api`…)
-            // para que nadie registre un negocio que secuestre una dirección
-            // de la plataforma.
+            // The subdomain. Unique system-wide, lower-cased, with a reserved list in
+            // the resolver (`admin`, `www`, `api`…) so nobody registers a tenant that
+            // hijacks a platform address.
             $table->string('slug')->unique();
             $table->string('name');
 
@@ -43,9 +41,9 @@ return new class extends Migration
 
             $table->timestampTz('trial_ends_at')->nullable();
 
-            // A los 90 días de dejar de pagar. El negocio pasa a sólo lectura
-            // y puede exportarlo todo antes de esa fecha; borrar sin aviso los
-            // datos de alguien que confió en el sistema no es una opción.
+            // 90 days after payment stops. The tenant goes read-only and can export
+            // everything first: deleting the data of someone who trusted the system,
+            // without warning, is not an option.
             $table->timestampTz('data_expires_at')->nullable();
 
             $table->timestampsTz();
@@ -55,9 +53,8 @@ return new class extends Migration
             $table->foreign('plan_code')->references('code')->on('plans')->restrictOnDelete();
         });
 
-        // Los valores permitidos se comprueban con un CHECK y no con un tipo
-        // ENUM de PostgreSQL: agregar un valor a un ENUM es una migración con
-        // bloqueo de tabla, y estos estados van a crecer.
+        // Enforced with a CHECK rather than a PostgreSQL ENUM: adding a value to
+        // an ENUM locks the table, and these statuses are going to grow.
         DB::statement("alter table tenants add constraint chk_tenants_status
             check (status in ('trial','active','past_due','suspended','closed'))");
     }

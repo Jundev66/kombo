@@ -7,13 +7,9 @@ namespace Modules\Counter;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * La caja no enlaza ningún puerto propio: orquesta los casos de uso de
- * `Orders` y `Documents`, que el contenedor ya sabe construir.
+ * The till binds no port of its own; it orchestrates `Orders` and `Documents`.
  *
- * Existe igualmente para que añadir la caja siga siendo «una carpeta, un
- * proveedor y una línea», sin excepciones que haya que recordar.
+ * It exists so that adding a module stays "a directory, a provider and one
+ * line", with no exceptions to remember.
  */
-final class CounterServiceProvider extends ServiceProvider
-{
-    //
-}
+final class CounterServiceProvider extends ServiceProvider {}

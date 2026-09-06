@@ -11,10 +11,8 @@ use Illuminate\Support\Str;
 use Platform\Tenancy\TenantContext;
 
 /**
- * A qué hora abre el negocio.
- *
- * Lo usa el portal para no aceptar pedidos a las tres de la mañana, y el bot
- * para responder «hoy cerramos a las 8» en vez de dejar a alguien esperando.
+ * What time the tenant opens. The portal uses it to refuse orders at three in
+ * the morning, and the bot to answer "we close at 8 today".
  */
 final class BusinessHoursController
 {
@@ -26,9 +24,8 @@ final class BusinessHoursController
     {
         $rows = DB::table('business_hours')->orderBy('weekday')->get()->keyBy('weekday');
 
-        // Se devuelven los siete días SIEMPRE, aunque no haya filas. Una
-        // pantalla que tenga que inventar los días que faltan acaba
-        // inventándolos distinto que el portal.
+        // All seven days ALWAYS, even with no rows: a screen that invents the
+        // missing days ends up inventing them differently from the portal.
         $data = [];
         for ($weekday = 0; $weekday <= 6; $weekday++) {
             $row = $rows->get($weekday);
@@ -36,14 +33,12 @@ final class BusinessHoursController
             $data[] = [
                 'weekday' => $weekday,
                 'label' => self::DIAS[$weekday],
-                // Recortado a `H:i`, que es lo que acepta el PUT de abajo:
-                // PostgreSQL devuelve «08:00:00» y el formulario no podría
-                // guardar lo que acaba de leer.
+                // Trimmed to `H:i`, which is what the PUT below accepts: PostgreSQL
+                // returns "08:00:00" and the form could not save what it just read.
                 'opensAt' => $row?->opens_at === null ? null : substr((string) $row->opens_at, 0, 5),
                 'closesAt' => $row?->closes_at === null ? null : substr((string) $row->closes_at, 0, 5),
-                // Sin fila configurada, se asume CERRADO. Es el fallo seguro:
-                // aceptar pedidos de un día que nadie configuró es peor que no
-                // aceptarlos.
+                // With no row configured, CLOSED. The safe failure: taking orders on an
+                // unconfigured day is worse than not taking them.
                 'isClosed' => $row === null ? true : (bool) $row->is_closed,
             ];
         }

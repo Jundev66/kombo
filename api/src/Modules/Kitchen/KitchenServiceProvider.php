@@ -12,12 +12,11 @@ use Modules\Orders\Domain\Events\OrderCancelled;
 use Modules\Orders\Domain\Events\OrderConfirmed;
 
 /**
- * Todo el enganche de la cocina al resto del sistema: una línea.
+ * The kitchen's entire hook-up to the rest of the system: one line.
  *
- * `Orders` no sabe que este módulo existe. Se puede borrar la carpeta entera y
- * su línea de `config/modules.php`, y los pedidos siguen funcionando — sólo
- * que ya no van a ninguna pantalla de cocina. Ésa es la prueba de que el
- * diseño aguanta.
+ * Delete the directory and its `config/modules.php` line and orders carry on
+ * working — they just reach no kitchen screen. That is the proof the design
+ * holds.
  */
 final class KitchenServiceProvider extends ServiceProvider
 {

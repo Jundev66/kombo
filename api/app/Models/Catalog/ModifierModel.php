@@ -11,9 +11,9 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Una respuesta posible: «sin cebolla», «extra queso», «término medio».
+ * One possible answer: "no onion", "extra cheese", "medium rare".
  *
- * `price_delta_cents` puede ser NEGATIVO: quitar el queso a veces descuenta.
+ * `price_delta_cents` can be NEGATIVE: dropping the cheese takes money off.
  */
 #[Fillable(['group_id', 'name', 'price_delta_cents', 'sort_order', 'is_active'])]
 class ModifierModel extends Model

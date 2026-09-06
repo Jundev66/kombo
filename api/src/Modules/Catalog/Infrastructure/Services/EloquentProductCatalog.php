@@ -28,8 +28,8 @@ final class EloquentProductCatalog implements ProductCatalog
             return [];
         }
 
-        // Una sola consulta, indexada por id. El filtro por negocio ya lo
-        // ponen el ámbito global y, sobre todo, RLS.
+        // One query, indexed by id. The tenant filter is already applied by the
+        // global scope and, above all, by RLS.
         return ProductModel::whereIn('id', $productIds)
             ->get()
             ->mapWithKeys(fn (ProductModel $m): array => [(string) $m->id => $this->toSnapshot($m)])

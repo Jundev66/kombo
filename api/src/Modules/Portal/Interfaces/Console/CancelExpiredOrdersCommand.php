@@ -10,16 +10,15 @@ use Modules\Portal\Application\UseCases\CancelExpiredOrders;
 use Platform\Tenancy\TenantSession;
 
 /**
- * Cierra los pedidos que se quedaron esperando un pago que no llegó.
+ * Closes orders left waiting on a payment that never arrived.
  *
- * **Recorre negocio por negocio, entrando en cada uno.** No hay atajo: una
- * tarea programada no tiene petición HTTP de la que sacar el subdominio, así
- * que si no se entra a mano, RLS devuelve cero filas —correctamente— y la
- * tarea no haría nada mientras parece que sí.
+ * It walks tenant by tenant, entering each: a scheduled task has no request to
+ * take the subdomain from, so without entering, RLS returns zero rows —
+ * correctly — and the task does nothing while appearing to work.
  */
 final class CancelExpiredOrdersCommand extends Command
 {
-    protected $signature = 'pedidos:cerrar-vencidos';
+    protected $signature = 'orders:cancel-expired';
 
     protected $description = 'Cancela los pedidos que se quedaron esperando el comprobante del pago';
 
@@ -32,9 +31,9 @@ final class CancelExpiredOrdersCommand extends Command
         $total = 0;
 
         foreach ($tenants as $tenantId) {
-            // Entrar es TRES cosas —el parámetro de PostgreSQL, el contexto de
-            // Eloquent y olvidar las capacidades del negocio anterior—, y con
-            // sólo la primera esta tarea no encontraría ni un pedido.
+            // Entering is THREE things — the PostgreSQL parameter, Eloquent's context,
+            // and forgetting the previous tenant's capabilities. With only the first,
+            // this task finds no orders at all.
             $total += $session->within((string) $tenantId, fn (): int => $cancel->execute());
         }
 

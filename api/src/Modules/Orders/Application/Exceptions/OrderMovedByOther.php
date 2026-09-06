@@ -7,15 +7,11 @@ namespace Modules\Orders\Application\Exceptions;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 /**
- * Alguien movió el pedido mientras tanto.
+ * Somebody moved the order in the meantime.
  *
- * Es lo que devuelve el bloqueo optimista cuando el `UPDATE ... where
- * state_version = ?` no afecta ninguna fila. Pasa de verdad y a diario: la
- * caja y la pantalla de cocina miran el mismo pedido, y dos personas pulsan
- * casi a la vez.
- *
- * **409, no 500.** No es un fallo: es información. Y el mensaje pide recargar,
- * porque lo que hay en la pantalla ya no es lo que hay en el sistema.
+ * What optimistic locking returns when `UPDATE ... where state_version = ?`
+ * affects no rows. 409, not 500 — it is information, and the message asks for a
+ * reload because the screen is out of date.
  */
 final class OrderMovedByOther extends ConflictHttpException
 {

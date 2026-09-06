@@ -12,17 +12,15 @@ use Platform\Tenancy\TenantSession;
 use Shared\Domain\Exceptions\UserError;
 
 /**
- * Dar de alta un negocio nuevo.
+ * Signing up a new tenant. All in one transaction.
  *
- * **Todo en una transacción**, y esto no es celo de programador: un negocio a
- * medio crear —con su fila en `tenants` pero sin dueño, o con dueño y sin
- * módulos— es peor que ninguno. Nadie puede entrar a arreglarlo desde dentro,
- * porque para entrar hace falta justo lo que faltó, y desde fuera parece que
- * existe.
+ * A half-created tenant — a `tenants` row with no owner, or an owner with no
+ * modules — is worse than none: nobody can get in to fix it, because getting in
+ * needs exactly what is missing, and from outside it looks like it exists.
  *
- * Lo que deja listo: el negocio, su suscripción, los módulos que trae el plan,
- * los roles base con sus permisos, el dueño con su contraseña, y el horario —
- * sin el cual el portal no acepta ni un pedido.
+ * It leaves ready: the tenant, its subscription, the plan's modules, the base
+ * roles with their permissions, the owner, and opening hours — without which
+ * the portal will not take a single order.
  */
 final class OnboardTenant
 {
@@ -68,9 +66,9 @@ final class OnboardTenant
             $this->subscriptions->start($tenantId, $planCode);
 
             /*
-             * A partir de aquí se escriben tablas del NEGOCIO, así que hay que
-             * entrar en él: sin contexto, RLS rechaza cada inserción —
-             * correctamente— y el alta fallaría entera.
+             * From here on TENANT tables are written, so we have to enter it:
+             * without context RLS rejects every insert — correctly — and the
+             * whole sign-up would fail.
              */
             $this->session->within($tenantId, function () use ($tenantId, $planCode, $ownerName, $ownerEmail, $ownerPassword): void {
                 $this->enableModulesOfPlan($tenantId, $planCode);
@@ -92,17 +90,16 @@ final class OnboardTenant
     }
 
     /**
-     * Los slugs que no puede tomar nadie.
+     * Slugs nobody may take.
      *
-     * `admin` está reservado porque es la super administración, y `www` y
-     * compañía porque son subdominios que la gente escribe por costumbre. Que
-     * un cliente se llame `admin` no sería un error bonito de descubrir.
+     * `admin` because that is platform administration, and `www` and company
+     * because people type them out of habit.
      */
     private static function assertSlugIsUsable(string $slug): void
     {
-        $reservados = ['admin', 'www', 'api', 'app', 'mail', 'ftp', 'kombo', 'soporte', 'ayuda'];
+        $reserved = ['admin', 'www', 'api', 'app', 'mail', 'ftp', 'kombo', 'soporte', 'ayuda'];
 
-        if (in_array($slug, $reservados, true)) {
+        if (in_array($slug, $reserved, true)) {
             throw new class('Ese nombre de dirección está reservado. Elige otro.') extends UserError
             {
                 public function field(): ?string
@@ -135,9 +132,9 @@ final class OnboardTenant
 
     private function enableModulesOfPlan(string $tenantId, string $planCode): void
     {
-        $delPlan = DB::table('plan_modules')->where('plan_code', $planCode)->pluck('module_code');
+        $fromPlan = DB::table('plan_modules')->where('plan_code', $planCode)->pluck('module_code');
 
-        foreach ($delPlan as $module) {
+        foreach ($fromPlan as $module) {
             DB::table('tenant_modules')->insert([
                 'id' => (string) Str::uuid7(),
                 'tenant_id' => $tenantId,
@@ -151,11 +148,11 @@ final class OnboardTenant
     }
 
     /**
-     * Los roles base, con los permisos de los módulos que este negocio TIENE.
+     * The base roles, with the permissions of the modules this tenant HAS.
      *
-     * La misma reconciliación que aplica `roles:reconciliar` a los negocios que
-     * ya existen. Es un solo sitio a propósito: cuando eran dos, ampliar el
-     * catálogo servía a los negocios nuevos y dejaba fuera a los viejos.
+     * The same reconciliation `roles:reconcile` applies to existing tenants.
+     * One place on purpose: when there were two, widening the catalog served
+     * new tenants and left the old ones out.
      */
     private function seedRoles(string $tenantId): void
     {
@@ -193,12 +190,11 @@ final class OnboardTenant
     }
 
     /**
-     * Un horario de partida.
+     * A starting set of opening hours.
      *
-     * Sin filas de horario el portal está CERRADO —es el fallo seguro— y un
-     * negocio recién dado de alta parecería roto: la carta se ve y pedir
-     * contesta que está cerrado a cualquier hora. Se deja abierto de ocho a
-     * ocho, que es lo que el dueño va a cambiar en su primera tarde.
+     * With no rows the portal is CLOSED — the safe failure — and a brand new
+     * tenant would look broken: the menu shows and ordering says it is closed
+     * at any hour. Eight to eight, which the owner will change on day one.
      */
     private function seedHours(string $tenantId): void
     {

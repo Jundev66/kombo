@@ -5,26 +5,16 @@ import { buildMenu, splitMenu, type MenuEntry, type MenuGroup, type ModuleUi } f
 import { logout, useSession } from './session'
 
 /**
- * El armazón. **Empieza en el teléfono y crece con la pantalla.**
+ * The shell. It starts on the phone and grows with the screen.
  *
- * No hay una «versión de escritorio» aparte: hay una barra que cambia de sitio
- * —fija abajo en móvil, al alcance del pulgar; arriba en pantalla ancha— y un
- * contenido que se reparte en columnas cuando hay sitio. El dueño de un local
- * revisa esto de pie con una mano, y también sentado en un portátil al cerrar
- * la caja: las dos son ciertas y antes sólo se atendía la primera.
+ * There is no separate "desktop version": one bar that moves — fixed at the
+ * bottom on mobile, within thumb reach; at the top on a wide screen — and
+ * content that spreads into columns when there is room. An owner checks this
+ * standing up one-handed, and also sitting at a laptop at closing time.
  *
- * Lo que había: `max-w-3xl` aquí y punto. En un portátil el panel usaba la
- * mitad de la pantalla, con dos márgenes grises enormes, y dentro de esa
- * columna cada tarjeta se estiraba a 736 px para sostener cuatro líneas. El
- * ancho lo decide ahora cada pantalla con `<Page>`, porque un tablero quiere
- * ancho y un formulario no.
- *
- * **Una sola navegación para los dos tamaños.** Antes eran dos: en escritorio
- * una fila plana con las doce entradas, en móvil tres y un «Más» que escondía
- * las otras nueve —el horario y el equipo entre ellas—. Dos menús distintos
- * para el mismo sistema significa que uno de los dos está mal, y aquí lo
- * estaban los dos: el plano no tenía jerarquía y el corto escondía lo que menos
- * se toca pero más cuesta encontrar.
+ * One navigation for both sizes. There used to be two, and both were wrong: the
+ * flat desktop row had no hierarchy, and the short mobile one hid nine entries
+ * — the opening hours and the team among them — behind "More".
  */
 export function AppShell({ registry, children }: { registry: ModuleUi[]; children: ReactNode }) {
   const { capabilities } = useSession()
@@ -37,18 +27,18 @@ export function AppShell({ registry, children }: { registry: ModuleUi[]; childre
 
   return (
     <div className="min-h-dvh bg-[var(--surface-sunken)]">
-      {/* La cabecera va a todo el ancho —es una barra— y su CONTENIDO se alinea
-          con el de la página. Sin eso, en un portátil el nombre del negocio
-          queda pegado al borde y el contenido empieza doscientos píxeles más
-          adentro, como si fueran dos páginas distintas. */}
+      {/* The header spans the full width — it is a bar — while its CONTENT lines
+          up with the page. Without that, on a laptop the tenant's name sits
+          against the edge and the content starts two hundred pixels in. */}
       <header className="sticky top-0 z-10 border-b border-[var(--surface-hairline)] bg-[var(--surface-raised)]">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-[var(--text-strong)]">
             {capabilities.tenant?.name}
           </p>
-          {/* La persona Y su rol. Sin el rol, «esto no se puede» y «esto no lo
-              puedes tú» se ven igual, y son cosas muy distintas de resolver. */}
+          {/* The person AND their role. Without the role, "this cannot be done" and
+              "you cannot do this" look the same, and they are very different
+              problems to solve. */}
           <p className="truncate text-xs text-[var(--text-muted)]">
             {capabilities.user.name}
             {capabilities.user.roleName != null && ` · ${capabilities.user.roleName}`}
@@ -89,16 +79,15 @@ export function AppShell({ registry, children }: { registry: ModuleUi[]; childre
       )}
 
       {/*
-       * El ancho lo decide CADA pantalla con `<Page>`, no el armazón.
+       * Width is decided by EACH screen with `<Page>`, not by the shell.
        *
-       * Antes era `max-w-3xl` aquí y punto: en un portátil el panel usaba la
-       * mitad de la pantalla y cada tarjeta se estiraba a 736 px para sostener
-       * cuatro líneas. Pero tampoco vale ensanchar todo — un formulario de
-       * horario a 1200 px no se lee mejor, sólo aleja la etiqueta del campo.
-       * Un tablero quiere ancho; un formulario, no.
+       * It used to be `max-w-3xl` here and nothing else: on a laptop the
+       * dashboard used half the screen and every card stretched to 736 px to
+       * hold four lines. But widening everything is no better — an opening
+       * hours form at 1200 px only pushes the label away from its field.
        *
-       * `pb-28` en móvil: sin eso, lo último queda debajo de la barra fija y no
-       * se puede tocar.
+       * `pb-28` on mobile: without it the last item sits under the fixed bar
+       * and cannot be tapped.
        */}
       <main className="pt-4 pb-28 md:pb-8">{children}</main>
 
@@ -127,7 +116,7 @@ export function AppShell({ registry, children }: { registry: ModuleUi[]; childre
   )
 }
 
-/** Una entrada de la barra ancha. */
+/** One entry in the wide bar. */
 function BarLink({ entry }: { entry: MenuEntry }) {
   const classes = 'rounded-[var(--radius-md)] px-3 py-2 text-sm'
 
@@ -156,7 +145,7 @@ function BarLink({ entry }: { entry: MenuEntry }) {
   )
 }
 
-/** Una celda de la barra de abajo. Toda la celda es el objetivo táctil. */
+/** One cell of the bottom bar. The whole cell is the touch target. */
 function TabLink({ entry }: { entry: MenuEntry }) {
   const classes =
     'flex min-h-touch flex-1 flex-col items-center justify-center gap-0.5 text-[11px]'
@@ -184,10 +173,10 @@ function TabLink({ entry }: { entry: MenuEntry }) {
 }
 
 /**
- * Todo lo que no cabe en la barra, por grupos.
+ * Everything that does not fit in the bar, by group.
  *
- * Sube desde abajo en el teléfono —donde está el pulgar— y sale centrado en
- * pantalla ancha, que es donde está la vista.
+ * It rises from the bottom on a phone — where the thumb is — and appears
+ * centred on a wide screen, which is where the eye is.
  */
 function MoreSheet({ groups, onClose }: { groups: MenuGroup[]; onClose: () => void }) {
   return (
@@ -216,8 +205,8 @@ function MoreSheet({ groups, onClose }: { groups: MenuGroup[]; onClose: () => vo
                 >
                   <entry.Icon className="size-5 text-[var(--text-muted)]" />
                   <span className="flex-1">{entry.label}</span>
-                  {/* Que esto sale de aquí se avisa: el botón de atrás del
-                      navegador no devuelve a la pantalla del panel. */}
+                  {/* That this leaves the app is announced: the browser's back button does
+                      not return to the dashboard. */}
                   <ExternalIcon className="size-4 text-[var(--text-muted)]" />
                 </a>
               ) : (

@@ -2,48 +2,48 @@ import { expect, type Page } from '@playwright/test'
 import { addressOf, portalOf } from './addresses'
 
 /**
- * El portal, como lo usa alguien de la calle.
+ * The portal, as somebody off the street uses it.
  *
- * Sin sesión, sin cuenta y sin nada guardado: cada prueba arranca con un
- * navegador limpio, que es exactamente la situación de un cliente que abre el
- * enlace por primera vez.
+ * No session, no account and nothing stored: every test starts with a clean
+ * browser, which is exactly the situation of a customer opening the link for
+ * the first time.
  */
 
-/** Abre la carta y espera a que cargue de verdad. */
+/** Opens the menu and waits for it to really load. */
 export async function openMenu(page: Page, tenant: string): Promise<void> {
   await page.goto(portalOf(tenant))
 
-  // Se espera a algo del NEGOCIO, no a un texto de la plataforma: hasta que no
-  // llega `/portal/shop` no hay carta que tocar.
+  // It waits for something of the TENANT's, not platform text: until
+  // `/portal/shop` arrives there is no menu to tap.
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 }
 
-/** El seguimiento de un pedido, por su enlace. */
+/** An order's tracking screen, by its link. */
 export function trackAddress(tenant: string, token: string): string {
   return addressOf(tenant, `/p/${token}`)
 }
 
 /**
- * Añade un producto al pedido, pasando por su hoja.
+ * Adds a product to the order, through its sheet.
  *
- * Todos los productos abren la hoja —también los que no tienen agregados—
- * porque ahí es donde está la cantidad.
+ * Every product opens the sheet — including those with no add-ons — because
+ * that is where the quantity lives.
  */
 export async function addToCart(page: Page, product: string, quantity = 1): Promise<void> {
   await page.getByRole('button', { name: product }).click()
 
-  const hoja = page.getByRole('dialog', { name: product })
-  await expect(hoja).toBeVisible()
+  const sheet = page.getByRole('dialog', { name: product })
+  await expect(sheet).toBeVisible()
 
   for (let i = 1; i < quantity; i++) {
-    await hoja.getByRole('button', { name: 'Uno más' }).click()
+    await sheet.getByRole('button', { name: 'Uno más' }).click()
   }
 
-  await hoja.getByRole('button', { name: /Agregar/ }).click()
-  await expect(hoja).toBeHidden()
+  await sheet.getByRole('button', { name: /Agregar/ }).click()
+  await expect(sheet).toBeHidden()
 }
 
-/** La barra de abajo, que dice cuánto llevas. */
+/** The bottom bar, which says how much you are carrying. */
 export function cartBar(page: Page) {
   return page.getByRole('link', { name: /Ver mi pedido/ })
 }

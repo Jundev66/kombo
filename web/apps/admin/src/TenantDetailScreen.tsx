@@ -5,11 +5,11 @@ import { platform, type Usage } from './api'
 import { PaymentForm, StatusBadge } from './TenantsScreen'
 
 /**
- * La ficha de un negocio: qué paga, hasta cuándo, cuánto usa y qué hicimos
- * nosotros en su casa.
+ * A tenant's record: what they pay, until when, how much they use, and what we
+ * did in their house.
  *
- * Esa última parte no es un adorno de auditoría. Es lo que se le puede enseñar
- * al dueño cuando pregunte quién tocó su configuración — incluidos nosotros.
+ * That last part is not audit decoration. It is what can be shown to the owner
+ * when they ask who touched their settings — us included.
  */
 export function TenantDetailScreen({ id, onBack }: { id: string; onBack: () => void }) {
   const queryClient = useQueryClient()
@@ -18,7 +18,7 @@ export function TenantDetailScreen({ id, onBack }: { id: string; onBack: () => v
 
   const tenant = useQuery({ queryKey: ['tenant', id], queryFn: () => platform.tenant(id) })
 
-  const cambiarEstado = useMutation({
+  const setStatus = useMutation({
     mutationFn: (status: string) => platform.changeStatus(id, status),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['tenant', id] })
@@ -64,8 +64,8 @@ export function TenantDetailScreen({ id, onBack }: { id: string; onBack: () => v
               </>
             ) : (
               <>
-                {/* Y cuándo se le corta, que es lo que hay que poder decirle
-                    por teléfono sin calcularlo de cabeza. */}
+                {/* And when they get cut off, which is what you have to be able to say on
+                    the phone without working it out in your head. */}
                 Vencido hace <strong>{Math.abs(t.subscription.daysLeft)} días</strong>. Se suspende
                 el {new Date(t.subscription.suspendsAt).toLocaleDateString('es-VE')}.
               </>
@@ -79,11 +79,11 @@ export function TenantDetailScreen({ id, onBack }: { id: string; onBack: () => v
               <Button onClick={() => setCobrando(true)}>Anotar un pago</Button>
 
               {t.status === 'suspended' ? (
-                <Button variant="secondary" onClick={() => cambiarEstado.mutate('active')}>
+                <Button variant="secondary" onClick={() => setStatus.mutate('active')}>
                   Reactivar
                 </Button>
               ) : (
-                <Button variant="ghost" onClick={() => cambiarEstado.mutate('suspended')}>
+                <Button variant="ghost" onClick={() => setStatus.mutate('suspended')}>
                   Suspender
                 </Button>
               )}
@@ -105,13 +105,13 @@ export function TenantDetailScreen({ id, onBack }: { id: string; onBack: () => v
           <h2 className="font-semibold text-[var(--text-strong)]">Pagos</h2>
 
           <ul className="flex flex-col gap-1">
-            {t.payments.map((pago, index) => (
+            {t.payments.map((payment, index) => (
               <li key={index} className="flex justify-between gap-3 text-sm">
                 <span className="text-[var(--text-default)]">
-                  {new Date(pago.paidAt).toLocaleDateString('es-VE')} · {pago.method}
-                  {pago.reference != null && ` · ${pago.reference}`}
+                  {new Date(payment.paidAt).toLocaleDateString('es-VE')} · {payment.method}
+                  {payment.reference != null && ` · ${payment.reference}`}
                 </span>
-                <span className="tabular">{formatUsd(pago.amountCents)}</span>
+                <span className="tabular">{formatUsd(payment.amountCents)}</span>
               </li>
             ))}
           </ul>
@@ -140,11 +140,11 @@ export function TenantDetailScreen({ id, onBack }: { id: string; onBack: () => v
           <h2 className="font-semibold text-[var(--text-strong)]">Lo que hicimos aquí</h2>
 
           <ul className="flex flex-col gap-1 text-sm">
-            {t.platformLog.map((entrada, index) => (
+            {t.platformLog.map((entry, index) => (
               <li key={index} className="flex justify-between gap-3">
-                <span className="text-[var(--text-default)]">{entrada.action}</span>
+                <span className="text-[var(--text-default)]">{entry.action}</span>
                 <span className="text-[var(--text-muted)]">
-                  {entrada.by} · {new Date(entrada.at).toLocaleDateString('es-VE')}
+                  {entry.by} · {new Date(entry.at).toLocaleDateString('es-VE')}
                 </span>
               </li>
             ))}
@@ -156,30 +156,30 @@ export function TenantDetailScreen({ id, onBack }: { id: string; onBack: () => v
 }
 
 /**
- * El uso contra el techo.
+ * Usage against the ceiling.
  *
- * `null` es ILIMITADO, y se dice con la palabra: una barra llena al 0 % sería
- * una barra que no significa nada.
+ * `null` is UNLIMITED, and it is said in words: a bar full at 0% would be a bar
+ * that means nothing.
  */
 function UsageBar({ label, usage }: { label: string; usage: Usage }) {
-  const ilimitado = usage.max === null
-  const porcentaje = ilimitado ? 0 : Math.min(100, Math.round((usage.used / (usage.max || 1)) * 100))
-  const apretado = !ilimitado && porcentaje >= 80
+  const unlimited = usage.max === null
+  const percent = unlimited ? 0 : Math.min(100, Math.round((usage.used / (usage.max || 1)) * 100))
+  const tight = !unlimited && percent >= 80
 
   return (
     <div>
       <p className="flex justify-between text-sm">
         <span className="text-[var(--text-default)]">{label}</span>
-        <span className={`tabular ${apretado ? 'font-medium text-warn-700' : 'text-[var(--text-muted)]'}`}>
-          {usage.used} {ilimitado ? '· sin tope' : `de ${usage.max}`}
+        <span className={`tabular ${tight ? 'font-medium text-warn-700' : 'text-[var(--text-muted)]'}`}>
+          {usage.used} {unlimited ? '· sin tope' : `de ${usage.max}`}
         </span>
       </p>
 
-      {!ilimitado && (
+      {!unlimited && (
         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--surface-sunken)]">
           <div
-            className={`h-full ${apretado ? 'bg-warn-500' : 'bg-accent-500'}`}
-            style={{ width: `${porcentaje}%` }}
+            className={`h-full ${tight ? 'bg-warn-500' : 'bg-accent-500'}`}
+            style={{ width: `${percent}%` }}
           />
         </div>
       )}
@@ -188,24 +188,24 @@ function UsageBar({ label, usage }: { label: string; usage: Usage }) {
 }
 
 function SupportSnapshot({ id }: { id: string }) {
-  const vistazo = useQuery({ queryKey: ['support', id], queryFn: () => platform.support(id) })
+  const glance = useQuery({ queryKey: ['support', id], queryFn: () => platform.support(id) })
 
-  if (vistazo.isLoading) return <Spinner label="Mirando…" />
-  if (vistazo.data === undefined) return null
+  if (glance.isLoading) return <Spinner label="Mirando…" />
+  if (glance.data === undefined) return null
 
   return (
     <div className="flex flex-col gap-3 rounded-[var(--radius-md)] bg-[var(--surface-sunken)] p-4 text-sm">
       <p className="text-[var(--text-default)]">
-        {plural(vistazo.data.products, 'producto', 'productos')} · módulos:{' '}
-        {vistazo.data.modules.join(', ')}
+        {plural(glance.data.products, 'producto', 'productos')} · módulos:{' '}
+        {glance.data.modules.join(', ')}
       </p>
 
       <div>
         <p className="mb-1 font-medium text-[var(--text-strong)]">Equipo</p>
         <ul className="flex flex-col gap-0.5">
-          {vistazo.data.team.map((persona) => (
-            <li key={persona.email} className="text-[var(--text-muted)]">
-              {persona.name} · {persona.email}
+          {glance.data.team.map((person) => (
+            <li key={person.email} className="text-[var(--text-muted)]">
+              {person.name} · {person.email}
             </li>
           ))}
         </ul>
@@ -214,12 +214,12 @@ function SupportSnapshot({ id }: { id: string }) {
       <div>
         <p className="mb-1 font-medium text-[var(--text-strong)]">Últimos pedidos</p>
         <ul className="flex flex-col gap-0.5">
-          {vistazo.data.lastOrders.map((pedido) => (
-            <li key={pedido.number} className="flex justify-between text-[var(--text-muted)]">
+          {glance.data.lastOrders.map((order) => (
+            <li key={order.number} className="flex justify-between text-[var(--text-muted)]">
               <span>
-                #{pedido.number} · {pedido.status} · {pedido.channel}
+                #{order.number} · {order.status} · {order.channel}
               </span>
-              <Money cents={pedido.totalCents} scale="sm" />
+              <Money cents={order.totalCents} scale="sm" />
             </li>
           ))}
         </ul>

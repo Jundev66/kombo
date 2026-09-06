@@ -5,25 +5,19 @@ declare(strict_types=1);
 namespace Platform\Auth;
 
 /**
- * Los roles base que recibe un negocio al darse de alta.
+ * The base roles a tenant receives at sign-up.
  *
- * Declaran permisos de módulos que quizá ese negocio no tenga encendidos. No
- * pasa nada: al aplicarlos se filtran contra los módulos activos, porque un
- * permiso de un módulo apagado no existe en el sistema. Así el catálogo se
- * escribe una vez y sirve tanto al puesto que sólo vende por el portal como al
- * local con caja, cocina y delivery.
- *
- * Lo que SÍ importa es que el permiso exista en algún manifiesto. Repartir uno
- * de un módulo que no se ha construido no rompe nada —se filtra igual— y es
- * exactamente el problema: el catálogo dice que el encargado puede algo, no
- * puede, y nadie se entera hasta que lo intenta.
+ * Permissions of modules the tenant does not have are filtered out on apply, so
+ * one catalog serves a portal-only stall and a shop with till, kitchen and
+ * delivery. What does matter is that each permission exists in some manifest —
+ * one that does not is silently dropped, and nobody finds out until they try.
  */
 final class RoleCatalog
 {
-    /** Puede ejecutarlo solo. */
+    /** Can carry it out alone. */
     private const SI = false;
 
-    /** Puede INICIARLO; ejecutarlo exige el PIN de alguien que sí puede. */
+    /** Can START it; carrying it out needs the PIN of someone who can. */
     private const SOLICITA = true;
 
     /**
@@ -35,10 +29,8 @@ final class RoleCatalog
             'owner' => [
                 'name' => 'Dueño',
                 'is_owner' => true,
-                // Vacío a propósito: el dueño no lleva filas de permisos. Se
-                // resuelve como `['*']` y se expande contra los módulos que el
-                // negocio tenga encendidos HOY, así que al encender uno nuevo
-                // ya puede usarlo sin que nadie le añada nada.
+                // Deliberately empty: an owner carries no permission rows. They resolve to
+                // `['*']`, expanded against the modules switched on TODAY.
                 'permissions' => [],
             ],
 
@@ -62,32 +54,24 @@ final class RoleCatalog
                     'catalog.manage' => self::SI,
                     'catalog.change_price' => self::SI,
                     'delivery.manage' => self::SI,
-                    // Poder fijar las zonas y no poder abrir el tablero de
-                    // entregas era la misma incoherencia que el horario: el
-                    // encargado configuraba el reparto a ciegas, y cuando al
-                    // repartidor se le quedaba el teléfono sin batería no había
-                    // quien cerrara la entrega.
+                    // Setting the zones without being able to open the deliveries board was
+                    // the same incoherence as the opening hours: configuring delivery blind.
                     'delivery.view_own' => self::SI,
                     'delivery.mark_delivered' => self::SI,
                     'customers.view' => self::SI,
                     'customers.manage' => self::SI,
                     'reports.view_sales' => self::SI,
 
-                    // El encargado es quien lleva el local cuando el dueño no
-                    // está, así que llega a todo lo que se toca en el día: el
-                    // horario —sin el cual el portal no acepta ni un pedido—,
-                    // la tasa, el bot y el equipo.
+                    // The manager runs the shop when the owner is away, so they reach
+                    // everything touched during a day: hours, rate, bot and team.
                     'settings.manage' => self::SI,
                     'channels.view' => self::SI,
                     'audit.view' => self::SI,
 
-                    // Sí lleva `users.manage` (KMB-0006), y el agujero obvio
-                    // —quien crea usuarios se crea una cuenta de dueño— NO se
-                    // tapa quitándole el permiso, porque quitárselo también le
-                    // impide lo legítimo: dar de alta al cocinero nuevo un
-                    // sábado. Se tapa donde de verdad se decide, en
-                    // `TeamController`: un no-dueño no asigna el rol de dueño
-                    // ni toca la cuenta de uno.
+                    // They do hold `users.manage` (KMB-0006). The obvious hole — whoever
+                    // creates users creates themselves an owner account — is closed in
+                    // `TeamController`, not by removing the permission, which would also
+                    // block signing up the new cook on a Saturday.
                     'users.manage' => self::SI,
                 ],
             ],
@@ -106,8 +90,8 @@ final class RoleCatalog
                     'customers.view' => self::SI,
                     'kitchen.view' => self::SI,
 
-                    // Éstas son las vías naturales para sacar dinero de la
-                    // caja, así que se inician pero no se ejecutan solas.
+                    // These are the natural ways to get money out of the till, so they are
+                    // started but not carried out alone.
                     'counter.void_request' => self::SOLICITA,
                     'counter.discount_request' => self::SOLICITA,
                 ],
@@ -117,7 +101,7 @@ final class RoleCatalog
                 'name' => 'Cocina',
                 'is_owner' => false,
                 'permissions' => [
-                    // Sólo la pantalla de comandas. Nada más.
+                    // The ticket board only. Nothing else.
                     'kitchen.view' => self::SI,
                     'kitchen.update' => self::SI,
                 ],

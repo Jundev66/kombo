@@ -13,12 +13,11 @@ use Modules\Orders\Domain\ValueObjects\ServiceType;
 use Shared\Domain\ValueObjects\Money;
 
 /**
- * Un pedido.
+ * An order.
  *
- * PHP puro. Las reglas de abajo —qué transición vale, cuánto suma, cuándo se
- * puede cancelar— tienen que valer igual llamadas desde el portal, desde el
- * bot, desde la caja y desde la pantalla de cocina. Metidas en un controlador,
- * valen sólo donde alguien se acordó de llamarlas.
+ * Plain PHP. The rules below have to hold identically from the portal, the bot,
+ * the till and the kitchen screen; in a controller they hold only where
+ * somebody remembered to call them.
  */
 final class Order
 {
@@ -56,9 +55,8 @@ final class Order
 
         return new self(
             id: $id,
-            // Con pago móvil el pedido nace esperando el comprobante; en
-            // efectivo o desde la caja, nace ya recibido. Es la única
-            // diferencia entre las dos formas de entrar.
+            // Mobile payment is born awaiting the receipt; cash or till is born
+            // already received. The only difference between the two ways in.
             status: $awaitingPayment ? OrderStatus::PendingPayment : OrderStatus::Placed,
             serviceType: $serviceType,
             lines: $lines,
@@ -87,16 +85,13 @@ final class Order
     }
 
     /**
-     * Mover el pedido al siguiente estado.
-     *
-     * Sella la hora del paso, que es de donde salen después «cuánto tardamos
-     * en confirmar» y «cuánto tarda la cocina».
+     * Moves to the next state and stamps the step's time, which is where "how
+     * long to confirm" and "how long the kitchen takes" come from.
      */
     public function moveTo(OrderStatus $next, ?DateTimeImmutable $now = null): void
     {
-        // Repetir el paso en el que ya está NO es error: dos personas tocando
-        // «Confirmar» a la vez no pueden hacer saltar un mensaje rojo en mitad
-        // del servicio. Es lo mismo que hace la pantalla de cocina.
+        // Repeating the current step is NOT an error: two people tapping "Confirm"
+        // at once cannot raise a red message mid-service.
         if ($this->status === $next) {
             return;
         }
@@ -110,12 +105,9 @@ final class Order
     }
 
     /**
-     * Cancelar.
-     *
-     * Es el ÚNICO camino que se salta la tabla de transiciones: desde
-     * cualquier punto vivo se puede cancelar, porque en la vida real un cliente
-     * se arrepiente en cualquier momento. Lo que no se salta es que un pedido
-     * terminal no revive — entregado es entregado.
+     * Cancelling: the only path that skips the transition table, because in
+     * real life a customer changes their mind at any moment. What it does not
+     * skip is that a terminal order stays terminal.
      */
     public function cancel(string $reason, ?DateTimeImmutable $now = null): void
     {
@@ -128,7 +120,7 @@ final class Order
         $this->timestamps['cancelled_at'] = $now ?? new DateTimeImmutable;
     }
 
-    /** Lo que suman las líneas, sin el reparto. */
+    /** What the lines come to, without delivery. */
     public function subtotal(): Money
     {
         $subtotal = Money::zero();
@@ -146,11 +138,9 @@ final class Order
     }
 
     /**
-     * Cuánto debería tardar la cocina, según lo que lleva.
-     *
-     * Se toma el MÁXIMO y no la suma: los platos se hacen a la vez, no en
-     * fila. Sumar daría media hora para dos arepas y la pantalla de cocina
-     * nunca marcaría nada como tarde.
+     * How long the kitchen should take. The MAXIMUM across lines, not the sum:
+     * dishes are made at the same time, and summing would give half an hour for
+     * two arepas.
      */
     public function estimatedPrepMinutes(array $prepMinutesByProduct): ?int
     {

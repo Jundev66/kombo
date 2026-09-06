@@ -1,5 +1,5 @@
 import {
-  backToPanel,
+  backToDashboard,
   SupervisionBanner,
   TerminalGate,
   useDoorway,
@@ -10,11 +10,11 @@ import { formatWait, useKitchen } from './useKitchen'
 import type { Ticket } from './api'
 
 /**
- * La pantalla de cocina.
+ * The kitchen screen.
  *
- * **No navega, no filtra y no busca.** No hay router aquí, y es a propósito:
- * un cocinero con las manos ocupadas no explora una aplicación. Tres columnas,
- * un botón por comanda, y nada más que tocar.
+ * It does not navigate, filter or search, and there is no router here: a cook
+ * with their hands full does not explore an app. Three columns, one button per
+ * ticket, and nothing else to tap.
  */
 export function App() {
   const { capabilities } = useSession()
@@ -29,15 +29,15 @@ export function App() {
   const supervising = mode === 'supervision'
 
   return (
-    // La altura la manda este contenedor: con la banda puesta, dos elementos
-    // reclamando la pantalla entera dejan la última columna fuera de ella.
+    // The height is set by this container: with the banner up, two elements
+    // claiming the whole screen push the last column off it.
     <div className="flex h-dvh flex-col bg-[var(--surface-sunken)]">
       {supervising && capabilities?.user != null && (
-        <SupervisionBanner user={capabilities.user} onLeave={backToPanel} />
+        <SupervisionBanner user={capabilities.user} onLeave={backToDashboard} />
       )}
 
       <Board
-        // Quien opera según el SERVIDOR, no quien puso el PIN.
+        // Whoever operates according to the SERVER, not whoever entered the PIN.
         operator={capabilities?.user?.name ?? null}
         onLeave={supervising ? null : endShift}
       />
@@ -55,8 +55,8 @@ function Board({ operator, onLeave }: { operator: string | null; onLeave: (() =>
   const { tickets, hidden, loading, error, advance, waitedSeconds, isLate } = useKitchen()
 
   return (
-    // `min-h-0` y no `h-dvh`: la altura la manda quien nos monta, que es quien
-    // sabe si además hay una banda arriba.
+    // `min-h-0` and not `h-dvh`: height is set by whoever mounts us, who knows
+    // whether there is a banner above.
     <div className="flex min-h-0 flex-1 flex-col bg-[var(--surface-sunken)]">
       <header className="flex h-14 shrink-0 items-center gap-3 bg-ink-900 px-4 text-white">
         <h1 className="font-semibold">Cocina</h1>
@@ -67,18 +67,18 @@ function Board({ operator, onLeave }: { operator: string | null; onLeave: (() =>
 
         <div className="flex-1" />
 
-        {/* Que la conexión se cayó se dice, pero sin borrar la pantalla: esos
-            pedidos siguen en la plancha. */}
+        {/* A dropped connection is announced without clearing the screen: those
+            orders are still on the griddle. */}
         {error != null && (
           <span role="alert" className="rounded-full bg-warn-500 px-2 py-0.5 text-xs text-ink-900">
             {error}
           </span>
         )}
 
-        {/* Si hay comandas que no caben, SE DICE. Cortarlas en silencio es el
-            peor fallo posible aquí: como el orden es de la más vieja a la más
-            nueva, lo que se queda fuera son las recién entradas — y el cliente
-            espera comida que nadie está haciendo. */}
+        {/* If there are tickets that do not fit, IT SAYS SO. Truncating silently
+            is the worst possible failure here: ordered oldest to newest, what
+            falls off the end are the just-arrived ones — and the customer waits
+            for food nobody is making. */}
         {hidden > 0 && (
           <span role="alert" className="rounded-full bg-bad-500 px-2 py-0.5 text-xs font-medium text-white">
             {hidden} sin caber · marca las que ya salieron
@@ -102,21 +102,21 @@ function Board({ operator, onLeave }: { operator: string | null; onLeave: (() =>
 
       <div className="grid flex-1 grid-cols-1 gap-3 overflow-hidden p-3 md:grid-cols-3">
         {COLUMNS.map((column) => {
-          const enColumna = tickets.filter((t) => t.status === column.status)
+          const inColumn = tickets.filter((t) => t.status === column.status)
 
           return (
             <section key={column.status} className="flex min-h-0 flex-col">
               <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold tracking-wide text-ink-400 uppercase">
                 {column.title}
-                <span className="tabular text-ink-500">{enColumna.length}</span>
+                <span className="tabular text-ink-500">{inColumn.length}</span>
               </h2>
 
               <ul className="flex flex-1 flex-col gap-3 overflow-auto">
-                {enColumna.length === 0 && (
+                {inColumn.length === 0 && (
                   <li className="py-8 text-center text-sm text-ink-500">Nada aquí</li>
                 )}
 
-                {enColumna.map((ticket) => (
+                {inColumn.map((ticket) => (
                   <li key={ticket.id}>
                     <OrderCard
                       ticket={ticket}
@@ -149,26 +149,26 @@ function OrderCard({
   return (
     <article
       /*
-       * Con nombre: «Comanda #131».
+       * Named: "Ticket #131".
        *
-       * Un lector de pantalla anuncia de qué comanda habla antes de leer lo
-       * que lleva, y quien escribe una prueba puede señalar UNA sin depender
-       * de cómo queda pegado el texto —el número y el cronómetro van juntos,
-       * así que «#131» y «#1310» se confunden.
+       * A screen reader announces which ticket before reading what is on it,
+       * and a test can point at ONE without depending on how the text runs
+       * together — the number and the stopwatch sit side by side, so "#131" and
+       * "#1310" get confused.
        */
       aria-label={`Comanda #${ticket.number}`}
       /*
-       * Trancada ⇒ el BORDE ENTERO en rojo, no un iconito.
+       * Running late ⇒ the WHOLE BORDER red, not a small icon.
        *
-       * Se tiene que ver desde la plancha, de reojo, sin dejar lo que se está
-       * haciendo. Un punto de color en una esquina no lo ve nadie.
+       * It has to be visible from the griddle, out of the corner of an eye,
+       * without stopping what you are doing. Nobody sees a dot in a corner.
        */
       className={`rounded-[var(--radius-lg)] bg-[var(--surface-raised)] p-3 ${
         late ? 'border-2 border-bad-500' : 'border border-[var(--surface-border)]'
       }`}
     >
       <header className="flex items-baseline justify-between gap-2">
-        {/* El número en grande: es lo que se grita en el mostrador. */}
+        {/* The number large: it is what gets shouted across the counter. */}
         <span className="tabular text-2xl font-bold text-[var(--text-strong)]">#{ticket.number}</span>
         <span className={`tabular text-lg ${late ? 'font-bold text-bad-500' : 'text-[var(--text-muted)]'}`}>
           {formatWait(seconds)}
@@ -187,9 +187,8 @@ function OrderCard({
               <b className="tabular">{formatQuantity(item.quantity)}×</b> {item.name}
             </p>
 
-            {/* Los agregados en línea propia y en ámbar: son justo lo que se
-                pasa por alto al leer rápido, y pasarlos por alto es rehacer el
-                plato. */}
+            {/* Add-ons on their own line and in amber: exactly what gets skipped
+                when reading fast, and skipping them means remaking the dish. */}
             {item.modifiers.length > 0 && (
               <p className="text-base font-medium text-warn-500">{item.modifiers.join(' · ')}</p>
             )}
@@ -209,8 +208,8 @@ function OrderCard({
         <button
           type="button"
           onClick={onAdvance}
-          // 64 px de alto y todo el ancho: se toca con el dorso de la mano,
-          // con guantes y sin mirar.
+          // 64 px tall and full width: tapped with the back of a hand, with gloves
+          // on and without looking.
           className="h-16 w-full rounded-[var(--radius-md)] bg-brand-700 text-lg font-medium text-white hover:bg-brand-600"
         >
           {ticket.nextLabel}
@@ -231,7 +230,7 @@ function serviceLabel(serviceType: string | null): string {
   }
 }
 
-/** Entero tal cual; decimal con coma, que es como se escribe aquí. */
+/** Whole as it is; decimals with a comma, which is how it is written here. */
 function formatQuantity(quantity: number): string {
   return Number.isInteger(quantity) ? String(quantity) : quantity.toFixed(3).replace('.', ',')
 }

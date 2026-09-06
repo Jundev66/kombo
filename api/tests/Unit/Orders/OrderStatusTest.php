@@ -5,15 +5,15 @@ declare(strict_types=1);
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 
 /*
- * La tabla de transiciones, entera.
+ * The whole transition table.
  *
- * Se prueba exhaustivamente porque es la regla que más sitios distintos
- * consultan —portal, caja, bot, cocina— y la que peor se nota cuando falla: un
- * pedido entregado que vuelve a la plancha, o uno que nunca llega a cocina.
+ * Tested exhaustively because it is the rule the most places consult — portal,
+ * till, bot, kitchen — and the one that shows worst when it fails: a delivered
+ * order back on the griddle, or one that never reaches the kitchen.
  */
 
-it('el camino normal de un pedido llega hasta entregado', function (): void {
-    $camino = [
+it('an order\'s normal path reaches delivered', function (): void {
+    $path = [
         OrderStatus::Placed,
         OrderStatus::Confirmed,
         OrderStatus::Preparing,
@@ -21,66 +21,66 @@ it('el camino normal de un pedido llega hasta entregado', function (): void {
         OrderStatus::Delivered,
     ];
 
-    for ($i = 0; $i < count($camino) - 1; $i++) {
-        expect($camino[$i]->canMoveTo($camino[$i + 1]))->toBeTrue();
+    for ($i = 0; $i < count($path) - 1; $i++) {
+        expect($path[$i]->canMoveTo($path[$i + 1]))->toBeTrue();
     }
 });
 
-it('un pedido de delivery pasa por «en camino»', function (): void {
+it('a delivery order passes through "on the way"', function (): void {
     expect(OrderStatus::Ready->canMoveTo(OrderStatus::OutForDelivery))->toBeTrue()
         ->and(OrderStatus::OutForDelivery->canMoveTo(OrderStatus::Delivered))->toBeTrue();
 });
 
-it('desde «listo» se puede entregar directamente, sin salir a la calle', function (): void {
-    // Es el caso del mostrador: el cliente está ahí esperando.
+it('from "ready" it can be handed over directly, without going out', function (): void {
+    // The counter case: the customer is standing there waiting.
     expect(OrderStatus::Ready->canMoveTo(OrderStatus::Delivered))->toBeTrue();
 });
 
-it('no se puede saltar la cocina', function (): void {
-    // Confirmar y dar por listo de golpe dejaría la comanda sin pasar por la
-    // plancha, y a alguien esperando comida que nadie hizo.
+it('the kitchen cannot be skipped', function (): void {
+    // Confirming and marking ready in one go would skip the griddle, leaving
+    // somebody waiting for food nobody made.
     expect(OrderStatus::Confirmed->canMoveTo(OrderStatus::Ready))->toBeFalse()
         ->and(OrderStatus::Placed->canMoveTo(OrderStatus::Delivered))->toBeFalse();
 });
 
-it('no se puede volver atrás', function (): void {
-    // Un toque accidental que devuelva a «en la cocina» un pedido entregado
-    // hace que se prepare dos veces. Corregir de verdad es cosa del encargado,
-    // cancelando y volviendo a tomarlo.
+it('there is no going back', function (): void {
+    // A stray tap sending a delivered order back to "in the kitchen" gets the
+    // food made twice. Real corrections are the manager's job: cancel and
+    // re-take it.
     expect(OrderStatus::Ready->canMoveTo(OrderStatus::Preparing))->toBeFalse()
         ->and(OrderStatus::Confirmed->canMoveTo(OrderStatus::Placed))->toBeFalse();
 });
 
-it('entregado y cancelado son el final', function (): void {
+it('delivered and cancelled are the end', function (): void {
     expect(OrderStatus::Delivered->isTerminal())->toBeTrue()
         ->and(OrderStatus::Cancelled->isTerminal())->toBeTrue()
         ->and(OrderStatus::Delivered->allowedNext())->toBe([])
         ->and(OrderStatus::Cancelled->allowedNext())->toBe([]);
 });
 
-it('desde cualquier punto vivo se puede cancelar', function (): void {
-    // En la vida real, un cliente se arrepiente en cualquier momento.
-    foreach (OrderStatus::cases() as $estado) {
-        if ($estado->isTerminal()) {
+it('can be cancelled from any live point', function (): void {
+    // In real life a customer changes their mind at any moment.
+    foreach (OrderStatus::cases() as $status) {
+        if ($status->isTerminal()) {
             continue;
         }
 
-        expect($estado->canMoveTo(OrderStatus::Cancelled))->toBeTrue();
+        expect($status->canMoveTo(OrderStatus::Cancelled))->toBeTrue();
     }
 });
 
-it('sabe cuándo un pedido está en la cocina', function (): void {
-    // Lo usan el tablero del panel y la pantalla de cocina, y tienen que
-    // coincidir: si cada uno lo decidiera por su cuenta, un pedido aparecería
-    // en una y no en la otra.
+it('knows when an order is in the kitchen', function (): void {
+    // Used by the dashboard board and the kitchen screen, and they have to
+    // agree: deciding separately, an order would appear on one and not the
+    // other.
     expect(OrderStatus::Confirmed->isInKitchen())->toBeTrue()
         ->and(OrderStatus::Preparing->isInKitchen())->toBeTrue()
         ->and(OrderStatus::Ready->isInKitchen())->toBeFalse()
         ->and(OrderStatus::Placed->isInKitchen())->toBeFalse();
 });
 
-it('habla sin jerga', function (): void {
-    // Lo que ve una persona no puede decir «pending_payment».
+it('speaks without jargon', function (): void {
+    // What a person sees cannot say "pending_payment".
     expect(OrderStatus::PendingPayment->label())->toBe('Esperando el pago')
         ->and(OrderStatus::Preparing->label())->toBe('En la cocina');
 });

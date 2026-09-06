@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace Platform\Modules;
 
 /**
- * De qué tipo es una opción de configuración.
+ * What kind of setting an option is.
  *
- * Existe para que **el panel genere el formulario solo**. Nadie escribe a mano
- * la pantalla de ajustes de un módulo: el manifiesto declara las opciones con
- * su tipo, y la interfaz sabe que un booleano es un interruptor, un
- * `Money` un campo con separador de miles, y un `Enum` un desplegable.
+ * It exists so the dashboard can generate the form itself: a boolean is a
+ * switch, a `Money` a thousands-separated field, an `Enum` a dropdown.
  */
 enum SettingType: string
 {

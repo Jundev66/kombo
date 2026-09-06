@@ -4,7 +4,7 @@ titulo: Iconos propios, menú agrupado y enlaces entre pantallas
 tipo: funcionalidad
 estado: hecho
 fecha: 2026-08-29
-toca: [web/packages/ui/src/components/icons.tsx, web/packages/shell, web/apps/panel/src/modules/registry.tsx]
+toca: [web/packages/ui/src/components/icons.tsx, web/packages/shell, web/apps/dashboard/src/modules/registry.tsx]
 relacionados: [KMB-0003, KMB-0005]
 ---
 

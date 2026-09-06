@@ -9,16 +9,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Lo que hace un administrador de plataforma, escrito donde se pueda leer.
+ * What a platform administrator does, written where it can be read.
  *
- * Es una bitácora **aparte** de la de cada negocio. No es burocracia: aquí van
- * las cosas que hacemos NOSOTROS en casa de un cliente —suspenderlo, cambiarle
- * el plan, mirar sus datos—, y esas tienen que poder consultarse cuando el
- * cliente pregunte «¿quién tocó esto?».
+ * A log SEPARATE from each tenant's: this is what WE do in a customer's house —
+ * suspend them, change their plan, look at their data — and it has to be
+ * answerable when they ask who touched something.
  *
- * Se guarda el NOMBRE además del identificador: el día que un administrador
- * deje la empresa y se borre su cuenta, el registro tiene que seguir diciendo
- * quién fue.
+ * The NAME is stored alongside the id: when an administrator leaves and their
+ * account is deleted, the record still has to say who it was.
  */
 final class PlatformAudit
 {
@@ -42,7 +40,7 @@ final class PlatformAudit
     }
 
     /**
-     * Lo que se hizo en casa de un negocio, para poder enseñárselo.
+     * What was done in a tenant's house, so it can be shown to them.
      *
      * @return list<array<string, mixed>>
      */
@@ -62,7 +60,7 @@ final class PlatformAudit
             ->all();
     }
 
-    /** El origen de la petición, para dejarlo escrito tal cual llegó. */
+    /** The request origin, recorded exactly as it arrived. */
     public static function ipOf(Request $request): ?string
     {
         return $request->ip();

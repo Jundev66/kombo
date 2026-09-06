@@ -7,14 +7,10 @@ namespace Modules\Customers;
 use Platform\Modules\ModuleManifest;
 
 /**
- * Quién compra.
+ * Who buys. The record fills itself in from every order with a phone number —
+ * in a food business nobody fills in a customer form between two lunches.
  *
- * La ficha se llena sola: cada pedido con teléfono suma a su cuenta. No hay
- * que darle de alta a nadie, y eso es todo el punto — en un negocio de comida
- * nadie va a rellenar un formulario de cliente entre dos almuerzos.
- *
- * Se apaga entero, y para un puesto de la calle tiene sentido apagarlo: si
- * nadie deja su teléfono, la lista está vacía y sólo estorba.
+ * Switched off wholesale, which makes sense for a street stall.
  */
 final class CustomersModule extends ModuleManifest
 {
@@ -58,8 +54,8 @@ final class CustomersModule extends ModuleManifest
     {
         return [
             'customers.view',
-            // Poner una nota: «no le pongan cebolla», «paga siempre en
-            // efectivo». Es lo que hace que la ficha sirva para algo.
+            // A note: "no onion for them", "always pays cash". It is what makes the
+            // record worth having.
             'customers.manage',
         ];
     }

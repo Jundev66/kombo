@@ -2,17 +2,16 @@ import { useCallback, useEffect, useState } from 'react'
 import type { MenuModifier, MenuProduct } from './api'
 
 /**
- * El carrito del cliente.
+ * The customer's basket.
  *
- * **Se guarda en `localStorage`, al revés que el de la caja.** Y la diferencia
- * no es capricho: la caja es una máquina compartida donde un pedido a medias
- * recuperado tres clientes después cobra lo que no es. Aquí es el teléfono de
- * una persona, que va a mirar el menú, le entra una llamada, y vuelve diez
- * minutos después esperando encontrar lo suyo.
+ * Kept in `localStorage`, unlike the till's — and the difference is not a whim:
+ * the till is a shared machine where a half-built order recovered three
+ * customers later charges the wrong thing. This is one person's phone: they
+ * browse the menu, take a call, and come back ten minutes later expecting to
+ * find their order.
  *
- * Va con el **slug del negocio en la clave** por si acaso, aunque el navegador
- * ya aísla `localStorage` por origen y cada negocio es su propio origen. Es un
- * cinturón sobre los tirantes, y cuesta una línea.
+ * The tenant slug goes in the key just in case, even though the browser already
+ * isolates `localStorage` per origin and each tenant is its own origin.
  */
 
 export interface CartLine {
@@ -44,9 +43,9 @@ function read(slug: string): CartLine[] {
 
     return raw === null ? [] : (JSON.parse(raw) as CartLine[])
   } catch {
-    // Un carrito ilegible —otra versión del formato, alguien tocando la
-    // consola— se descarta en silencio. Arrancar vacío es molesto; arrancar
-    // roto deja al cliente sin poder pedir.
+    // An unreadable basket — another format version, somebody in the console —
+    // is discarded silently. Starting empty is annoying; starting broken leaves
+    // the customer unable to order.
     return []
   }
 }
@@ -58,8 +57,8 @@ export function useCart(slug: string) {
     try {
       localStorage.setItem(storageKey(slug), JSON.stringify(lines))
     } catch {
-      // Modo incógnito con el almacenamiento lleno. Que no se pueda guardar no
-      // puede impedir pedir: el carrito sigue vivo en memoria.
+      // Incognito mode with storage full. Not being able to save cannot stop them
+      // ordering: the basket stays alive in memory.
     }
   }, [slug, lines])
 
@@ -111,7 +110,7 @@ export function useCart(slug: string) {
     setQuantity,
     clear,
 
-    /** Lo que se le manda al servidor: qué y cuántos. Ningún precio. */
+    /** What is sent to the server: what and how many. No prices. */
     toPayload: () =>
       lines.map((line) => ({
         product_id: line.productId,

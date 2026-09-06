@@ -3,20 +3,18 @@
 declare(strict_types=1);
 
 /*
- * Fija el entorno de pruebas ANTES de que arranque nada.
+ * Pins the test environment BEFORE anything boots.
  *
- * Hace falta por una razón concreta y desagradable: `compose.yml` define
- * `DB_DATABASE=kombo` en el contenedor, y el cargador de `.env` de Laravel es
- * inmutable — no pisa lo que ya viene en el entorno del proceso. Sin esto, la
- * suite correría alegremente contra la base de DESARROLLO.
+ * `compose.yml` sets `DB_DATABASE=kombo` in the container, and Laravel's `.env`
+ * loader is immutable — it does not override what is already in the process
+ * environment. Without this, the suite would happily run against the
+ * DEVELOPMENT database.
  *
- * Y sobre todo: DB_USERNAME es `kombo_app`, el usuario SIN BYPASSRLS.
+ * And above all: DB_USERNAME is `kombo_app`, the user WITHOUT BYPASSRLS.
  *
- * Si las pruebas corrieran como `kombo_owner` —que es superusuario— las de
- * aislamiento pasarían en verde con Row Level Security completamente roto,
- * porque BYPASSRLS se salta toda política sin decir nada. Es la peor clase de
- * fallo que puede tener una suite: verde, silencioso, y comprobando algo
- * distinto de lo que dice comprobar.
+ * Running the tests as the superuser `kombo_owner` would make the isolation
+ * ones pass green with Row Level Security completely broken, because BYPASSRLS
+ * skips every policy silently. The worst kind of failure a suite can have.
  */
 
 $overrides = [

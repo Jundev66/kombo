@@ -14,11 +14,11 @@ use Platform\Audit\AuditLogger;
 use Platform\Tenancy\TenantContext;
 
 /**
- * Editar un producto: todo menos el precio.
+ * Editing a product: everything except the price.
  *
- * El precio va por `ChangePrice`, con su permiso aparte y su rastro. Que este
- * caso de uso NO pueda tocarlo es lo que hace real esa separación: si aceptara
- * un `price_cents`, el permiso extra sería decorativo.
+ * The price goes through `ChangePrice`. That this use case cannot touch it is
+ * what makes that separation real — accepting `price_cents` here would make the
+ * extra permission decorative.
  *
  * @param  list<string>|null  $modifierGroupIds
  */
@@ -40,13 +40,11 @@ final class UpdateProduct
     ): ProductModel {
         $model = ProductModel::find($productId) ?? throw new ProductNotFound;
 
-        $antes = ['name' => $model->name, 'is_active' => $model->is_active];
+        $before = ['name' => $model->name, 'is_active' => $model->is_active];
 
         if ($name !== null) {
-            // Se pasa por el value object aunque vaya a una columna de texto:
-            // es donde vive la normalización de espacios y el mínimo de
-            // longitud, y saltárselo aquí abriría la puerta a productos que la
-            // creación no habría aceptado.
+            // Through the value object even though it lands in a text column: that is
+            // where whitespace normalisation and the minimum length live.
             $model->name = ProductName::of($name)->value;
         }
 
@@ -55,19 +53,18 @@ final class UpdateProduct
         }
 
         if ($trackStock !== null) {
-            // El value object descarta la cantidad si no se lleva la cuenta, y
-            // así no queda el estado imposible «no cuenta pero quedan 7».
+            // The value object discards the quantity when stock is untracked, so the
+            // impossible "untracked but 7 left" state never arises.
             $stock = StockPolicy::from($trackStock, $stockQty);
             $model->track_stock = $stock->tracked;
             $model->stock_qty = $stock->quantity;
         }
 
-        // `func_get_args` no: se comprueba explícitamente para poder distinguir
-        // «no lo mandaron» de «lo mandaron vacío a propósito» —quitar la foto,
-        // sacarlo de su categoría—.
-        foreach (['category_id' => $categoryId, 'description' => $description, 'photo_url' => $photoUrl] as $columna => $valor) {
-            if ($valor !== null) {
-                $model->{$columna} = $valor === '' ? null : $valor;
+        // Checked explicitly rather than with `func_get_args`, to tell "not sent"
+        // from "deliberately sent empty" — removing the photo, or the category.
+        foreach (['category_id' => $categoryId, 'description' => $description, 'photo_url' => $photoUrl] as $column => $value) {
+            if ($value !== null) {
+                $model->{$column} = $value === '' ? null : $value;
             }
         }
 
@@ -85,7 +82,7 @@ final class UpdateProduct
             action: 'catalog.product_updated',
             entityType: 'product',
             entityId: (string) $model->id,
-            before: $antes,
+            before: $before,
             after: ['name' => $model->name, 'is_active' => $model->is_active],
         );
 

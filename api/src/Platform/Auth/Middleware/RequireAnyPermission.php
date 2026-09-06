@@ -12,12 +12,11 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
 /**
- * Basta con UNO de los permisos: `permission.any:orders.void,orders.void_request`.
+ * Any ONE of the permissions will do:
+ * `permission.any:orders.void,orders.void_request`.
  *
- * Es la puerta del flujo de autorización por PIN. Pasar por aquí significa
- * poder **iniciar** la acción, no ejecutarla: quien sólo tiene el permiso
- * `_request` llega al caso de uso, y allí `ActionAuthorizer` decide si hace
- * falta el PIN de un supervisor.
+ * Getting through here means being able to START the action, not to carry it
+ * out; `ActionAuthorizer` then decides whether a supervisor's PIN is needed.
  */
 final class RequireAnyPermission
 {

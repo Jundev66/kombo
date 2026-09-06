@@ -2,8 +2,8 @@ node_modules/
 dist/
 .DS_Store
 
-# Producción: el .env del servidor y el certificado de origen de Cloudflare.
-# Ninguno de los dos entra nunca en el repositorio.
+# Production: the server's .env and the Cloudflare origin certificate.
+# Neither ever enters the repository.
 /.env
 /certs/
 
@@ -19,10 +19,10 @@ dist/
 /api/.phpunit.result.cache
 /api/.phpunit.cache/
 
-# Pruebas de usuario
-/e2e/reportes/
-/e2e/resultados/
+# End-to-end tests
+/e2e/reports/
+/e2e/results/
 
 .idea/
 .vscode/
-/api/storage/respaldos/
+/api/storage/backups/

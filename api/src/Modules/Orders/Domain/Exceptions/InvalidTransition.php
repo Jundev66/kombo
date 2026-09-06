@@ -8,14 +8,10 @@ use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 /**
- * El pedido no puede pasar de ahí a allá.
+ * The order cannot go from here to there.
  *
- * **409, no 422**, y la diferencia importa en la pantalla: los datos que
- * llegaron están bien formados; lo que pasa es que el pedido **ya no está
- * donde quien pulsó el botón creía**. Casi siempre porque otra persona lo
- * movió mientras tanto.
- *
- * Por eso el mensaje dice que recargue, no que corrija algo.
+ * 409, not 422: the data is well formed, the order is simply no longer where
+ * whoever pressed the button thought. Hence the message says to reload.
  */
 final class InvalidTransition extends ConflictHttpException
 {

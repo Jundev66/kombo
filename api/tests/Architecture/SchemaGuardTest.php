@@ -3,22 +3,21 @@
 declare(strict_types=1);
 
 /*
- * El esquema, verificado contra el catálogo real de PostgreSQL.
+ * The schema, checked against PostgreSQL's real catalog.
  *
- * Las otras pruebas de arquitectura leen ficheros. Estas preguntan a la base
- * de datos cómo quedó de verdad, que es lo único que importa: una migración
- * puede llamar a TenantSchema::create() y aun así alguien puede haber añadido
- * un índice a mano después.
+ * The other architecture tests read files. These ask the database how it
+ * actually ended up, which is the only thing that matters: a migration can call
+ * TenantSchema::create() and somebody can still add an index by hand after.
  *
- * Si una de estas falla, la respuesta es arreglar la migración usando
- * TenantSchema, no añadir la tabla a la lista de excepciones.
+ * When one fails, fix the migration to use TenantSchema — do not add the table
+ * to the exception list.
  */
 
 use Illuminate\Support\Facades\DB;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * Toda tabla que NO sea de plataforma ni de infraestructura.
+ * Every table that is neither platform nor infrastructure.
  *
  * @return list<string>
  */
@@ -32,7 +31,7 @@ function businessTables(): array
     ));
 }
 
-it('toda tabla de negocio tiene tenant_id', function (): void {
+it('every tenant table has a tenant_id', function (): void {
     $offenders = [];
 
     foreach (businessTables() as $table) {
@@ -55,7 +54,7 @@ it('toda tabla de negocio tiene tenant_id', function (): void {
     ]));
 });
 
-it('toda tabla de negocio tiene RLS activado Y forzado', function (): void {
+it('every tenant table has RLS enabled AND forced', function (): void {
     $offenders = [];
 
     foreach (businessTables() as $table) {
@@ -68,8 +67,8 @@ it('toda tabla de negocio tiene RLS activado Y forzado', function (): void {
         if ($row === null || ! $row->enabled) {
             $offenders[] = "{$table}: RLS sin activar";
         } elseif (! $row->forced) {
-            // Sin FORCE, el dueño de la tabla se salta la política sin avisar
-            // — y el dueño es quien corre migraciones y seeders.
+            // Without FORCE the table's owner silently bypasses the policy — and the
+            // owner is who runs migrations and seeders.
             $offenders[] = "{$table}: RLS activado pero NO forzado";
         }
     }
@@ -77,7 +76,7 @@ it('toda tabla de negocio tiene RLS activado Y forzado', function (): void {
     expect($offenders)->toBe([], "RLS incompleto:\n".implode("\n", $offenders));
 });
 
-it('toda tabla de negocio tiene su política de aislamiento', function (): void {
+it('every tenant table has its isolation policy', function (): void {
     $offenders = [];
 
     foreach (businessTables() as $table) {
@@ -94,12 +93,10 @@ it('toda tabla de negocio tiene su política de aislamiento', function (): void 
     expect($offenders)->toBe([], 'Sin política tenant_isolation: '.implode(', ', $offenders));
 });
 
-it('todo índice de una tabla de negocio empieza por tenant_id', function (): void {
-    // El orden no es preferencia estética. Toda consulta lleva
-    // `where tenant_id = ?`; un índice que no empiece por ahí obliga a
-    // PostgreSQL a recorrer filas de otros negocios para descartarlas. Con un
-    // año de pedidos y una máquina modesta, eso es la diferencia entre que el
-    // tablero de cocina cargue en 40 ms o en dos segundos.
+it('every index on a tenant table starts with tenant_id', function (): void {
+    // The order is not an aesthetic preference. Every query carries
+    // `where tenant_id = ?`, so an index that starts elsewhere makes PostgreSQL
+    // walk other tenants' rows to discard them.
     $business = businessTables();
     $offenders = [];
 
@@ -139,11 +136,11 @@ it('todo índice de una tabla de negocio empieza por tenant_id', function (): vo
     ]));
 });
 
-it('toda clave foránea entre tablas de negocio es compuesta', function (): void {
-    // Una FK simple `producto_id -> productos.id` permite meter en el pedido
-    // de un negocio el producto de otro: es una fila perfectamente válida para
-    // la base de datos, y el error se descubre meses después cuando un reporte
-    // no cuadra. La compuesta `(tenant_id, producto_id)` lo hace imposible.
+it('every foreign key between tenant tables is composite', function (): void {
+    // A simple FK `product_id -> products.id` allows one tenant's order to
+    // reference another's product: a perfectly valid row to the database, found
+    // out months later when a report does not add up. The composite
+    // `(tenant_id, product_id)` makes it impossible.
     $business = businessTables();
     $offenders = [];
 

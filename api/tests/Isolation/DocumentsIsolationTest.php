@@ -3,11 +3,10 @@
 declare(strict_types=1);
 
 /*
- * Las notas de un negocio no existen para otro — y su correlativo tampoco.
+ * One tenant's notes do not exist for another — nor does their sequence.
  *
- * Aquí hay algo más que privacidad: si dos negocios compartieran numeración, el
- * de al lado se comería los números de éste y su correlativo saldría con
- * huecos que nadie sabría explicar.
+ * More than privacy: shared numbering would let the neighbour eat this tenant's
+ * numbers, leaving gaps nobody could explain.
  */
 
 use App\Models\Documents\DeliveryNoteModel;
@@ -17,28 +16,28 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 beforeEach(function (): void {
-    $sufijo = Str::lower(Str::random(6));
+    $suffix = Str::lower(Str::random(6));
 
-    $this->arepera = makeTenant("elsazon-{$sufijo}");
-    $this->pizzeria = makeTenant("laesquina-{$sufijo}");
+    $this->arepera = makeTenant("elsazon-{$suffix}");
+    $this->pizzeria = makeTenant("laesquina-{$suffix}");
 
-    $this->pedidos = [];
+    $this->orders = [];
 
-    foreach ([$this->arepera, $this->pizzeria] as $negocio) {
-        actingForTenant($negocio);
+    foreach ([$this->arepera, $this->pizzeria] as $tenant) {
+        actingForTenant($tenant);
 
-        $pedido = OrderModel::create([
+        $order = OrderModel::create([
             'number' => 1, 'public_token' => Str::random(22), 'total_cents' => 300, 'placed_at' => now(),
         ]);
 
-        $this->pedidos[$negocio] = (string) $pedido->id;
+        $this->orders[$tenant] = (string) $order->id;
 
         DeliveryNoteModel::create([
-            'order_id' => $pedido->id,
+            'order_id' => $order->id,
             'series' => 'A',
             'number' => 1,
             'issued_at' => now(),
-            'customer_name' => $negocio === $this->arepera ? 'Cliente del Sazón' : 'Cliente de La Esquina',
+            'customer_name' => $tenant === $this->arepera ? 'Cliente del Sazón' : 'Cliente de La Esquina',
             'subtotal_cents' => 300,
             'total_cents' => 300,
             'currency' => 'USD',
@@ -47,7 +46,7 @@ beforeEach(function (): void {
     }
 });
 
-it('cada negocio ve sólo sus propias notas', function (): void {
+it('each tenant sees only its own delivery notes', function (): void {
     actingForTenant($this->arepera);
     expect(DeliveryNoteModel::pluck('customer_name')->all())->toBe(['Cliente del Sazón']);
 
@@ -55,22 +54,21 @@ it('cada negocio ve sólo sus propias notas', function (): void {
     expect(DeliveryNoteModel::pluck('customer_name')->all())->toBe(['Cliente de La Esquina']);
 });
 
-it('el correlativo es de cada negocio: los dos tienen su A-000001', function (): void {
-    // Dos negocios con la misma serie y el mismo número no chocan, porque el
-    // único lleva `tenant_id` delante. Compartir numeración sería que el de al
-    // lado te consuma los números.
+it('the sequence is per tenant: both have their own A-000001', function (): void {
+    // Two tenants with the same series and number do not collide, because the
+    // unique index leads with `tenant_id`.
     withoutTenant();
 
     expect(DB::table('delivery_notes')->count())->toBe(0);
 });
 
-it('no se puede emitir una nota a nombre de otro negocio', function (): void {
+it('a note cannot be issued in another tenant\'s name', function (): void {
     actingForTenant($this->arepera);
 
     expect(fn () => DB::table('delivery_notes')->insert([
         'id' => (string) Str::uuid7(),
         'tenant_id' => $this->pizzeria,
-        'order_id' => $this->pedidos[$this->pizzeria],
+        'order_id' => $this->orders[$this->pizzeria],
         'series' => 'A',
         'number' => 99,
         'issued_at' => now(),
@@ -83,13 +81,13 @@ it('no se puede emitir una nota a nombre de otro negocio', function (): void {
     ]))->toThrow(QueryException::class);
 });
 
-it('un pedido no puede tener dos notas', function (): void {
-    // Es lo que impide que un doble toque en «Cobrar» saque dos documentos con
-    // dos números distintos para la misma comida.
+it('an order cannot have two notes', function (): void {
+    // What stops a double tap on "Charge" producing two documents with two
+    // different numbers for the same food.
     actingForTenant($this->arepera);
 
     expect(fn () => DeliveryNoteModel::create([
-        'order_id' => $this->pedidos[$this->arepera],
+        'order_id' => $this->orders[$this->arepera],
         'series' => 'A',
         'number' => 2,
         'issued_at' => now(),
@@ -100,17 +98,17 @@ it('un pedido no puede tener dos notas', function (): void {
     ]))->toThrow(QueryException::class);
 });
 
-it('el mismo número no se repite dentro de una serie', function (): void {
+it('the same number does not repeat within a series', function (): void {
     actingForTenant($this->arepera);
 
-    $otro = OrderModel::create([
+    $other = OrderModel::create([
         'number' => 2, 'public_token' => Str::random(22), 'total_cents' => 300, 'placed_at' => now(),
     ]);
 
     expect(fn () => DeliveryNoteModel::create([
-        'order_id' => $otro->id,
+        'order_id' => $other->id,
         'series' => 'A',
-        'number' => 1,   // ya emitida
+        'number' => 1,   // already issued
         'issued_at' => now(),
         'subtotal_cents' => 300,
         'total_cents' => 300,

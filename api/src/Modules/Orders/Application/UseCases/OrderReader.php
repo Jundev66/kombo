@@ -13,11 +13,10 @@ use Modules\Orders\Domain\ValueObjects\OrderLineModifier;
 use Shared\Domain\ValueObjects\Money;
 
 /**
- * De la fila al dominio.
+ * From the row to the domain.
  *
- * Vive en Application y no en Domain a propósito: el dominio no sabe que
- * Eloquent existe, y una prueba de arquitectura lo verifica. Traducir entre
- * los dos mundos es trabajo de esta capa.
+ * In Application rather than Domain on purpose: the domain does not know
+ * Eloquent exists, and an architecture test verifies it.
  */
 final class OrderReader
 {

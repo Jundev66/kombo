@@ -7,12 +7,11 @@ namespace Modules\Portal\Interfaces\Http\Resources;
 use App\Models\Orders\OrderModel;
 
 /**
- * El pedido, como lo ve **el cliente**.
+ * The order, as the CUSTOMER sees it.
  *
- * Deliberadamente NO es el recurso del panel. Aquí no van los márgenes, ni
- * quién lo atendió, ni las notas internas, ni la lista de pagos con sus
- * referencias: quien mira esto es alguien de la calle con un enlace, y lo único
- * que necesita saber es qué pidió, cuánto es y por dónde va.
+ * Deliberately not the dashboard's resource: no margins, no who handled it, no
+ * internal notes, no payment references. Somebody off the street with a link
+ * needs what they ordered, how much it is, and where it has got to.
  */
 final class PublicOrderResource
 {
@@ -28,9 +27,8 @@ final class PublicOrderResource
             'number' => $order->number,
 
             'status' => $order->status->value,
-            // En palabras del CLIENTE, que no son las del negocio: para quien
-            // está esperando comida, «sin confirmar» suena a que algo salió
-            // mal, y lo que pasa es que su pedido ya llegó.
+            // In the CUSTOMER's words: to somebody waiting on food, "unconfirmed"
+            // sounds like something went wrong, when their order simply arrived.
             'statusLabel' => self::publicLabel($order),
             'steps' => self::steps($order),
 
@@ -48,24 +46,18 @@ final class PublicOrderResource
             'exchangeRate' => $order->exchange_rate === null ? null : (float) $order->exchange_rate,
 
             'paymentStatus' => $order->payment_status,
-            // Si todavía se le espera con el comprobante, y hasta cuándo.
+            // Whether the receipt is still being waited for, and until when.
             'expiresAt' => $order->expires_at?->toAtomString(),
             'needsReceipt' => $order->status->value === 'pending_payment',
 
             /*
-             * Los dos plazos, EN SEGUNDOS y calculados aquí.
+             * Both deadlines in SECONDS, computed here rather than trusting the
+             * device clock — this one belongs to somebody out in the street.
+             * The number shown is how long before their order cancels itself,
+             * so showing it wrong is worse than not showing it.
              *
-             * Es la misma decisión que ya toma el tablero de pedidos
-             * (`OrderResource`): no depender del reloj del dispositivo. Ahí el
-             * dispositivo es una tablet de local, que casi nunca está en hora;
-             * aquí es el teléfono de alguien que está en la calle, que está
-             * peor — y el número que se le enseña es cuánto le queda antes de
-             * que su pedido se cancele solo. Enseñárselo mal es peor que no
-             * enseñárselo.
-             *
-             * Nunca negativo: pasado el plazo son cero segundos, y la pantalla
-             * dice que se cancela en cualquier momento. Un «-3 min» no
-             * significa nada para quien lo lee.
+             * Never negative: past the deadline it is zero, and the screen says
+             * it may be cancelled at any moment.
              */
             'waitingSeconds' => $order->placed_at === null
                 ? 0
@@ -89,11 +81,11 @@ final class PublicOrderResource
     }
 
     /**
-     * Lo que se le dice al cliente que está pasando.
+     * What the customer is told is happening.
      *
-     * El negocio y el cliente miran el mismo pedido y necesitan palabras
-     * distintas: «sin confirmar» es información útil para quien tiene que
-     * confirmarlo, y una preocupación para quien tiene hambre.
+     * The tenant and the customer look at the same order and need different
+     * words: "unconfirmed" is useful to whoever has to confirm it, and a worry
+     * to whoever is hungry.
      */
     private static function publicLabel(OrderModel $order): string
     {
@@ -112,29 +104,28 @@ final class PublicOrderResource
     }
 
     /**
-     * Por dónde va, en cuatro pasos que se entienden de un vistazo.
+     * Where it has got to, in four steps understood at a glance.
      *
-     * El cliente no quiere una máquina de estados: quiere saber si ya lo están
-     * haciendo. Los ocho estados internos se agrupan aquí y no en la pantalla,
-     * para que el portal y el bot cuenten lo mismo.
+     * The eight internal states are grouped here rather than on the screen, so
+     * the portal and the bot tell the same story.
      *
      * @return list<array{key: string, label: string, done: bool}>
      */
     private static function steps(OrderModel $order): array
     {
-        $entregado = $order->delivered_at !== null;
-        $enCamino = $order->out_for_delivery_at !== null || $order->ready_at !== null;
-        $cocinando = $order->confirmed_at !== null;
+        $delivered = $order->delivered_at !== null;
+        $onTheWay = $order->out_for_delivery_at !== null || $order->ready_at !== null;
+        $cooking = $order->confirmed_at !== null;
 
         return [
             ['key' => 'received', 'label' => 'Recibido', 'done' => $order->placed_at !== null],
-            ['key' => 'cooking', 'label' => 'Lo estamos haciendo', 'done' => $cocinando],
+            ['key' => 'cooking', 'label' => 'Lo estamos haciendo', 'done' => $cooking],
             [
                 'key' => 'ready',
                 'label' => $order->service_type->value === 'delivery' ? 'En camino' : 'Listo para buscar',
-                'done' => $enCamino,
+                'done' => $onTheWay,
             ],
-            ['key' => 'delivered', 'label' => 'Entregado', 'done' => $entregado],
+            ['key' => 'delivered', 'label' => 'Entregado', 'done' => $delivered],
         ];
     }
 }

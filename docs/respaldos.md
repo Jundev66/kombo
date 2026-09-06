@@ -66,7 +66,7 @@ docker compose -f compose.prod.yml up -d --force-recreate api queue scheduler
 ## Hacer uno a mano
 
 ```bash
-docker compose -f compose.prod.yml exec api php artisan respaldos:hacer
+docker compose -f compose.prod.yml exec api php artisan backups:run
 ```
 
 ```
@@ -77,7 +77,7 @@ Subido fuera del servidor.
 
 Hazlo **antes de cada actualización que traiga migraciones**.
 
-Opciones: `--sin-nube` (sólo local), `--conservar=30` (cuántas locales guardar).
+Opciones: `--no-cloud` (sólo local), `--keep=30` (cuántas locales guardar).
 
 ---
 
@@ -127,7 +127,7 @@ pierde la única pista de qué pasó.
 
 ```bash
 cd ~/kombo
-docker compose -f compose.prod.yml exec api php artisan respaldos:hacer --sin-nube
+docker compose -f compose.prod.yml exec api php artisan backups:run --no-cloud
 ```
 
 ## 1. Elegir la copia
@@ -295,7 +295,7 @@ docker compose -f compose.prod.yml up -d --build api
 mano:
 
 ```bash
-docker compose -f compose.prod.yml exec api php artisan respaldos:hacer --conservar=5
+docker compose -f compose.prod.yml exec api php artisan backups:run --keep=5
 ```
 
 Un disco lleno no es sólo que no haya respaldo: PostgreSQL deja de aceptar

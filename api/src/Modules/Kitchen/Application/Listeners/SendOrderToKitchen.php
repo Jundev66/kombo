@@ -10,15 +10,11 @@ use Modules\Orders\Domain\Events\OrderConfirmed;
 use Platform\Capabilities\CurrentCapabilities;
 
 /**
- * **Aquí es donde un pedido se convierte en comanda.**
+ * Where an order becomes a kitchen ticket.
  *
- * Es todo el enganche entre los pedidos y la cocina, y va en una sola
- * dirección: `Orders` no sabe que esto existe. Si mañana se borrara el módulo
- * de cocina, los pedidos seguirían funcionando igual.
- *
- * El evento trae todo lo que hace falta, así que este listener **no consulta
- * las tablas de pedidos**. Si tuviera que hacerlo, el acoplamiento que el
- * evento venía a evitar volvería por la puerta de atrás.
+ * The entire hook-up between orders and the kitchen, one way: `Orders` does not
+ * know this exists. The event carries everything needed, so this listener never
+ * queries the order tables — that would bring the coupling back in.
  */
 final class SendOrderToKitchen
 {
@@ -30,11 +26,10 @@ final class SendOrderToKitchen
     public function handle(OrderConfirmed $event): void
     {
         /*
-         * El listener se registra una vez para el proceso, pero el negocio se
-         * resuelve por petición. Sin esta guarda, un negocio que no tenga
-         * encendida la cocina —una cocina oculta que sólo despacha, un puesto
-         * donde el que atiende es el que cocina— intentaría escribir en una
-         * tabla que para él no existe.
+         * The listener is registered once per process, but the tenant is
+         * resolved per request. Without this guard, a tenant without the
+         * kitchen switched on would write into a table that does not exist
+         * for it.
          */
         if (! $this->capabilities->get()->hasModule('kitchen')) {
             return;
@@ -43,8 +38,8 @@ final class SendOrderToKitchen
         $this->db->transaction(function () use ($event): void {
             $ticket = KitchenTicketModel::create([
                 'order_id' => $event->orderId,
-                // EL MISMO número del pedido. Dos numeraciones distintas para
-                // lo mismo es cómo se entrega el plato equivocado.
+                // THE SAME number as the order: two numbering schemes for one thing is
+                // how the wrong plate gets handed over.
                 'number' => $event->number,
                 'status' => 'pending',
                 'service_type' => $event->serviceType,
@@ -59,8 +54,8 @@ final class SendOrderToKitchen
                     'product_id' => $line->productId,
                     'name' => $line->name,
                     'quantity' => $line->quantity,
-                    // Texto ya resuelto. La cocina lee «Sin cebolla» mientras
-                    // cocina; ir a buscar un identificador no es una opción.
+                    // Already text. The kitchen reads "No onion" while it cooks; looking up
+                    // an identifier is not an option.
                     'modifiers' => $line->modifiers,
                     'notes' => $line->notes,
                     'sort_order' => $index,

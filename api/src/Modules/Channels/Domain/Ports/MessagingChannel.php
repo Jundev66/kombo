@@ -8,15 +8,12 @@ use Modules\Channels\Domain\ValueObjects\IncomingMessage;
 use Modules\Channels\Domain\ValueObjects\Reply;
 
 /**
- * Un canal por el que se habla con un cliente.
+ * A channel a customer is talked to over.
  *
- * El motor de conversación conoce **esto** y nada más. No sabe qué es un
- * `phone_number_id`, ni que Telegram llama `chat_id` a lo que Meta llama `wa_id`,
- * ni que uno firma con HMAC y el otro con una cabecera secreta.
- *
- * Cada adaptador aplica **sus propios límites**, no un mínimo común. Es la
- * diferencia entre que Telegram pueda enseñar ocho categorías de una vez y que
- * quede recortado a tres porque WhatsApp no da para más.
+ * The conversation engine knows this and nothing else — not what a
+ * `phone_number_id` is, nor that one channel signs with HMAC and the other with
+ * a header. Each adapter applies its own limits rather than a lowest common
+ * denominator, so Telegram is not cramped down to WhatsApp's three buttons.
  */
 interface MessagingChannel
 {
@@ -24,27 +21,23 @@ interface MessagingChannel
     public function code(): string;
 
     /**
-     * Entrega lo que el motor quiso decir, como se pueda decir en este canal.
-     *
-     * Puede acabar en más de un mensaje: seis opciones en WhatsApp son dos
-     * envíos de tres botones. Eso lo decide el adaptador.
+     * Delivers what the engine meant, however this channel can say it. Six
+     * options on WhatsApp become two sends of three buttons; the adapter
+     * decides.
      */
     public function send(string $chatId, Reply $reply): void;
 
     /**
-     * ¿La petición viene de verdad del canal?
-     *
-     * Se comprueba **antes que nada**, y con comparación en tiempo constante.
-     * Cualquiera puede hacer un POST a la dirección del webhook.
+     * Does the request really come from the channel? Checked before anything
+     * else, in constant time: anyone can POST to a webhook address.
      */
     public function verifySignature(string $payload, array $headers, ?string $secret): bool;
 
     /**
-     * Traduce lo que llegó a mensajes que el motor entienda.
+     * Translates what arrived into messages the engine understands.
      *
-     * Un mismo webhook puede traer varios —los canales agrupan— y también
-     * cosas que no son mensajes (avisos de entrega, de lectura), que se
-     * descartan aquí y no más adelante.
+     * One webhook may carry several, and also things that are not messages
+     * (delivery and read receipts), discarded here rather than further along.
      *
      * @return list<IncomingMessage>
      */

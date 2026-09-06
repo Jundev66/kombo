@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 /*
- * El equipo del negocio.
+ * The tenant's team.
  *
- * Es lo que permite que un local crezca de una persona a cinco sin que nadie
- * toque la base de datos. Y es donde el techo del plan significa algo: un
- * límite que sólo se enseña en una pantalla de administración no es un límite.
+ * What lets a shop grow from one person to five without anyone touching the
+ * database. And where the plan ceiling means something: a limit that only shows
+ * on an administration screen is not a limit.
  */
 
 use App\Models\User;
@@ -18,29 +18,29 @@ use Illuminate\Testing\TestResponse;
 use Platform\Auth\RoleProvisioner;
 
 beforeEach(function (): void {
-    $sufijo = Str::lower(Str::random(6));
+    $suffix = Str::lower(Str::random(6));
 
-    $this->slug = "elsazon-{$sufijo}";
-    $this->tenant = makeTenant($this->slug, plan: 'negocio');
+    $this->slug = "elsazon-{$suffix}";
+    $this->tenant = makeTenant($this->slug, plan: 'business');
 
     actingForTenant($this->tenant);
-    foreach (['core', 'catalog', 'orders'] as $modulo) {
-        enableModule($this->tenant, $modulo);
+    foreach (['core', 'catalog', 'orders'] as $module) {
+        enableModule($this->tenant, $module);
     }
 
     $this->maria = makeUser($this->tenant, 'maria@ejemplo.com', 'María');
     giveRole($this->tenant, $this->maria, 'owner');
 
-    // Los roles base tienen que existir para poder repartirlos, y **con sus
-    // permisos**: parte de lo que se prueba aquí es qué puede hacer un
-    // encargado, y un rol sin filas de permisos no puede nada. Se usa el mismo
-    // objeto que la siembra real en vez de escribirlos a mano, que es como el
-    // mundo de las pruebas acaba siendo distinto del de producción.
+    // The base roles have to exist to be handed out, and WITH their permissions:
+    // part of what is tested here is what a manager can do, and a role with no
+    // permission rows can do nothing. The same object the real seeding uses,
+    // rather than writing them by hand — which is how the test world ends up
+    // different from production.
     app(RoleProvisioner::class)->reconcile($this->tenant);
 });
 
-/** Alguien del equipo con un rol que YA existe en el negocio. */
-function conRol(string $tenantId, string $email, string $name, string $code): string
+/** Somebody on the team with a role that already exists in the tenant. */
+function withRole(string $tenantId, string $email, string $name, string $code): string
 {
     $userId = makeUser($tenantId, $email, $name);
 
@@ -56,16 +56,16 @@ function conRol(string $tenantId, string $email, string $name, string $code): st
     return $userId;
 }
 
-function equipo(string $slug, string $method = 'GET', string $path = '', array $body = []): TestResponse
+function team(string $slug, string $method = 'GET', string $path = '', array $body = []): TestResponse
 {
     return test()->withHeaders(browsingAs($slug))
         ->json($method, urlFor($slug, "/api/v1/team{$path}"), $body);
 }
 
-it('el dueño suma a alguien a su equipo, y esa persona entra', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('the owner adds somebody to the team, and that person signs in', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    equipo($this->slug, 'POST', '', [
+    team($this->slug, 'POST', '', [
         'name' => 'José',
         'email' => 'jose@ejemplo.com',
         'password' => 'clave-larga-123',
@@ -73,88 +73,87 @@ it('el dueño suma a alguien a su equipo, y esa persona entra', function (): voi
         'pin' => '2345',
     ])->assertCreated();
 
-    // Y entra de verdad: si la contraseña se guardara mal —hasheada dos veces,
-    // por ejemplo— esto fallaría y el fallo no diría por qué.
-    entrarComo($this->slug, 'jose@ejemplo.com', 'clave-larga-123');
+    // And they really sign in: if the password were stored wrong — hashed twice,
+    // say — this would fail, and the failure would not say why.
+    loginAs($this->slug, 'jose@ejemplo.com', 'clave-larga-123');
 
     actingForTenant($this->tenant);
 
     $jose = User::where('email', 'jose@ejemplo.com')->first();
 
     expect($jose->roles->first()?->code)->toBe('manager')
-        // Y su PIN sirve para la caja: guardarlo hasheado dos veces sería un
-        // PIN que nunca abre nada.
+        // And their PIN works at the till: hashed twice it would open nothing.
         ->and(Hash::check('2345', (string) $jose->pin_hash))->toBeTrue();
 });
 
-it('el techo del plan se aplica AL CREAR, no en un informe', function (): void {
-    // El plan inicial llega a 2 personas.
-    $sufijo = Str::lower(Str::random(6));
-    $slug = "pequeno-{$sufijo}";
-    $tenantId = makeTenant($slug, plan: 'inicial');
+it('the plan ceiling applies ON CREATE, not in a report', function (): void {
+    // The starter plan goes up to 2 people.
+    $suffix = Str::lower(Str::random(6));
+    $slug = "pequeno-{$suffix}";
+    $tenantId = makeTenant($slug, plan: 'starter');
 
     actingForTenant($tenantId);
     enableModule($tenantId, 'core');
 
-    $duena = makeUser($tenantId, 'duena@ejemplo.com', 'Dueña');
-    giveRole($tenantId, $duena, 'owner');
+    $owner = makeUser($tenantId, 'duena@ejemplo.com', 'Dueña');
+    giveRole($tenantId, $owner, 'owner');
     giveRole($tenantId, makeUser($tenantId, 'otro@ejemplo.com', 'Otro'), 'kitchen');
 
-    entrarComo($slug, 'duena@ejemplo.com');
+    loginAs($slug, 'duena@ejemplo.com');
 
-    $respuesta = equipo($slug, 'POST', '', [
+    $response = team($slug, 'POST', '', [
         'name' => 'Tercero',
         'email' => 'tercero@ejemplo.com',
         'password' => 'clave-larga-123',
         'role_code' => 'kitchen',
     ])->assertStatus(422);
 
-    // Y el mensaje dice qué hacer, no sólo que no se puede.
-    expect($respuesta->json('message'))->toContain('subir de plan');
+    // And the message says what to do, not just that it cannot be done.
+    expect($response->json('message'))->toContain('subir de plan');
 });
 
-it('quien está dado de baja no ocupa una plaza que se paga', function (): void {
-    $sufijo = Str::lower(Str::random(6));
-    $slug = "recicla-{$sufijo}";
-    $tenantId = makeTenant($slug, plan: 'inicial');
+it('somebody deactivated does not occupy a seat that is paid for', function (): void {
+    $suffix = Str::lower(Str::random(6));
+    $slug = "recicla-{$suffix}";
+    $tenantId = makeTenant($slug, plan: 'starter');
 
     actingForTenant($tenantId);
     enableModule($tenantId, 'core');
 
-    $duena = makeUser($tenantId, 'duena@ejemplo.com', 'Dueña');
-    giveRole($tenantId, $duena, 'owner');
+    $owner = makeUser($tenantId, 'duena@ejemplo.com', 'Dueña');
+    giveRole($tenantId, $owner, 'owner');
 
-    $viejo = makeUser($tenantId, 'viejo@ejemplo.com', 'Viejo');
-    giveRole($tenantId, $viejo, 'kitchen');
+    $old = makeUser($tenantId, 'viejo@ejemplo.com', 'Viejo');
+    giveRole($tenantId, $old, 'kitchen');
 
-    entrarComo($slug, 'duena@ejemplo.com');
+    loginAs($slug, 'duena@ejemplo.com');
 
-    // Con dos activos, el plan inicial está lleno.
-    equipo($slug, 'POST', '', [
+    // With two active, the starter plan is full.
+    team($slug, 'POST', '', [
         'name' => 'Nuevo', 'email' => 'nuevo@ejemplo.com',
         'password' => 'clave-larga-123', 'role_code' => 'kitchen',
     ])->assertStatus(422);
 
-    equipo($slug, 'DELETE', "/{$viejo}")->assertStatus(204);
+    team($slug, 'DELETE', "/{$old}")->assertStatus(204);
 
-    // Ahora sí: alguien que se fue hace tres meses no puede seguir costando.
-    equipo($slug, 'POST', '', [
+    // Now yes: somebody who left three months ago cannot keep costing money.
+    team($slug, 'POST', '', [
         'name' => 'Nuevo', 'email' => 'nuevo@ejemplo.com',
         'password' => 'clave-larga-123', 'role_code' => 'kitchen',
     ])->assertCreated();
 });
 
-it('dar de baja DESACTIVA, no borra', function (): void {
-    // Un usuario borrado se lleva por delante quién confirmó aquel pedido y
-    // quién autorizó aquella anulación.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('deactivating DEACTIVATES, it does not delete', function (): void {
+    // A deleted user takes with them who confirmed that order and who authorised
+    // that void.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $id = equipo($this->slug, 'POST', '', [
+    $id = team($this->slug, 'POST', '', [
         'name' => 'José', 'email' => 'jose@ejemplo.com',
         'password' => 'clave-larga-123', 'role_code' => 'manager',
     ])->json('data.id');
 
-    equipo($this->slug, 'DELETE', "/{$id}")->assertStatus(204);
+    team($this->slug, 'DELETE', "/{$id}")->assertStatus(204);
 
     actingForTenant($this->tenant);
 
@@ -164,15 +163,15 @@ it('dar de baja DESACTIVA, no borra', function (): void {
         ->and($jose->is_active)->toBeFalse();
 });
 
-it('el que está de baja no entra', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('a deactivated user does not get in', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $id = equipo($this->slug, 'POST', '', [
+    $id = team($this->slug, 'POST', '', [
         'name' => 'José', 'email' => 'jose@ejemplo.com',
         'password' => 'clave-larga-123', 'role_code' => 'manager',
     ])->json('data.id');
 
-    equipo($this->slug, 'DELETE', "/{$id}")->assertStatus(204);
+    team($this->slug, 'DELETE', "/{$id}")->assertStatus(204);
 
     test()->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/auth/login'), [
@@ -181,98 +180,98 @@ it('el que está de baja no entra', function (): void {
         ])->assertStatus(422);
 });
 
-it('siempre queda un dueño', function (): void {
+it('there is always one owner left', function (): void {
     /*
-     * Un negocio sin dueño activo es un negocio que nadie puede configurar, y
-     * desde dentro no hay forma de arreglarlo: haría falta que alguien entrara
-     * por la base de datos.
+     * A tenant with no active owner cannot be configured, and there is no way
+     * to fix it from the inside — somebody would have to go in through the
+     * database.
      */
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $otro = equipo($this->slug, 'POST', '', [
+    $other = team($this->slug, 'POST', '', [
         'name' => 'José', 'email' => 'jose@ejemplo.com',
         'password' => 'clave-larga-123', 'role_code' => 'manager',
     ])->json('data.id');
 
-    // A María no se la puede bajar de dueña siendo la única.
-    equipo($this->slug, 'PATCH', "/{$this->maria}", ['role_code' => 'manager'])
+    // María cannot be demoted while she is the only owner.
+    team($this->slug, 'PATCH', "/{$this->maria}", ['role_code' => 'manager'])
         ->assertStatus(422);
 
-    // Con un segundo dueño, sí.
-    equipo($this->slug, 'PATCH', "/{$otro}", ['role_code' => 'owner'])->assertOk();
-    equipo($this->slug, 'PATCH', "/{$this->maria}", ['role_code' => 'manager'])->assertOk();
+    // With a second owner, she can.
+    team($this->slug, 'PATCH', "/{$other}", ['role_code' => 'owner'])->assertOk();
+    team($this->slug, 'PATCH', "/{$this->maria}", ['role_code' => 'manager'])->assertOk();
 });
 
-it('nadie se da de baja a sí mismo', function (): void {
-    // Es el clic que deja a alguien fuera de su propio negocio un viernes por
-    // la tarde.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('nobody deactivates themselves', function (): void {
+    // The click that leaves somebody outside their own business on a Friday
+    // afternoon.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    equipo($this->slug, 'DELETE', "/{$this->maria}")->assertStatus(422);
+    team($this->slug, 'DELETE', "/{$this->maria}")->assertStatus(422);
 });
 
-it('el mismo correo no se repite dentro del negocio', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('the same email does not repeat within a tenant', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    equipo($this->slug, 'POST', '', [
+    team($this->slug, 'POST', '', [
         'name' => 'Otra María', 'email' => 'maria@ejemplo.com',
         'password' => 'clave-larga-123', 'role_code' => 'manager',
     ])->assertStatus(422)->assertJsonValidationErrors('email');
 });
 
-it('cambiar el PIN no cambia la contraseña, y quitarlo lo quita', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('changing the PIN does not change the password, and clearing it removes it', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $id = equipo($this->slug, 'POST', '', [
+    $id = team($this->slug, 'POST', '', [
         'name' => 'Ana', 'email' => 'ana@ejemplo.com',
         'password' => 'clave-larga-123', 'role_code' => 'counter', 'pin' => '3456',
     ])->json('data.id');
 
-    equipo($this->slug, 'PATCH', "/{$id}", ['pin' => '9876'])->assertOk();
+    team($this->slug, 'PATCH', "/{$id}", ['pin' => '9876'])->assertOk();
 
     actingForTenant($this->tenant);
     expect(Hash::check('9876', (string) User::find($id)->pin_hash))->toBeTrue();
 
-    // La contraseña sigue siendo la suya.
-    entrarComo($this->slug, 'ana@ejemplo.com', 'clave-larga-123');
+    // The password is still hers.
+    loginAs($this->slug, 'ana@ejemplo.com', 'clave-larga-123');
 
-    // Y se vuelve a entrar como María: Ana no maneja usuarios, y seguir
-    // llamando al equipo con su sesión probaría otra cosa.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    // And we sign back in as María: Ana does not manage users, and calling the
+    // team endpoint with her session would test something else.
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    equipo($this->slug, 'PATCH', "/{$id}", ['pin' => ''])->assertOk();
+    team($this->slug, 'PATCH', "/{$id}", ['pin' => ''])->assertOk();
 
     actingForTenant($this->tenant);
     expect(User::find($id)->pin_hash)->toBeNull();
 });
 
-it('un PIN que no son cuatro dígitos no se guarda', function (): void {
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('a PIN that is not four digits is not stored', function (): void {
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $id = equipo($this->slug, 'POST', '', [
+    $id = team($this->slug, 'POST', '', [
         'name' => 'Ana', 'email' => 'ana@ejemplo.com',
         'password' => 'clave-larga-123', 'role_code' => 'counter',
     ])->json('data.id');
 
-    equipo($this->slug, 'PATCH', "/{$id}", ['pin' => '12'])->assertStatus(422);
+    team($this->slug, 'PATCH', "/{$id}", ['pin' => '12'])->assertStatus(422);
 });
 
 /*
- * Hasta dónde llega el encargado.
+ * How far the manager reaches.
  *
- * Antes no llegaba a nada de esto: no tenía `users.manage`, porque quien crea
- * usuarios puede crearse una cuenta de dueño. Pero quitarle el permiso también
- * le impedía lo legítimo —dar de alta al cocinero nuevo un sábado—, así que
- * ahora lo tiene y el agujero se tapa donde de verdad se decide.
+ * They used to reach none of this: no `users.manage`, because whoever creates
+ * users can create themselves an owner account. But removing the permission
+ * also blocked the legitimate case — signing up the new cook on a Saturday — so
+ * now they have it and the hole is closed where it is really decided.
  */
 
-it('el encargado suma gente a su equipo', function (): void {
+it('the manager adds people to the team', function (): void {
     actingForTenant($this->tenant);
-    conRol($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
+    withRole($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
 
-    entrarComo($this->slug, 'jose@ejemplo.com');
+    loginAs($this->slug, 'jose@ejemplo.com');
 
-    equipo($this->slug, 'POST', '', [
+    team($this->slug, 'POST', '', [
         'name' => 'Carlos',
         'email' => 'carlos@ejemplo.com',
         'password' => 'clave-larga-123',
@@ -281,13 +280,13 @@ it('el encargado suma gente a su equipo', function (): void {
     ])->assertCreated();
 });
 
-it('el encargado no puede nombrar a otro dueño', function (): void {
+it('the manager cannot appoint another owner', function (): void {
     actingForTenant($this->tenant);
-    conRol($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
+    withRole($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
 
-    entrarComo($this->slug, 'jose@ejemplo.com');
+    loginAs($this->slug, 'jose@ejemplo.com');
 
-    equipo($this->slug, 'POST', '', [
+    team($this->slug, 'POST', '', [
         'name' => 'Intruso',
         'email' => 'intruso@ejemplo.com',
         'password' => 'clave-larga-123',
@@ -298,104 +297,104 @@ it('el encargado no puede nombrar a otro dueño', function (): void {
     expect(User::where('email', 'intruso@ejemplo.com')->exists())->toBeFalse();
 });
 
-it('el encargado no puede ascender a nadie a dueño', function (): void {
+it('the manager cannot promote anybody to owner', function (): void {
     actingForTenant($this->tenant);
-    conRol($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
-    $ana = conRol($this->tenant, 'ana@ejemplo.com', 'Ana', 'counter');
+    withRole($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
+    $ana = withRole($this->tenant, 'ana@ejemplo.com', 'Ana', 'counter');
 
-    entrarComo($this->slug, 'jose@ejemplo.com');
+    loginAs($this->slug, 'jose@ejemplo.com');
 
-    equipo($this->slug, 'PATCH', "/{$ana}", ['role_code' => 'owner'])->assertStatus(422);
+    team($this->slug, 'PATCH', "/{$ana}", ['role_code' => 'owner'])->assertStatus(422);
 
     actingForTenant($this->tenant);
     expect(User::find($ana)->isOwner())->toBeFalse();
 });
 
 /*
- * Ésta es la que de verdad cierra la puerta.
+ * This is the one that actually closes the door.
  *
- * Sin ella, la regla de arriba es decorativa: `update()` acepta `password`, así
- * que al encargado le bastaba con cambiarle la clave al dueño y entrar como él.
- * No hacía falta ascenderse a nada.
+ * Without it the rule above is decorative: `update()` accepts `password`, so a
+ * manager only had to change the owner's password and sign in as them. No
+ * promotion required.
  */
-it('el encargado no le cambia la contraseña al dueño', function (): void {
+it('the manager does not change the owner\'s password', function (): void {
     actingForTenant($this->tenant);
-    conRol($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
+    withRole($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
 
-    entrarComo($this->slug, 'jose@ejemplo.com');
+    loginAs($this->slug, 'jose@ejemplo.com');
 
-    equipo($this->slug, 'PATCH', "/{$this->maria}", ['password' => 'me-la-quedo-yo'])
+    team($this->slug, 'PATCH', "/{$this->maria}", ['password' => 'me-la-quedo-yo'])
         ->assertForbidden();
 
-    // Y la contraseña de María sigue siendo la suya.
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    // And María's password is still hers.
+    loginAs($this->slug, 'maria@ejemplo.com');
 });
 
-it('el encargado no da de baja al dueño', function (): void {
+it('the manager does not deactivate the owner', function (): void {
     actingForTenant($this->tenant);
-    conRol($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
+    withRole($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
 
-    entrarComo($this->slug, 'jose@ejemplo.com');
+    loginAs($this->slug, 'jose@ejemplo.com');
 
-    equipo($this->slug, 'DELETE', "/{$this->maria}")->assertForbidden();
+    team($this->slug, 'DELETE', "/{$this->maria}")->assertForbidden();
 
     actingForTenant($this->tenant);
     expect(User::find($this->maria)->is_active)->toBeTrue();
 });
 
-it('al encargado no se le ofrece el rol de dueño, y al dueño sí', function (): void {
-    // Enseñar una opción que el servidor va a rechazar es peor que no
-    // enseñarla: se descubre después de rellenar el formulario entero.
+it('the manager is not offered the owner role, and the owner is', function (): void {
+    // Showing an option the server will reject is worse than hiding it: you find
+    // out after filling in the whole form.
     actingForTenant($this->tenant);
-    conRol($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
+    withRole($this->tenant, 'jose@ejemplo.com', 'José', 'manager');
 
-    entrarComo($this->slug, 'jose@ejemplo.com');
-    $paraJose = array_column(equipo($this->slug)->assertOk()->json('meta.roles'), 'code');
+    loginAs($this->slug, 'jose@ejemplo.com');
+    $forJose = array_column(team($this->slug)->assertOk()->json('meta.roles'), 'code');
 
-    entrarComo($this->slug, 'maria@ejemplo.com');
-    $paraMaria = array_column(equipo($this->slug)->assertOk()->json('meta.roles'), 'code');
+    loginAs($this->slug, 'maria@ejemplo.com');
+    $forMaria = array_column(team($this->slug)->assertOk()->json('meta.roles'), 'code');
 
-    expect($paraJose)->not->toContain('owner')->toContain('kitchen')
-        ->and($paraMaria)->toContain('owner');
+    expect($forJose)->not->toContain('owner')->toContain('kitchen')
+        ->and($forMaria)->toContain('owner');
 });
 
-it('quien no maneja usuarios, no los ve', function (): void {
+it('whoever does not manage users does not see them', function (): void {
     actingForTenant($this->tenant);
 
-    conRol($this->tenant, 'carlos@ejemplo.com', 'Carlos', 'kitchen');
+    withRole($this->tenant, 'carlos@ejemplo.com', 'Carlos', 'kitchen');
 
-    entrarComo($this->slug, 'carlos@ejemplo.com');
+    loginAs($this->slug, 'carlos@ejemplo.com');
 
-    equipo($this->slug)->assertForbidden();
+    team($this->slug)->assertForbidden();
 });
 
-it('el equipo de un negocio no incluye al de otro', function (): void {
-    $sufijo = Str::lower(Str::random(6));
-    $vecino = makeTenant("vecino-{$sufijo}", plan: 'negocio');
+it('one tenant\'s team does not include another\'s', function (): void {
+    $suffix = Str::lower(Str::random(6));
+    $neighbour = makeTenant("vecino-{$suffix}", plan: 'business');
 
-    actingForTenant($vecino);
-    enableModule($vecino, 'core');
-    giveRole($vecino, makeUser($vecino, 'ajeno@ejemplo.com', 'Ajeno'), 'owner');
+    actingForTenant($neighbour);
+    enableModule($neighbour, 'core');
+    giveRole($neighbour, makeUser($neighbour, 'ajeno@ejemplo.com', 'Ajeno'), 'owner');
 
-    entrarComo($this->slug, 'maria@ejemplo.com');
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $correos = array_column(equipo($this->slug)->assertOk()->json('data'), 'email');
+    $emails = array_column(team($this->slug)->assertOk()->json('data'), 'email');
 
-    expect($correos)->not->toContain('ajeno@ejemplo.com')
+    expect($emails)->not->toContain('ajeno@ejemplo.com')
         ->toContain('maria@ejemplo.com');
 });
 
-it('la lista dice cuántos caben y quién tiene PIN', function (): void {
-    // Sin PIN no se entra a la caja ni a la cocina, y eso hay que verlo de un
-    // vistazo cuando alguien dice «no me deja».
-    entrarComo($this->slug, 'maria@ejemplo.com');
+it('the list says how many fit and who has a PIN', function (): void {
+    // Without a PIN there is no till and no kitchen, and that has to be visible
+    // at a glance when somebody says "it won't let me in".
+    loginAs($this->slug, 'maria@ejemplo.com');
 
-    $respuesta = equipo($this->slug)->assertOk();
+    $response = team($this->slug)->assertOk();
 
-    expect($respuesta->json('meta.maxUsers'))->toBe(8)
-        ->and($respuesta->json('meta.active'))->toBe(1);
+    expect($response->json('meta.maxUsers'))->toBe(8)
+        ->and($response->json('meta.active'))->toBe(1);
 
-    $maria = collect($respuesta->json('data'))->firstWhere('email', 'maria@ejemplo.com');
+    $maria = collect($response->json('data'))->firstWhere('email', 'maria@ejemplo.com');
 
     expect($maria['isOwner'])->toBeTrue()
         ->and($maria['hasPin'])->toBeFalse();

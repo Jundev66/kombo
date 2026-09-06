@@ -21,8 +21,8 @@ final class EloquentModifierCatalog implements ModifierCatalog
             return [];
         }
 
-        // Una sola consulta para todo el pedido. Diez líneas con agregados no
-        // pueden costar treinta viajes a la base.
+        // One query for the whole order: ten lines with add-ons cannot cost thirty
+        // round trips.
         return ModifierModel::whereIn('id', $modifierIds)
             ->get()
             ->mapWithKeys(fn (ModifierModel $m): array => [

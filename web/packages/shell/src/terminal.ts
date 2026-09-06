@@ -1,16 +1,15 @@
 /**
- * Las credenciales de ESTA pantalla.
+ * THIS screen's credentials.
  *
- * En `localStorage`, que el navegador ata al origen — y cada negocio es su
- * propio origen. La tablet de El Sazón no puede leer el token de La Esquina
- * sin que nadie escriba una línea para impedirlo.
+ * In `localStorage`, which the browser ties to the origin — and each tenant is
+ * its own origin, so one shop's tablet cannot read another's token.
  *
- * Dos tokens, y la diferencia importa:
+ * Two tokens, and the difference matters:
  *
- *   device   Se da de alta UNA vez en la vida de la tablet. Sólo sirve para
- *            pedir la lista de nombres y validar un PIN. No opera nada.
- *   station  El del cocinero que está ahora mismo. Éste sí mueve comandas, y
- *            lo que hace queda a su nombre.
+ *   device   Registered ONCE in the tablet's life. Only good for listing names
+ *            and validating a PIN. It operates nothing.
+ *   station  The cook who is on right now. This one moves tickets, and what it
+ *            does is recorded in their name.
  */
 
 const DEVICE_TOKEN = 'kombo.device.token'
@@ -33,17 +32,17 @@ export const terminal = {
   },
 
   /**
-   * Salir. Se borra SÓLO el del cocinero: la tablet sigue dada de alta, así
-   * que el siguiente turno entra con su PIN y no hay que volver a configurarla
-   * con un correo y una contraseña que nadie en la cocina tiene.
+   * Signing out clears ONLY the cook's token: the tablet stays registered, so
+   * the next shift signs in with a PIN rather than an email and password nobody
+   * in the kitchen has.
    */
   endShift(): void {
     localStorage.removeItem(STATION_TOKEN)
   },
 
   /**
-   * El que vale ahora. El del cocinero si hay turno; si no, el de la tablet
-   * —que sólo sirve para preguntar quién puede entrar—.
+   * The one that counts now: the cook's if there is a shift, otherwise the
+   * tablet's, which only asks who may sign in.
    */
   active: () => localStorage.getItem(STATION_TOKEN) ?? localStorage.getItem(DEVICE_TOKEN),
 }

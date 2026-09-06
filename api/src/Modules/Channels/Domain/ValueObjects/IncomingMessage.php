@@ -5,24 +5,22 @@ declare(strict_types=1);
 namespace Modules\Channels\Domain\ValueObjects;
 
 /**
- * Lo que escribió —o tocó— un cliente, ya traducido.
- *
- * Es el único formato que ve el motor. WhatsApp manda una cosa y Telegram otra
- * bastante distinta; a partir de aquí, las dos son esto.
+ * What a customer wrote — or tapped — already translated. The only format the
+ * engine sees; WhatsApp and Telegram both become this.
  */
 final readonly class IncomingMessage
 {
     public function __construct(
-        /** El identificador del mensaje EN el canal. Con esto se deduplica. */
+        /** The message id ON the channel. This is what deduplicates. */
         public string $externalId,
 
-        /** Con quién se habla: el teléfono o el `chat_id`. */
+        /** Who is being talked to: the phone number or the `chat_id`. */
         public string $chatId,
 
-        /** Lo que escribió, si escribió. */
+        /** What they wrote, if they wrote. */
         public string $text = '',
 
-        /** Lo que tocó, si tocó un botón. Manda sobre el texto. */
+        /** What they tapped, if they tapped. It beats the text. */
         public ?string $optionId = null,
 
         public ?string $senderName = null,
@@ -30,10 +28,8 @@ final readonly class IncomingMessage
     ) {}
 
     /**
-     * Lo que el motor tiene que interpretar.
-     *
-     * Si tocó un botón, eso; si no, lo que escribió. El botón manda porque es
-     * lo único que no admite dudas: el texto libre puede ser cualquier cosa.
+     * What the engine has to interpret: the button if there was one, otherwise
+     * the text. The button wins because it admits no doubt.
      */
     public function intent(): string
     {

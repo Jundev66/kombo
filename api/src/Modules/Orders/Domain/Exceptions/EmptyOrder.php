@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Modules\Orders\Domain\Exceptions;
 
 /**
- * Un pedido sin líneas. No es un error de tecleo: es que no hay nada que cobrar ni que cocinar.
+ * An order with no lines: nothing to charge for and nothing to cook.
  */
 final class EmptyOrder extends OrderException
 {

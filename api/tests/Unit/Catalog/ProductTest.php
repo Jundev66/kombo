@@ -9,86 +9,85 @@ use Modules\Catalog\Domain\ValueObjects\PrepTime;
 use Modules\Catalog\Domain\ValueObjects\StockPolicy;
 use Shared\Domain\ValueObjects\Money;
 
-function unProducto(int $precioCentavos = 300, ?StockPolicy $stock = null): Product
+function aProduct(int $priceCents = 300, ?StockPolicy $stock = null): Product
 {
     return Product::create(
         id: 'p-1',
         name: 'Reina Pepiada',
-        price: Money::fromCents($precioCentavos),
+        price: Money::fromCents($priceCents),
         stock: $stock,
         now: new DateTimeImmutable('2026-01-01 10:00:00'),
     );
 }
 
-it('normaliza los espacios del nombre', function (): void {
-    // «Reina  Pepiada» y «Reina Pepiada» son el mismo producto para cualquiera
-    // menos para una comparación de cadenas — y acaban siendo dos filas.
-    $producto = Product::create('p-1', '  Reina   Pepiada  ', Money::fromCents(300));
+it('normalises the whitespace in the name', function (): void {
+    // "Reina  Pepiada" and "Reina Pepiada" are the same product to everybody
+    // except a string comparison — and end up as two rows.
+    $product = Product::create('p-1', '  Reina   Pepiada  ', Money::fromCents(300));
 
-    expect($producto->name()->value)->toBe('Reina Pepiada');
+    expect($product->name()->value)->toBe('Reina Pepiada');
 });
 
-it('rechaza un nombre que no dice nada', function (): void {
+it('rejects a name that says nothing', function (): void {
     expect(fn () => Product::create('p-1', 'x', Money::fromCents(300)))
         ->toThrow(InvalidProductName::class);
 });
 
-it('rechaza un precio negativo', function (): void {
-    // Un plato que cuesta menos que nada es siempre un error de tecleo, y
-    // descubrirlo al cuadrar la caja es tarde.
+it('rejects a negative price', function (): void {
+    // A dish costing less than nothing is always a typo, and finding out at
+    // cash-up time is too late.
     expect(fn () => Product::create('p-1', 'Reina Pepiada', Money::fromCents(-100)))
         ->toThrow(InvalidPrice::class);
 });
 
-it('sella la fecha del precio al nacer', function (): void {
-    // Para que «¿desde cuándo no reviso este precio?» tenga respuesta desde el
-    // primer día.
-    expect(unProducto()->priceUpdatedAt())->not->toBeNull();
+it('stamps the price date at birth', function (): void {
+    // So "how long since I reviewed this price?" has an answer from day one.
+    expect(aProduct()->priceUpdatedAt())->not->toBeNull();
 });
 
-it('mueve la fecha del precio SÓLO si el precio cambió de verdad', function (): void {
-    $producto = unProducto(300);
-    $original = $producto->priceUpdatedAt();
+it('moves the price date ONLY if the price really changed', function (): void {
+    $product = aProduct(300);
+    $original = $product->priceUpdatedAt();
 
-    // Guardar el formulario sin tocar el precio no puede hacer parecer que se
-    // revisó: esa fecha es justo lo que el dueño mira para saber qué lleva
-    // meses sin ajustar, y ensuciarla la vuelve inútil.
-    $producto->changePriceTo(Money::fromCents(300), new DateTimeImmutable('2026-06-01 10:00:00'));
+    // Saving the form without touching the price cannot make it look reviewed:
+    // that date is what the owner scans for what has gone months without
+    // adjustment, and dirtying it makes it useless.
+    $product->changePriceTo(Money::fromCents(300), new DateTimeImmutable('2026-06-01 10:00:00'));
 
-    expect($producto->priceUpdatedAt())->toEqual($original);
+    expect($product->priceUpdatedAt())->toEqual($original);
 
-    $producto->changePriceTo(Money::fromCents(350), new DateTimeImmutable('2026-06-01 10:00:00'));
+    $product->changePriceTo(Money::fromCents(350), new DateTimeImmutable('2026-06-01 10:00:00'));
 
-    expect($producto->priceUpdatedAt()?->format('Y-m-d'))->toBe('2026-06-01')
-        ->and($producto->price()->cents)->toBe(350);
+    expect($product->priceUpdatedAt()?->format('Y-m-d'))->toBe('2026-06-01')
+        ->and($product->price()->cents)->toBe(350);
 });
 
-it('un producto que se hace al momento siempre se puede vender', function (): void {
-    // La mayoría de los platos no llevan cuenta de existencias: no tiene
-    // sentido preguntarse cuántas arepas quedan.
-    expect(unProducto()->isSellable(50))->toBeTrue();
+it('a made-to-order product can always be sold', function (): void {
+    // Most dishes do not track stock: asking how many arepas are left makes no
+    // sense.
+    expect(aProduct()->isSellable(50))->toBeTrue();
 });
 
-it('un producto contado deja de venderse cuando se acaba', function (): void {
-    $producto = unProducto(stock: StockPolicy::tracked(2));
+it('a counted product stops selling when it runs out', function (): void {
+    $product = aProduct(stock: StockPolicy::tracked(2));
 
-    expect($producto->isSellable(2))->toBeTrue()
-        ->and($producto->isSellable(3))->toBeFalse();
+    expect($product->isSellable(2))->toBeTrue()
+        ->and($product->isSellable(3))->toBeFalse();
 });
 
-it('sacarlo de la carta lo hace no vendible, pero no lo borra', function (): void {
-    // Nunca se borra un producto que ya se vendió: los pedidos viejos lo
-    // referencian y una comanda de hace tres meses tiene que poder leerse.
-    $producto = unProducto();
-    $producto->deactivate();
+it('taking it off the menu makes it unsellable, but does not delete it', function (): void {
+    // A product that has been sold is never deleted: old orders reference it
+    // and a ticket from three months ago has to stay readable.
+    $product = aProduct();
+    $product->deactivate();
 
-    expect($producto->isSellable())->toBeFalse()
-        ->and($producto->name()->value)->toBe('Reina Pepiada');
+    expect($product->isSellable())->toBeFalse()
+        ->and($product->name()->value)->toBe('Reina Pepiada');
 });
 
-it('acepta que no todo lo que se vende se prepara', function (): void {
-    // Una malta se saca de la nevera. Obligar a poner un tiempo a las bebidas
-    // sería ruido en el formulario.
-    expect(unProducto()->prepTime()->isKnown())->toBeFalse()
+it('accepts that not everything sold is prepared', function (): void {
+    // A malta comes out of the fridge. Forcing a time onto drinks would be
+    // noise in the form.
+    expect(aProduct()->prepTime()->isKnown())->toBeFalse()
         ->and(PrepTime::ofMinutes(12)->seconds())->toBe(720);
 });

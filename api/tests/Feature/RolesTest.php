@@ -3,13 +3,13 @@
 declare(strict_types=1);
 
 /*
- * Que ampliar el catálogo de roles llegue a alguien.
+ * That widening the role catalog actually reaches somebody.
  *
- * Hasta que existió `roles:reconciliar`, `role_permissions` sólo se escribía al
- * dar de alta un negocio. Darle el horario al encargado servía a los negocios
- * que se registraran a partir de ese despliegue y a nadie más: el código salía,
- * no fallaba nada, y el encargado de un local de hace seis meses seguía sin
- * poder. Un cambio que no rompe y tampoco hace nada tarda meses en descubrirse.
+ * Until `roles:reconcile` existed, `role_permissions` was only written at
+ * sign-up. Giving the manager the opening hours served tenants registered after
+ * that deployment and nobody else: the code shipped, nothing failed, and a
+ * six-month-old shop's manager still could not. A change that neither breaks
+ * nor does anything takes months to discover.
  */
 
 use Illuminate\Support\Facades\DB;
@@ -18,17 +18,17 @@ use Platform\Auth\RoleProvisioner;
 
 beforeEach(function (): void {
     $this->slug = 'reparto-'.Str::lower(Str::random(6));
-    $this->tenant = makeTenant($this->slug, plan: 'negocio');
+    $this->tenant = makeTenant($this->slug, plan: 'business');
 
     actingForTenant($this->tenant);
 
-    foreach (['catalog', 'orders', 'counter', 'channels'] as $modulo) {
-        enableModule($this->tenant, $modulo);
+    foreach (['catalog', 'orders', 'counter', 'channels'] as $module) {
+        enableModule($this->tenant, $module);
     }
 });
 
-/** Los permisos que tiene un rol base de este negocio, ahora mismo. */
-function permisosDe(string $tenantId, string $code): array
+/** The permissions a base role of this tenant has right now. */
+function permissionsOfRole(string $tenantId, string $code): array
 {
     return DB::table('role_permissions')
         ->join('roles', 'roles.id', '=', 'role_permissions.role_id')
@@ -39,62 +39,61 @@ function permisosDe(string $tenantId, string $code): array
         ->all();
 }
 
-it('los permisos del núcleo llegan al encargado, aunque el núcleo no esté en tenant_modules', function (): void {
+it('core permissions reach the manager, even though core is not in tenant_modules', function (): void {
     /*
-     * Ésta es la prueba de un fallo que estuvo vivo mucho tiempo y no se veía.
+     * The test for a bug that lived a long time unseen.
      *
-     * `core` no depende del plan y no se apaga, así que nunca tiene fila en
-     * `tenant_modules`. La siembra leía sólo esa tabla, de modo que
-     * `settings.manage`, `users.manage` y `audit.view` no llegaban a ningún rol
-     * que no fuera el dueño — y el síntoma era un encargado que no podía tocar
-     * el horario sin ningún error que lo explicara.
+     * `core` does not depend on the plan and cannot be switched off, so it never
+     * has a `tenant_modules` row. Seeding read only that table, so
+     * `settings.manage`, `users.manage` and `audit.view` reached no role but the
+     * owner's — and the symptom was a manager who could not touch the opening
+     * hours, with no error to explain it.
      */
     app(RoleProvisioner::class)->reconcile($this->tenant);
 
-    expect(permisosDe($this->tenant, 'manager'))
+    expect(permissionsOfRole($this->tenant, 'manager'))
         ->toContain('settings.manage')
         ->toContain('users.manage')
         ->toContain('audit.view');
 });
 
-it('un negocio de antes recupera los permisos que le faltaban', function (): void {
+it('an older tenant recovers the permissions it was missing', function (): void {
     app(RoleProvisioner::class)->reconcile($this->tenant);
 
-    // Así estaba el negocio dado de alta con el catálogo viejo.
+    // How the tenant was signed up under the old catalog.
     DB::table('role_permissions')
         ->whereIn('role_id', DB::table('roles')->where('tenant_id', $this->tenant)->where('code', 'manager')->pluck('id'))
         ->whereIn('permission', ['settings.manage', 'users.manage'])
         ->delete();
 
-    expect(permisosDe($this->tenant, 'manager'))->not->toContain('settings.manage');
+    expect(permissionsOfRole($this->tenant, 'manager'))->not->toContain('settings.manage');
 
-    $this->artisan('roles:reconciliar', ['--negocio' => $this->slug])->assertSuccessful();
+    $this->artisan('roles:reconcile', ['--tenant' => $this->slug])->assertSuccessful();
 
-    expect(permisosDe($this->tenant, 'manager'))
+    expect(permissionsOfRole($this->tenant, 'manager'))
         ->toContain('settings.manage')
         ->toContain('users.manage');
 });
 
-it('correrlo dos veces no duplica ni una fila', function (): void {
-    $this->artisan('roles:reconciliar', ['--negocio' => $this->slug])->assertSuccessful();
+it('running it twice duplicates not a single row', function (): void {
+    $this->artisan('roles:reconcile', ['--tenant' => $this->slug])->assertSuccessful();
 
-    $primera = permisosDe($this->tenant, 'manager');
+    $first = permissionsOfRole($this->tenant, 'manager');
 
-    $this->artisan('roles:reconciliar', ['--negocio' => $this->slug])->assertSuccessful();
+    $this->artisan('roles:reconcile', ['--tenant' => $this->slug])->assertSuccessful();
 
-    expect(permisosDe($this->tenant, 'manager'))->toBe($primera);
+    expect(permissionsOfRole($this->tenant, 'manager'))->toBe($first);
 });
 
-it('un rol de sistema vuelve a lo que dice el catálogo', function (): void {
+it('a system role goes back to what the catalog says', function (): void {
     /*
-     * Sólo añade filas, nunca borra ninguna — pero eso NO quiere decir «respeta
-     * lo que hayas tocado a mano»: lo que falta, vuelve.
+     * It only adds rows, never deletes — but that does NOT mean "respects what
+     * you changed by hand": what is missing comes back.
      *
-     * Es lo correcto para los roles base, que son `is_system` y no se editan
-     * desde ninguna pantalla: su contenido lo decide el catálogo. Si algún día
-     * el dueño puede quitarle un permiso suelto a su encargado, hará falta
-     * guardar esa decisión en algún sitio — un borrado no es una decisión, es
-     * una fila que no está.
+     * Right for base roles, which are `is_system` and not editable from any
+     * screen: their content is the catalog's call. If an owner is ever allowed
+     * to remove a single permission from their manager, that decision will need
+     * storing somewhere — a deletion is not a decision, it is a missing row.
      */
     app(RoleProvisioner::class)->reconcile($this->tenant);
 
@@ -105,20 +104,20 @@ it('un rol de sistema vuelve a lo que dice el catálogo', function (): void {
         ->where('permission', 'catalog.change_price')
         ->delete();
 
-    $this->artisan('roles:reconciliar', ['--negocio' => $this->slug])->assertSuccessful();
+    $this->artisan('roles:reconcile', ['--tenant' => $this->slug])->assertSuccessful();
 
-    expect(permisosDe($this->tenant, 'manager'))->toContain('catalog.change_price');
+    expect(permissionsOfRole($this->tenant, 'manager'))->toContain('catalog.change_price');
 });
 
-it('un rol propio del negocio ni se mira', function (): void {
-    // Sólo se tocan los códigos que están en el catálogo. Uno que el negocio se
-    // haya creado encima no es asunto de esto.
+it('a role the tenant invented is not even looked at', function (): void {
+    // Only codes in the catalog are touched. One the tenant invented on top is
+    // none of this code's business.
     app(RoleProvisioner::class)->reconcile($this->tenant);
 
-    $propio = (string) Str::uuid7();
+    $own = (string) Str::uuid7();
 
     DB::table('roles')->insert([
-        'id' => $propio,
+        'id' => $own,
         'tenant_id' => $this->tenant,
         'code' => 'fin_de_semana',
         'name' => 'Fin de semana',
@@ -131,55 +130,54 @@ it('un rol propio del negocio ni se mira', function (): void {
     DB::table('role_permissions')->insert([
         'id' => (string) Str::uuid7(),
         'tenant_id' => $this->tenant,
-        'role_id' => $propio,
+        'role_id' => $own,
         'permission' => 'orders.view',
         'requires_authorization' => false,
         'created_at' => now(),
         'updated_at' => now(),
     ]);
 
-    $this->artisan('roles:reconciliar', ['--negocio' => $this->slug])->assertSuccessful();
+    $this->artisan('roles:reconcile', ['--tenant' => $this->slug])->assertSuccessful();
 
-    expect(permisosDe($this->tenant, 'fin_de_semana'))->toBe(['orders.view']);
+    expect(permissionsOfRole($this->tenant, 'fin_de_semana'))->toBe(['orders.view']);
 });
 
-it('no reparte permisos de un módulo que el negocio no tiene', function (): void {
-    // `delivery` no está encendido en este negocio, así que sus permisos no
-    // existen en el sistema y escribir la fila sería escribir algo que no
-    // significa nada.
+it('grants no permissions of a module the tenant does not have', function (): void {
+    // `delivery` is not on for this tenant, so its permissions do not exist in
+    // the system and writing the row would write something meaningless.
     app(RoleProvisioner::class)->reconcile($this->tenant);
 
-    expect(permisosDe($this->tenant, 'manager'))
+    expect(permissionsOfRole($this->tenant, 'manager'))
         ->not->toContain('delivery.manage')
         ->toContain('counter.sell');
 });
 
-it('el plan es el techo: un módulo encendido que el plan ya no incluye no reparte nada', function (): void {
+it('the plan is the ceiling: an enabled module the plan no longer includes grants nothing', function (): void {
     /*
-     * Es la misma cuenta que hace `CapabilityResolver`, y tiene que serlo: un
-     * permiso concedido aquí que allí no se resuelve es una fila que existe y
-     * no sirve, y explica muy mal por qué algo «que está» no funciona.
+     * The same count `CapabilityResolver` makes, and it has to be: a permission
+     * granted here that does not resolve there is a row that exists and does
+     * nothing, and explains very badly why something "that is there" fails.
      */
     $slug = 'inicial-'.Str::lower(Str::random(6));
-    $pequeno = makeTenant($slug, plan: 'inicial');
+    $small = makeTenant($slug, plan: 'starter');
 
-    actingForTenant($pequeno);
-    enableModule($pequeno, 'catalog');
-    // El plan inicial no incluye la caja. La fila existe; el techo manda.
-    enableModule($pequeno, 'counter');
+    actingForTenant($small);
+    enableModule($small, 'catalog');
+    // The starter plan does not include the till. The row exists; the ceiling
+    enableModule($small, 'counter');
 
-    app(RoleProvisioner::class)->reconcile($pequeno);
+    app(RoleProvisioner::class)->reconcile($small);
 
-    expect(permisosDe($pequeno, 'manager'))
+    expect(permissionsOfRole($small, 'manager'))
         ->not->toContain('counter.sell')
         ->toContain('catalog.manage');
 });
 
-it('el dueño no lleva filas de permisos', function (): void {
-    // Se resuelve como `['*']` y se expande contra los módulos encendidos HOY.
-    // Guardárselos uno a uno significaría que al encender un módulo nuevo no
-    // podría usarlo hasta que alguien se acordara de añadírselos.
+it('the owner carries no permission rows', function (): void {
+    // rules.
+    // Resolved as `['*']` and expanded against the modules on TODAY. Stored one
+    // by one, a newly enabled module would be unusable until somebody added them.
     app(RoleProvisioner::class)->reconcile($this->tenant);
 
-    expect(permisosDe($this->tenant, 'owner'))->toBe([]);
+    expect(permissionsOfRole($this->tenant, 'owner'))->toBe([]);
 });

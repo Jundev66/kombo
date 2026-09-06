@@ -1,9 +1,9 @@
-// Armazón por capacidades: sesión, arranque, menú, login — y la puerta de las
-// pantallas del local, que entran con PIN y no con sesión de navegador.
+// Capability-driven shell: session, boot, menu, login — and the gate for the
+// shop-floor screens, which enter with a PIN rather than a browser session.
 
 export { AppShell } from './AppShell'
 export { Boot } from './Boot'
-export { backToPanel, useDoorway } from './doorway'
+export { backToDashboard, useDoorway } from './doorway'
 export type { EntryMode } from './doorway'
 export { LoginScreen } from './LoginScreen'
 export { SupervisionBanner } from './SupervisionBanner'

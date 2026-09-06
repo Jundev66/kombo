@@ -7,13 +7,8 @@ namespace Modules\Reports;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Los reportes no enlazan puertos ni escuchan eventos: leen lo que ya está
- * escrito.
+ * Reports bind no ports and listen for no events: they read what is written.
  *
- * Existe igualmente para que añadir un módulo siga siendo «una carpeta, un
- * proveedor y una línea», sin excepciones que haya que recordar.
+ * It exists so adding a module stays "a directory, a provider and one line".
  */
-final class ReportsServiceProvider extends ServiceProvider
-{
-    //
-}
+final class ReportsServiceProvider extends ServiceProvider {}

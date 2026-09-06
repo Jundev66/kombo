@@ -8,11 +8,10 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * Las notas de entrega.
+ * The delivery notes. They are NOT fiscal documents.
  *
- * **No son documentos fiscales.** El papel lo dice literalmente: «NOTA DE
- * ENTREGA» y debajo «No es una factura». No llevan número de control, no se
- * numeran con rangos de la autoridad y no se imprimen en máquina fiscal.
+ * The paper says so literally: "NOTA DE ENTREGA" and below it "No es una
+ * factura". No control number, no authority range, no fiscal printer.
  */
 return new class extends Migration
 {
@@ -22,12 +21,9 @@ return new class extends Migration
             TenantSchema::references($table, 'order_id', 'orders', onDelete: 'restrict');
 
             /*
-             * Correlativo PROPIO del negocio, por serie.
-             *
-             * Se genera bajo cerrojo y sin huecos. Anular NO libera el número:
-             * la nota queda anulada con su motivo y su autor, y el siguiente
-             * documento toma el siguiente. Un correlativo que se reutiliza es
-             * un correlativo que no sirve para nada.
+             * The tenant's OWN sequence, per series, generated under a lock and
+             * with no gaps. Voiding does not release the number: a sequence
+             * that gets reused is good for nothing.
              */
             $table->string('series')->default('A');
             $table->bigInteger('number');
@@ -36,7 +32,7 @@ return new class extends Migration
             $table->uuid('issued_by')->nullable();
             $table->string('issued_by_name')->nullable();
 
-            // Opcionales: los escribe el mostrador si el cliente los pide.
+            // Optional: the counter fills them in if the customer asks.
             $table->string('customer_name')->nullable();
             $table->string('customer_tax_id')->nullable();
 
@@ -46,13 +42,9 @@ return new class extends Migration
             $table->decimal('exchange_rate', 18, 6)->nullable();
 
             /*
-             * El documento TAL COMO SE IMPRIMIÓ.
-             *
-             * Líneas, nombres, cantidades, precios, tasa y totales. Reimprimir
-             * la nota de hace tres meses tiene que dar exactamente el mismo
-             * papel, aunque el producto se haya renombrado o borrado de la
-             * carta. Reconstruirla desde las tablas vivas daría otro papel, y
-             * el que reclama tiene el original en la mano.
+             * The document EXACTLY AS PRINTED — lines, names, quantities,
+             * prices, rate and totals. Rebuilding it from the live tables would
+             * give a different paper from the one the customer is holding.
              */
             $table->jsonb('snapshot');
 
@@ -62,7 +54,7 @@ return new class extends Migration
             $table->uuid('voided_by')->nullable();
             $table->text('void_reason')->nullable();
 
-            // Una nota por pedido, y un número por serie que no se repite.
+            // One note per order, and one number per series that never repeats.
             TenantSchema::uniquePerTenant($table, ['order_id'], 'uq_delivery_notes_order');
             TenantSchema::uniquePerTenant($table, ['series', 'number'], 'uq_delivery_notes_number');
             TenantSchema::index($table, ['issued_at'], 'idx_delivery_notes_tenant_issued');

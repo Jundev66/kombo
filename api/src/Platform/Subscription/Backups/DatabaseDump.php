@@ -5,25 +5,23 @@ declare(strict_types=1);
 namespace Platform\Subscription\Backups;
 
 /**
- * Volcar la base de datos a un archivo.
+ * Dumping the database to a file.
  *
- * Es una interfaz por una razón práctica y no por dogma: `pg_dump` es un
- * programa externo, y una prueba que dependa de él comprueba a la vez el
- * respaldo y la versión del cliente instalado en la imagen. Detrás de esto, la
- * prueba puede ejercitar lo que de verdad tiene lógica —el empaquetado de los
- * archivos, la subida, la rotación, la bitácora— sin montar un PostgreSQL.
+ * An interface for a practical reason: `pg_dump` is an external program, and a
+ * test that depends on it tests the installed client version as much as the
+ * backup. Behind this, the tests exercise what has real logic — packing,
+ * upload, rotation, audit — without standing up a PostgreSQL.
  *
- * El volcado real sí se comprueba, pero a mano y contra un servidor de verdad:
- * está en la lista de `docs/respaldos.md`, que es donde se restaura.
+ * The real dump is verified by hand against a real server; see
+ * `docs/respaldos.md`.
  */
 interface DatabaseDump
 {
     /**
-     * Deja el volcado en $destino.
+     * Leaves the dump at $destination.
      *
-     * @return string|null El error, o null si salió bien. No lanza: quien
-     *                     llama tiene que poder escribir el fallo en la
-     *                     bitácora antes de rendirse.
+     * @return string|null The error, or null on success. It does not throw: the
+     *                     caller has to log the failure before giving up.
      */
-    public function toFile(string $destino): ?string;
+    public function toFile(string $destination): ?string;
 }

@@ -13,12 +13,11 @@ use Modules\Portal\Interfaces\Http\Resources\PublicOrderResource;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Pedir y seguir el pedido, sin cuenta.
+ * Ordering and following the order, with no account.
  *
- * El seguimiento va por un **token del propio pedido**, no por su id: quien
- * tiene el enlace ve ese pedido y ninguno más. Es lo que permite que la
- * pantalla de pago sobreviva a que el cliente cierre el navegador para ir a la
- * aplicación del banco y vuelva media hora después.
+ * Tracking goes by a token belonging to the order, not its id: whoever has the
+ * link sees that order and no other, and the payment screen survives the
+ * browser closing to visit the banking app.
  */
 final class PortalOrderController
 {
@@ -35,8 +34,8 @@ final class PortalOrderController
             'service_type' => ['required', 'string', 'in:takeaway,delivery'],
             'payment_method' => ['required', 'string', 'in:cash,pago_movil'],
 
-            // El teléfono no es opcional: es cómo se avisa de que está listo, y
-            // cómo se llama cuando el repartidor no encuentra la casa.
+            // The phone number is not optional: it is how they are told it is ready,
+            // and how they are called when the courier cannot find the house.
             'customer_name' => ['required', 'string', 'min:2', 'max:120'],
             'customer_phone' => ['required', 'string', 'min:7', 'max:20'],
 
@@ -45,8 +44,8 @@ final class PortalOrderController
             'notes' => ['nullable', 'string', 'max:400'],
         ]);
 
-        // Ningún importe llega del cliente: ni de línea, ni de reparto, ni
-        // total. Todo sale del catálogo y de la zona.
+        // No amount arrives from the client — not per line, not delivery, not the
+        // total. It all comes from the catalog and the zone.
         $order = $place->execute(
             items: $data['items'],
             serviceType: ServiceType::from($data['service_type']),
@@ -67,11 +66,10 @@ final class PortalOrderController
     }
 
     /**
-     * El pedido de ese token, dentro de este negocio.
+     * That token's order, within this tenant.
      *
-     * RLS ya filtra por negocio, así que un token de otro negocio no aparece
-     * aunque se acierte. Y **404 siempre**: un 403 confirmaría que ese token
-     * existe en algún sitio.
+     * RLS already filters by tenant, and it is 404 always: a 403 would confirm
+     * the token exists somewhere.
      */
     public static function byToken(string $token): OrderModel
     {

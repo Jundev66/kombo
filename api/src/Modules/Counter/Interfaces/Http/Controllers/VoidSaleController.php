@@ -12,11 +12,10 @@ use Modules\Orders\Interfaces\Http\Resources\OrderResource;
 use Platform\Auth\ActionAuthorizer;
 
 /**
- * Anular una venta del mostrador: se cancela el pedido y se anula su nota.
+ * Voiding a counter sale: the order is cancelled and its note voided.
  *
- * El motivo es obligatorio. La pregunta que esto tiene que poder responder
- * dentro de tres meses no es «¿se puede anular?» sino «¿quién anuló esta venta,
- * cuándo y por qué?».
+ * A reason is required. The question to answer three months from now is not
+ * "can it be voided?" but "who voided this sale, when and why?".
  */
 final class VoidSaleController
 {
@@ -30,9 +29,9 @@ final class VoidSaleController
             'reason' => ['required', 'string', 'min:3', 'max:300'],
         ]);
 
-        // Quien sólo puede solicitarlo necesita aquí el PIN de un encargado.
-        // Si falta, esto responde 422 con el nombre del campo, para que la caja
-        // sepa abrir el teclado del PIN en vez de quedarse sin saber qué hacer.
+        // Whoever can only request it needs a manager's PIN here. Missing, this
+        // answers 422 with the field name so the till opens the PIN pad instead of
+        // leaving the cashier with nothing to do.
         $authorizedBy = $authorizer->resolve($request, 'counter.void');
 
         ['order' => $order, 'note' => $note] = $voidSale->execute($orderId, $data['reason'], $authorizedBy);

@@ -126,7 +126,7 @@ cd ~/kombo
 docker compose -f compose.prod.yml exec api php artisan db:seed --force
 
 # Tu cuenta de administración. Pide la contraseña por teclado.
-docker compose -f compose.prod.yml exec api php artisan plataforma:admin tu@correo.com
+docker compose -f compose.prod.yml exec api php artisan platform:admin tu@correo.com
 ```
 
 Entra en `https://admin.tudominio.com`.
@@ -142,9 +142,9 @@ Al terminar existe todo esto:
 
 ```
 https://elsazon.tudominio.com/          el portal — lo que ve el cliente
-https://elsazon.tudominio.com/panel/    el panel del dueño
-https://elsazon.tudominio.com/caja/     la caja
-https://elsazon.tudominio.com/cocina/   la pantalla de cocina
+https://elsazon.tudominio.com/dashboard/  el panel del dueño
+https://elsazon.tudominio.com/pos/        la caja
+https://elsazon.tudominio.com/kds/        la pantalla de cocina
 ```
 
 Entra al panel con el correo del dueño y carga el menú. Para conectar WhatsApp
@@ -194,7 +194,7 @@ docker compose -f compose.prod.yml exec postgres \
 > visitante se invente su IP para saltarse los límites.
 
 **4. Un pedido llega a la cocina.** Haz un pedido en el portal, ponlo en
-`/cocina/` de ese mismo negocio y comprueba que aparece la comanda.
+`/kds/` de ese mismo negocio y comprueba que aparece la comanda.
 
 Y una quinta, que se hace una sola vez pero vale por todas: **[restaura un
 respaldo](respaldos.md)**. Un respaldo que nadie ha restaurado nunca no es un
@@ -215,7 +215,7 @@ segundos de corte mientras php-fpm reinicia.
 
 > **Antes de una actualización con migraciones, un respaldo a mano:**
 > ```bash
-> docker compose -f compose.prod.yml exec api php artisan respaldos:hacer
+> docker compose -f compose.prod.yml exec api php artisan backups:run
 > ```
 
 ---

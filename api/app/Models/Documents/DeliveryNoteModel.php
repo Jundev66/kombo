@@ -10,7 +10,7 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Una nota de entrega. **No es una factura.**
+ * A delivery note. It is not an invoice.
  */
 #[Fillable([
     'order_id', 'series', 'number', 'issued_at', 'issued_by', 'issued_by_name',
@@ -37,7 +37,7 @@ class DeliveryNoteModel extends Model
         ];
     }
 
-    /** «A-000042» — cómo se lee en el papel y cómo se busca. */
+    /** "A-000042" — how it reads on paper and how it is searched for. */
     public function reference(): string
     {
         return sprintf('%s-%06d', $this->series, $this->number);

@@ -5,15 +5,12 @@ declare(strict_types=1);
 namespace Modules\Orders\Domain\Events;
 
 /**
- * Entró un pedido.
+ * An order came in. The thinnest of this module's three notices: who ordered,
+ * and for how much.
  *
- * El tercer aviso de este módulo, y el más delgado de todos: sólo dice que
- * alguien pidió algo y quién fue. Lo escuchan los que llevan cuentas —los
- * clientes, mañana los reportes en vivo— y ninguno necesita las líneas.
- *
- *   `OrderPlaced`     «alguien pidió». Quién y por cuánto.
- *   `OrderConfirmed`  «nació una comanda». Qué hay que hacer, con todo.
- *   `OrderAdvanced`   «esto se movió». A dónde fue.
+ *   `OrderPlaced`     who, and for how much.
+ *   `OrderConfirmed`  what to make, with everything.
+ *   `OrderAdvanced`   where it went.
  */
 final readonly class OrderPlaced
 {

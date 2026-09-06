@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Modules\Catalog\Domain\Exceptions;
 
 /**
- * El nombre no sirve: vacío, demasiado corto o demasiado largo.
+ * The name will not do: empty, too short or too long.
  */
 final class InvalidProductName extends CatalogException
 {

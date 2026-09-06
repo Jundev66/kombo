@@ -11,11 +11,8 @@ use Modules\Catalog\Infrastructure\Services\EloquentModifierCatalog;
 use Modules\Catalog\Infrastructure\Services\EloquentProductCatalog;
 
 /**
- * Enlaza el puerto que este módulo publica con su implementación.
- *
- * Quien pida `ProductCatalog` —`Orders`, la caja, el bot— recibe esto y no
- * sabe que detrás hay Eloquent. Es lo que permite que ninguno de ellos importe
- * un modelo de aquí, y hay una prueba de arquitectura que lo verifica.
+ * Binds the published port to its implementation, so nothing outside imports a
+ * model from here. An architecture test verifies it.
  */
 final class CatalogServiceProvider extends ServiceProvider
 {

@@ -3,20 +3,20 @@
 declare(strict_types=1);
 
 /*
- * `GET /me` es el eje: el servidor combina plan × módulos encendidos ×
- * configuración × permisos, y el frontend pinta lo que reciba sin decidir nada.
+ * `GET /me` is the hub: the server combines plan × enabled modules × settings ×
+ * permissions, and the frontend paints what it gets without deciding anything.
  *
- * Estas pruebas fijan las cuatro propiedades que hacen que eso funcione.
+ * These tests pin the four properties that make that work.
  */
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 beforeEach(function (): void {
-    $sufijo = Str::lower(Str::random(6));
+    $suffix = Str::lower(Str::random(6));
 
-    $this->slug = "elsazon-{$sufijo}";
-    $this->tenant = makeTenant($this->slug, plan: 'negocio');
+    $this->slug = "elsazon-{$suffix}";
+    $this->tenant = makeTenant($this->slug, plan: 'business');
 
     actingForTenant($this->tenant);
     enableModule($this->tenant, 'core');
@@ -28,18 +28,17 @@ beforeEach(function (): void {
     giveRole($this->tenant, $this->carlos, 'kitchen');
 });
 
-it('trae el huso del negocio, para fechar lo suyo con su hora', function (): void {
-    // El panel fecha pedidos. Sin esto sólo tendría el huso del navegador, y un
-    // dueño que abre el panel de viaje vería el pedido de anoche fechado hoy.
+it('carries the tenant\'s timezone, to date their data in their own time', function (): void {
+    // The dashboard dates orders. Without this it would only have the browser's
+    // timezone, and an owner abroad would see last night's order dated today.
     $this->getJson(urlFor($this->slug, '/api/v1/me'))
         ->assertOk()
         ->assertJsonPath('tenant.timezone', 'America/Caracas');
 });
 
-it('responde SIN sesión, con el negocio y cero permisos', function (): void {
-    // La pantalla de login necesita el nombre y el logo del negocio antes de
-    // que nadie entre. Un login que dice «Kombo» en vez de «El Sazón» parece
-    // de otro producto.
+it('answers WITHOUT a session, with the tenant and zero permissions', function (): void {
+    // The login screen needs the tenant's name and logo before anyone signs in.
+    // A login saying "Kombo" instead of "El Sazón" looks like another product.
     $this->getJson(urlFor($this->slug, '/api/v1/me'))
         ->assertOk()
         ->assertJsonPath('tenant.slug', $this->slug)
@@ -47,21 +46,21 @@ it('responde SIN sesión, con el negocio y cero permisos', function (): void {
         ->assertJsonPath('permissions', []);
 });
 
-it('el encargado llega a la configuración del negocio', function (): void {
+it('the manager reaches the tenant\'s settings', function (): void {
     /*
-     * El encargado es quien lleva el local cuando el dueño no está, y hasta
-     * ahora no podía tocar el horario —sin el cual el portal no acepta ni un
-     * pedido— ni la tasa, de la que cuelga cada precio en bolívares.
+     * The manager runs the shop when the owner is away, and until now could
+     * touch neither the opening hours — without which the portal takes no
+     * orders — nor the rate every bolívar price hangs off.
      *
-     * También trae `roleName`, que la pantalla enseña junto al nombre: sin él,
-     * «esto no se puede» y «esto no lo puedes tú» se ven igual.
+     * `roleName` comes too: without it, "this cannot be done" and "you cannot
+     * do this" look the same on screen.
      */
     enableModule($this->tenant, 'channels');
 
     $jose = makeUser($this->tenant, 'jose@ejemplo.com', 'José');
     giveRole($this->tenant, $jose, 'manager');
 
-    entrarComo($this->slug, 'jose@ejemplo.com');
+    loginAs($this->slug, 'jose@ejemplo.com');
 
     $me = $this->withHeaders(browsingAs($this->slug))
         ->getJson(urlFor($this->slug, '/api/v1/me'))
@@ -75,95 +74,93 @@ it('el encargado llega a la configuración del negocio', function (): void {
         ->and($me->json('user.isOwner'))->toBeFalse();
 });
 
-it('el dueño recibe los permisos de los módulos encendidos HOY', function (): void {
-    // No se le guardan permisos uno a uno: se resuelve como `['*']` y se
-    // expande. Así, el día que encienda un módulo nuevo, ya puede usarlo sin
-    // que nadie le añada nada.
+it('the owner gets the permissions of the modules enabled TODAY', function (): void {
+    // Permissions are not stored one by one: `['*']` is expanded, so enabling a
+    // new module makes it usable immediately.
     $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/auth/login'), [
             'email' => 'maria@ejemplo.com',
             'password' => 'demo1234',
         ])->assertOk();
 
-    $permisos = $this->withHeaders(browsingAs($this->slug))
+    $permissions = $this->withHeaders(browsingAs($this->slug))
         ->getJson(urlFor($this->slug, '/api/v1/me'))
         ->assertJsonPath('user.isOwner', true)
         ->json('permissions');
 
-    expect($permisos)->toContain('settings.manage')
-        ->and($permisos)->toContain('users.manage');
+    expect($permissions)->toContain('settings.manage')
+        ->and($permissions)->toContain('users.manage');
 });
 
-it('la cocina recibe sólo lo suyo', function (): void {
+it('the kitchen receives only its own', function (): void {
     $this->withHeaders(browsingAs($this->slug))
         ->postJson(urlFor($this->slug, '/api/v1/auth/login'), [
             'email' => 'carlos@ejemplo.com',
             'password' => 'demo1234',
         ])->assertOk();
 
-    $permisos = $this->withHeaders(browsingAs($this->slug))
+    $permissions = $this->withHeaders(browsingAs($this->slug))
         ->getJson(urlFor($this->slug, '/api/v1/me'))
         ->assertJsonPath('user.isOwner', false)
         ->json('permissions');
 
-    // Ni configuración, ni usuarios. Sólo la pantalla de comandas — y como el
-    // módulo de cocina todavía no existe en esta versión, ni siquiera eso.
-    expect($permisos)->not->toContain('settings.manage')
-        ->and($permisos)->not->toContain('users.manage');
+    // No settings, no users. Only the ticket board — and since the kitchen
+    // module does not exist in this version, not even that.
+    expect($permissions)->not->toContain('settings.manage')
+        ->and($permissions)->not->toContain('users.manage');
 });
 
-it('los ajustes vienen con su valor por defecto y con su tipo, no como texto', function (): void {
-    // Salen del manifiesto del módulo, no de la base: `tenant_settings` sólo
-    // guarda lo que el negocio cambió.
+it('settings arrive with their default and their type, not as text', function (): void {
+    // From the module manifest, not the database: `tenant_settings` only holds
+    // what the tenant changed.
     //
-    // Se lee el array entero en vez de usar assertJsonPath: la clave lleva un
-    // punto (`core.pin_length`) y ahí el punto es separador de ruta, no parte
-    // del nombre.
+    // The whole array is read rather than assertJsonPath: the key contains a dot
+    // (`core.pin_length`) and there a dot is a path separator, not part of the
+    // name.
     $settings = $this->getJson(urlFor($this->slug, '/api/v1/me'))->json('settings');
 
     expect($settings['core.pin_length'])->toBe(4)
         ->and($settings['core.pin_attempts'])->toBe(5);
 });
 
-it('un ajuste guardado pisa el valor por defecto, ya casteado', function (): void {
+it('a stored setting overrides the default, already cast', function (): void {
     DB::table('tenant_settings')->insert([
         'id' => (string) Str::uuid7(),
         'tenant_id' => $this->tenant,
         'key' => 'core.pin_length',
-        'value' => '6',      // en la base SIEMPRE es texto
+        'value' => '6',      // in the database it is ALWAYS text
         'created_at' => now(),
         'updated_at' => now(),
     ]);
 
-    // Y llega al cliente como ENTERO, no como '6': el tipo lo declara el
-    // manifiesto y `Setting::cast()` lo aplica al leer.
+    // And it reaches the client as an INTEGER, not '6': the manifest declares
+    // the type and `Setting::cast()` applies it on read.
     $settings = $this->getJson(urlFor($this->slug, '/api/v1/me'))->json('settings');
 
     expect($settings['core.pin_length'])->toBe(6);
 });
 
-it('los techos del plan llegan resueltos, con null como ilimitado', function (): void {
+it('the plan ceilings arrive resolved, with null as unlimited', function (): void {
     $this->getJson(urlFor($this->slug, '/api/v1/me'))
         ->assertJsonPath('limits.maxUsers', 8)
-        // `null` es ILIMITADO, nunca cero: cero sería «ninguno», que es una
-        // respuesta distinta y mucho peor de depurar.
+        // `null` is UNLIMITED, never zero: zero means "none", a different answer and
+        // far worse to debug.
         ->assertJsonPath('limits.maxProducts', null);
 });
 
-it('las etiquetas del menú salen del manifiesto, no de una lista en React', function (): void {
+it('menu labels come from the manifest, not from a list in React', function (): void {
     $this->getJson(urlFor($this->slug, '/api/v1/me'))
         ->assertJsonPath('moduleNames.core', 'Configuración');
 });
 
-it('los módulos de núcleo no se apagan, ni escribiendo en la tabla', function (): void {
+it('core modules do not switch off, not even by writing to the table', function (): void {
     DB::table('tenant_modules')
         ->where('tenant_id', $this->tenant)
         ->update(['enabled' => false]);
 
-    // El núcleo no depende del plan y no se apaga: es lo mínimo sin lo cual el
-    // sistema no es un sistema. Se comprueba por contenido y no por igualdad
-    // exacta para que añadir un módulo de núcleo en una fase futura no rompa
-    // esta prueba por una razón que no tiene nada que ver con lo que vigila.
+    // The core does not depend on the plan and cannot be switched off. Checked
+    // by containment rather than exact equality, so adding a core module later
+    // does not break this test for an unrelated reason.
     $modules = $this->getJson(urlFor($this->slug, '/api/v1/me'))->json('modules');
 
     expect($modules)->toContain('core')

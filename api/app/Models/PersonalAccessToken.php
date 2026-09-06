@@ -10,13 +10,11 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * El token de acceso de una tablet, atado a SU negocio.
+ * A tablet's access token, tied to ITS tenant.
  *
- * Sustituye al de Sanctum. Con el original, un token válido serviría en
- * cualquier subdominio: la tabla no tiene `tenant_id` y nadie lo comprueba.
- * Aquí el token vive en una tabla de negocio con RLS, así que el de la cocina
- * de El Sazón no existe para La Esquina — no es que esté prohibido, es que la
- * consulta no lo encuentra.
+ * It replaces Sanctum's, whose table has no `tenant_id`, so a valid token would
+ * work on any subdomain. Here the token lives in a tenant table under RLS: one
+ * tenant's kitchen token does not exist for another — not forbidden, not found.
  */
 #[Fillable(['name', 'token', 'abilities', 'device_id', 'expires_at'])]
 class PersonalAccessToken extends SanctumToken

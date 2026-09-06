@@ -16,10 +16,8 @@ use Platform\Tenancy\TenantContext;
 use Shared\Domain\ValueObjects\Money;
 
 /**
- * Añadir algo a la carta.
- *
- * Las reglas de qué es un producto válido viven en la entidad de dominio; aquí
- * sólo se orquesta: comprobar el techo del plan, construir, guardar, anotar.
+ * Adding something to the menu. The rules live in the domain entity; this only
+ * orchestrates: check the plan ceiling, build, save, log.
  */
 final class CreateProduct
 {
@@ -44,8 +42,8 @@ final class CreateProduct
     ): ProductModel {
         $this->assertFitsInPlan();
 
-        // El dominio valida ANTES de tocar la base: nombre, precio, coherencia
-        // de las existencias. Si algo no cumple, no se escribe nada.
+        // The domain validates BEFORE the database is touched. If anything fails,
+        // nothing is written.
         $product = Product::create(
             id: (string) Str::uuid7(),
             name: $name,
@@ -92,8 +90,8 @@ final class CreateProduct
     {
         $limits = $this->capabilities->get()->limits;
 
-        // Se cuentan TODOS, activos e inactivos: desactivar no libera cupo,
-        // porque el dato sigue ahí. Lo que libera cupo es borrar de verdad.
+        // ALL of them count, active and inactive: deactivating does not free a
+        // slot, because the data is still there. Real deletion does.
         if ($limits->exceeds($limits->maxProducts, ProductModel::count())) {
             throw new PlanLimitReached((int) $limits->maxProducts);
         }
@@ -109,8 +107,8 @@ final class CreateProduct
         $tenantId = app(TenantContext::class)->id();
 
         foreach (array_values($groupIds) as $index => $groupId) {
-            // La tabla pivote es de negocio: lleva su propio id y su
-            // `tenant_id`, así que `sync()` necesita que se los demos.
+            // The pivot is a tenant table with its own id and `tenant_id`, so `sync()`
+            // needs us to supply them.
             $rows[$groupId] = [
                 'id' => (string) Str::uuid7(),
                 'tenant_id' => $tenantId,

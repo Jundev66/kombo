@@ -8,12 +8,10 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * Las comandas.
+ * The kitchen tickets. Tables of their own, NOT a view over orders.
  *
- * **Tablas propias, NO una vista sobre los pedidos**, y es una decisión con
- * consecuencias: la cocina tiene su propio ciclo de vida. Un pedido cancelado
- * porque el cliente se arrepintió no borra que la comida ya se hizo, y esas
- * dos verdades tienen que poder convivir sin pelearse.
+ * The kitchen has its own lifecycle: an order cancelled because the customer
+ * changed their mind does not erase that the food was already made.
  */
 return new class extends Migration
 {
@@ -22,24 +20,22 @@ return new class extends Migration
         TenantSchema::create('kitchen_tickets', function (Blueprint $table): void {
             TenantSchema::references($table, 'order_id', 'orders', onDelete: 'cascade');
 
-            // El MISMO número del pedido: es el que se grita en el mostrador,
-            // y tener dos numeraciones distintas para lo mismo es cómo se
-            // entrega el plato equivocado.
+            // THE SAME number as the order: it is the one shouted across the counter,
+            // and two numbering schemes is how the wrong plate gets handed over.
             $table->bigInteger('number');
 
             $table->string('status')->default('pending');
             $table->string('service_type')->nullable();
 
-            // La estación: cocina, parrilla, bebidas. Todavía no se usa —hoy
-            // todo va a una sola pantalla— pero está desde el principio porque
-            // añadirla después obliga a migrar comandas vivas.
+            // The station: kitchen, grill, drinks. Not used yet, but here from the
+            // start because adding it later means migrating live tickets.
             $table->string('station')->nullable();
 
             $table->string('taken_by_name')->nullable();
             $table->text('notes')->nullable();
 
-            // Cuánto DEBERÍA tardar, según lo que lleva. De aquí sale el
-            // semáforo: sin esto, «va tarde» sería una corazonada.
+            // How long it SHOULD take, given what is on it. The traffic light reads
+            // this; without it, "running late" is a hunch.
             $table->integer('prep_minutes')->nullable();
 
             $table->timestampTz('placed_at');
@@ -47,12 +43,11 @@ return new class extends Migration
             $table->timestampTz('ready_at')->nullable();
             $table->timestampTz('served_at')->nullable();
 
-            // Una comanda por pedido. Si el mismo pedido se confirmara dos
-            // veces —dos personas pulsando a la vez— la base lo impide en vez
-            // de duplicar la comida.
+            // One ticket per order: if the same order were confirmed twice, the
+            // database stops it rather than duplicating the food.
             TenantSchema::uniquePerTenant($table, ['order_id'], 'uq_kitchen_tickets_order');
 
-            // Sirve exacto a la consulta que la pantalla hace cada 5 segundos.
+            // Serves exactly the query the screen makes every 5 seconds.
             TenantSchema::index($table, ['status', 'placed_at'], 'idx_kitchen_tickets_tenant_status');
         });
 
@@ -60,17 +55,15 @@ return new class extends Migration
             TenantSchema::references($table, 'ticket_id', 'kitchen_tickets', onDelete: 'cascade');
             TenantSchema::references($table, 'product_id', 'products', nullable: true, onDelete: 'set null');
 
-            // COPIADO. Una comanda de hace un mes tiene que poder reimprimirse
-            // idéntica aunque el producto se haya renombrado o borrado.
+            // COPIED. A ticket from a month ago reprints identically even if the
+            // product has been renamed or deleted.
             $table->string('name');
             $table->decimal('quantity', 12, 3);
 
             /*
-             * Los agregados YA RESUELTOS EN TEXTO, no como referencias.
-             *
-             * La cocina lee «Sin cebolla», no un identificador que habría que
-             * ir a buscar. Y si mañana se renombra ese modificador, la comanda
-             * de hoy sigue diciendo lo que se pidió.
+             * The add-ons ALREADY RESOLVED INTO TEXT. The kitchen reads "No
+             * onion", not an identifier to look up, and renaming the modifier
+             * tomorrow does not change what today's ticket says.
              */
             $table->jsonb('modifiers')->default('[]');
 

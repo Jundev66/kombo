@@ -10,9 +10,8 @@ Route::prefix('api/v1')
     ->middleware(['api', 'auth:sanctum', 'module:core'])
     ->group(function (): void {
         /*
-         * La tasa la puede LEER cualquiera que opere —la caja la necesita para
-         * cobrar en bolívares— pero sólo la CAMBIA quien configura el negocio.
-         * Es la diferencia entre usar el dato y decidirlo.
+         * Anyone who operates can READ the rate — the till needs it — but only
+         * whoever configures the tenant can CHANGE it.
          */
         Route::get('/exchange-rate', [ExchangeRateController::class, 'current']);
         Route::post('/exchange-rate', [ExchangeRateController::class, 'store'])

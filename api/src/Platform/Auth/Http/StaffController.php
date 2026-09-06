@@ -8,14 +8,10 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 
 /**
- * Quién puede entrar en esta pantalla.
+ * Who may sign in at this screen: names to tap, not an email field.
  *
- * Se pide con el token del dispositivo y devuelve nombres para tocar, no un
- * campo de correo: en una cocina nadie va a escribir
- * `carlos@elsazon.test` con las manos ocupadas.
- *
- * **Nunca devuelve el hash del PIN**, ni quién lo tiene puesto, ni el correo.
- * Sólo lo justo para pintar una lista de botones: quién y con qué rol.
+ * Never returns the PIN hash, who has one set, or email addresses — only what
+ * it takes to paint a list of buttons.
  */
 final class StaffController
 {
@@ -24,8 +20,8 @@ final class StaffController
         $staff = User::query()
             ->with('roles')
             ->where('is_active', true)
-            // Sin PIN no puede entrar por aquí, así que no se muestra: un
-            // botón que nunca funciona es peor que no tener el botón.
+            // No PIN means they cannot get in this way, so they are not shown: a button
+            // that never works is worse than no button.
             ->whereNotNull('pin_hash')
             ->orderBy('name')
             ->get()

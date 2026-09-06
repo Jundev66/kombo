@@ -10,11 +10,10 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Una línea de la comanda.
+ * One line of the kitchen ticket.
  *
- * `modifiers` es un array de TEXTO ya resuelto —«Sin cebolla», «Extra
- * queso»—, no referencias. La cocina lee eso; ir a buscar un identificador
- * mientras se cocina no es una opción.
+ * `modifiers` is already-resolved TEXT — "No onion", "Extra cheese" — not
+ * references: looking up an id while cooking is not an option.
  */
 #[Fillable(['ticket_id', 'product_id', 'name', 'quantity', 'modifiers', 'notes', 'sort_order'])]
 class KitchenTicketItemModel extends Model

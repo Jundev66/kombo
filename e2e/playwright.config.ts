@@ -4,24 +4,22 @@ const RESOLVER = process.env.E2E_RESOLVER
 
 export default defineConfig({
   testDir: './tests',
-  outputDir: './resultados',
+  outputDir: './results',
 
   /*
-   * En serie y con un solo worker.
+   * Serial, with a single worker.
    *
-   * Las pruebas comparten los negocios sembrados: dos corriendo a la vez se
-   * pisan el turno de caja, el estado de un módulo o el número de comanda, y
-   * el fallo aparece una de cada cinco veces. Un worker es más lento y es
-   * honesto.
+   * The tests share the seeded tenants: two running at once collide over a till
+   * shift, a module's state or a ticket number, and the failure shows up one
+   * time in five. One worker is slower and honest.
    */
   fullyParallel: false,
   workers: 1,
 
   /*
-   * CERO reintentos.
-   *
-   * Un reintento convierte una prueba intermitente en una que pasa —y que por
-   * tanto nadie arregla—. Si algo falla una de cada diez veces, eso ES el bug.
+   * ZERO retries. A retry turns an intermittent test into one that passes — and
+   * that therefore nobody fixes. If something fails one time in ten, that IS the
+   * bug.
    */
   retries: 0,
 
@@ -29,30 +27,29 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 10_000 },
 
-  reporter: [['list'], ['html', { open: 'never', outputFolder: 'reportes' }]],
+  reporter: [['list'], ['html', { open: 'never', outputFolder: 'reports' }]],
 
   use: {
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
 
-    // El sistema habla español de Venezuela y calcula horas en Caracas. Una
-    // prueba que corriera en UTC daría por buenas comandas con la hora corrida.
+    // The system speaks Venezuelan Spanish and computes hours in Caracas. A test
+    // running in UTC would accept tickets with the time shifted.
     locale: 'es-VE',
     timezoneId: 'America/Caracas',
 
     /*
-     * El COMODÍN de subdominios dentro del contenedor.
+     * The subdomain WILDCARD inside the container.
      *
-     * Es lo mismo que hace el server_name de nginx y lo que hará el DNS
-     * comodín en producción: cualquier negocio resuelve sin enumerarlo. Si
-     * algún día te ves escribiendo cinco negocios en `extra_hosts`, estás
-     * enumerando clientes y eso no escala.
+     * The same thing nginx's server_name does and what wildcard DNS will do in
+     * production: any tenant resolves without being listed. Writing five tenants
+     * into `extra_hosts` would be listing customers, and that does not scale.
      */
     launchOptions: RESOLVER ? { args: [`--host-resolver-rules=MAP *.localhost ${RESOLVER}`] } : {},
   },
 
-  // Sólo Chromium: --host-resolver-rules es de Chromium, y lo que hay en el
-  // mostrador de estos negocios es Chrome sobre una PC vieja.
+  // Chromium only: --host-resolver-rules is a Chromium flag, and what sits on
+  // these counters is Chrome on an old PC.
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 })

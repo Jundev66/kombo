@@ -8,17 +8,14 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * Las zonas de reparto.
+ * The delivery zones: by zone with a fixed fee, not by computed distance.
  *
- * **Por zona con tarifa fija, no por distancia calculada.** Un mapa y un radio
- * en kilómetros suena más moderno y es peor: aquí el reparto se cobra por
- * barrio —«a Los Palos Grandes son dos dólares»— porque lo que encarece un
- * viaje no son los kilómetros sino subir un cerro, cruzar la autopista o que
- * no haya dónde estacionar. El repartidor ya sabe cuánto cuesta cada sitio; el
- * sistema sólo tiene que dejarlo escrito.
+ * A map and a radius sounds more modern and is worse: what makes a trip
+ * expensive is not the kilometres but climbing a hill or having nowhere to
+ * park. The courier already knows what each place costs.
  *
- * Y el cliente elige la suya de una lista, que es una decisión que sabe tomar,
- * en vez de darle permiso de ubicación a una página web.
+ * And the customer picks from a list, rather than granting a web page location
+ * permission.
  */
 return new class extends Migration
 {
@@ -27,20 +24,18 @@ return new class extends Migration
         TenantSchema::create('delivery_zones', function (Blueprint $table): void {
             $table->string('name');
 
-            // En centavos de USD, como todo el dinero del sistema.
+            // In USD cents, like all money in the system.
             $table->bigInteger('fee_cents')->default(0);
 
             /*
-             * Cuánto se tarda en llegar, aproximadamente.
-             *
-             * Se le dice al cliente ANTES de que pida, no después. «Como media
-             * hora» evita la mitad de las llamadas preguntando por el pedido, y
-             * es la información que más se agradece cuando se tiene hambre.
+             * Roughly how long it takes to get there. Told to the customer
+             * BEFORE they order: "about half an hour" heads off half the calls
+             * asking after the order.
              */
             $table->integer('estimated_minutes')->nullable();
 
-            // Se apaga, no se borra: una zona borrada dejaría sin explicación
-            // los pedidos viejos que se repartieron ahí.
+            // Switched off, not deleted: a deleted zone would leave old orders
+            // delivered there with no explanation.
             $table->boolean('is_active')->default(true);
 
             $table->integer('sort_order')->default(0);
@@ -51,18 +46,13 @@ return new class extends Migration
 
         Schema::table('orders', function (Blueprint $table): void {
             /*
-             * La zona a la que fue.
-             *
-             * Se guarda ADEMÁS de la tarifa ya copiada en `delivery_fee_cents`
-             * y del nombre: la tarifa dice cuánto se cobró y no cambia nunca; el
-             * nombre deja legible el pedido aunque la zona se borre; el
-             * identificador sirve para saber qué barrio pide más. Si mañana
-             * sube el precio de la zona, el pedido de ayer sigue diciendo lo
-             * que costó.
+             * The zone it went to, stored IN ADDITION to the copied fee and
+             * name: the fee says what was charged, the name keeps the order
+             * readable, and the id tells you which neighbourhood orders most.
              */
             TenantSchema::references($table, 'delivery_zone_id', 'delivery_zones', nullable: true, onDelete: 'set null');
 
-            // COPIADO, como todos los nombres que van en un documento.
+            // COPIED, like every name that goes onto a document.
             $table->string('delivery_zone_name')->nullable();
         });
     }

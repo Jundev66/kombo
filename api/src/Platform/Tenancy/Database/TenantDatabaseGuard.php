@@ -8,12 +8,11 @@ use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Events\TransactionBeginning;
 
 /**
- * Le dice a PostgreSQL de qué negocio es esta conexión.
+ * Tells PostgreSQL which tenant this connection belongs to.
  *
- * Aquí es donde el aislamiento deja de ser una convención del código y pasa a
- * ser una garantía de la base de datos: la política `tenant_isolation` lee
- * este parámetro y filtra sola, en toda consulta, venga de Eloquent, de una
- * consulta cruda o de un informe.
+ * This is where isolation stops being a code convention and becomes a database
+ * guarantee: the `tenant_isolation` policy reads this parameter and filters on
+ * its own, for every query — Eloquent, raw SQL or a report.
  */
 final class TenantDatabaseGuard
 {
@@ -31,8 +30,8 @@ final class TenantDatabaseGuard
     {
         $this->tenantId = null;
 
-        // Cadena vacía y no NULL: el `nullif(..., '')` de la política la
-        // convierte en null, y `tenant_id = null` no es true. Cero filas.
+        // Empty string rather than NULL: the policy's `nullif(..., '')` turns it
+        // into null, and `tenant_id = null` is not true. Zero rows.
         $this->write('', local: false);
     }
 
@@ -42,16 +41,14 @@ final class TenantDatabaseGuard
     }
 
     /**
-     * Vuelve a fijar el negocio al abrir cada transacción, con alcance LOCAL.
+     * Re-pins the tenant when each transaction opens, scoped LOCAL.
      *
-     * Sin esto hay un agujero que sólo aparece bajo concurrencia y es
-     * dificilísimo de reproducir: una conexión devuelta al pool —pgbouncer, un
-     * worker de cola, un proceso persistente— conserva el parámetro del
-     * negocio ANTERIOR. La siguiente petición que la tome antes de que el
-     * middleware la reconfigure vería datos ajenos.
+     * Without it there is a hole that only shows under concurrency: a
+     * connection returned to the pool keeps the PREVIOUS tenant's parameter,
+     * and the next request to take it before the middleware reconfigures it
+     * would see somebody else's data.
      *
-     * Sólo en la transacción más externa: las anidadas son puntos de guardado
-     * y volver a fijarlo ahí no aporta nada.
+     * Outermost transaction only; nested ones are savepoints.
      */
     public function onTransactionBeginning(TransactionBeginning $event): void
     {
@@ -70,8 +67,8 @@ final class TenantDatabaseGuard
     }
 
     /**
-     * `set_config()` y no `SET`, porque `SET` no admite parámetros ligados y
-     * habría que interpolar el identificador en el SQL a mano.
+     * `set_config()` rather than `SET`, because `SET` takes no bound
+     * parameters and the id would have to be interpolated into the SQL by hand.
      */
     private function write(string $value, bool $local): void
     {

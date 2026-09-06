@@ -9,26 +9,17 @@ use Platform\Audit\AuthorizedBy;
 use Platform\Auth\Exceptions\AuthorizationRefused;
 
 /**
- * Valida el PIN de quien autoriza una acción.
+ * Validates the PIN of whoever authorises an action.
  *
- * Dos decisiones que parecen detalles y no lo son:
- *
- * **Se pide QUIÉN autoriza, no sólo el PIN.** Buscar «algún usuario de este
- * negocio cuyo PIN coincida» multiplica por N la superficie de adivinación: con
- * ocho empleados, acertar un PIN de cuatro dígitos pasa de 1 entre 10.000 a 1
- * entre 1.250. Exigir el nombre lo devuelve a 1 entre 10.000.
- *
- * **Nadie puede autorizarse a sí mismo.** Si el permiso que se está pidiendo
- * está en la lista de los que ese usuario sólo puede SOLICITAR, su PIN no
- * sirve. Sin esta comprobación, «pedir autorización» sería un trámite que el
- * propio cajero se firma.
+ * WHO authorises is required, not just the PIN: matching "any user here" would
+ * turn 1-in-10,000 into 1-in-1,250 with eight staff. And nobody authorises
+ * themselves, or "asking for authorization" would be a form you sign yourself.
  */
 final class PinAuthorizer
 {
     public function authorize(string $userId, string $pin, string $permission): AuthorizedBy
     {
-        // El filtro por negocio ya está puesto: por el ámbito global de
-        // Eloquent y, sobre todo, por RLS.
+        // The tenant filter is already in place: Eloquent's global scope and RLS.
         $user = User::with('roles.permissions')->find($userId);
 
         if ($user === null || ! $user->is_active || ! $user->authorizesWithPin($pin)) {
@@ -57,7 +48,7 @@ final class PinAuthorizer
             return false;
         }
 
-        // Lo tiene, pero sólo para solicitarlo: no puede firmarse a sí mismo.
+        // They hold it, but only to request it: they cannot sign for themselves.
         return ! in_array($permission, $user->permissionsNeedingAuthorization(), true);
     }
 }

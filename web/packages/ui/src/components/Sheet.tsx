@@ -1,11 +1,11 @@
 import { useEffect, type ReactNode } from 'react'
 
 /**
- * Una hoja que sube desde abajo.
+ * A sheet that rises from the bottom.
  *
- * Abajo y no en el centro: en una pantalla táctil de mostrador, lo que hay que
- * tocar tiene que quedar donde llega el pulgar. Un diálogo centrado obliga a
- * levantar la mano de la máquina.
+ * Bottom rather than centre: on a counter touchscreen, what has to be tapped
+ * belongs where the thumb reaches. A centred dialog means lifting your hand off
+ * the machine.
  */
 export function Sheet({
   title,
@@ -18,7 +18,7 @@ export function Sheet({
   children: ReactNode
   footer?: ReactNode
 }) {
-  // Escape cierra. Es lo que todo el mundo intenta primero.
+  // Escape closes. It is what everybody tries first.
   useEffect(() => {
     function onKey(event: KeyboardEvent): void {
       if (event.key === 'Escape') onClose()
@@ -31,8 +31,8 @@ export function Sheet({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center sm:items-center">
-      {/* El fondo cierra, pero no es un botón: pulsar Tab no tiene que
-          llevarte a «el fondo». */}
+      {/* The backdrop closes it but is not a button: Tab must not take you to
+          "the backdrop". */}
       <div
         className="absolute inset-0 bg-ink-900/50"
         onClick={onClose}

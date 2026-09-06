@@ -13,15 +13,11 @@ use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Platform\Capabilities\CurrentCapabilities;
 
 /**
- * La pantalla del repartidor.
+ * The courier's screen: what is ready to go out, and what I am carrying.
  *
- * Dos listas y nada más: **lo que está listo para salir** y **lo que llevo yo**.
- * Un repartidor mira esto en su teléfono, en la moto, con una mano — no explora
- * una aplicación.
- *
- * Ve lo suyo y lo que está libre. Los pedidos que lleva otro no aparecen: no
- * son asunto suyo, y una lista con las entregas de tres personas es una lista
- * donde nadie encuentra la propia.
+ * Looked at on a phone, on the bike, one-handed. Orders somebody else is
+ * carrying do not appear — a list with three people's deliveries is a list
+ * where nobody finds their own.
  */
 final class DeliveryController
 {
@@ -29,13 +25,13 @@ final class DeliveryController
 
     public function index(): JsonResponse
     {
-        $yo = (string) auth()->id();
+        $ownOnes = (string) auth()->id();
 
         $orders = OrderModel::query()
             ->where('service_type', 'delivery')
             ->whereIn('status', [OrderStatus::Ready->value, OrderStatus::OutForDelivery->value])
-            ->where(fn ($q) => $q->whereNull('courier_id')->orWhere('courier_id', $yo))
-            // La más vieja primero: es el orden en el que hay que salir.
+            ->where(fn ($q) => $q->whereNull('courier_id')->orWhere('courier_id', $ownOnes))
+            // Oldest first: the order they have to go out in.
             ->orderBy('ready_at')
             ->limit(60)
             ->get();
@@ -48,19 +44,18 @@ final class DeliveryController
                 'statusLabel' => $order->status->label(),
 
                 'customerName' => $order->customer_name,
-                // El teléfono se ve: es con lo que se llama cuando no se
-                // encuentra la casa, que pasa en la mitad de los repartos.
+                // The phone number is visible: it is what you call with when you cannot
+                // find the house, which is half of all deliveries.
                 'customerPhone' => $order->customer_phone,
                 'address' => $order->delivery_address,
                 'zoneName' => $order->delivery_zone_name,
 
                 'totalCents' => $order->total_cents,
-                // Lo que hay que cobrar al llegar. Cero si ya pagó, y esa
-                // diferencia es lo único que el repartidor necesita saber del
-                // dinero.
+                // What to collect on arrival. Zero if already paid, and that difference
+                // is all the courier needs to know about the money.
                 'toCollectCents' => max(0, (int) $order->total_cents - (int) $order->paid_cents),
 
-                'isMine' => (string) $order->courier_id === $yo,
+                'isMine' => (string) $order->courier_id === $ownOnes,
                 'courierName' => $order->courier_name,
                 'readyAt' => $order->ready_at?->toAtomString(),
             ])->all(),
@@ -84,11 +79,11 @@ final class DeliveryController
     }
 
     /**
-     * Salgo con él, o ya lo entregué.
+     * Going out with it, or delivered.
      *
-     * Pasa por el mismo caso de uso que el panel y la cocina: la máquina de
-     * estados es una sola, y un atajo aquí sería un pedido que avanza sin
-     * pasar por sus reglas ni por la bitácora.
+     * Through the same use case as the dashboard and the kitchen: one state
+     * machine, and a shortcut here would be an order advancing without its
+     * rules or the audit log.
      */
     public function advance(Request $request, string $id, AdvanceOrder $advance): JsonResponse
     {
@@ -98,8 +93,8 @@ final class DeliveryController
 
         $order = OrderModel::findOrFail($id);
 
-        // Sólo lo suyo: marcar entregado lo de otro es cómo se pierde el rastro
-        // de quién llevó qué.
+        // Only their own: marking somebody else's delivered is how the trail of
+        // who took what gets lost.
         abort_if((string) $order->courier_id !== (string) auth()->id(), 403, 'Ese pedido no lo llevas tú.');
 
         $advance->execute($id, OrderStatus::from($data['status']), byName: (string) auth()->user()?->name);

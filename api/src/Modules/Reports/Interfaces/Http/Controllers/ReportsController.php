@@ -9,24 +9,21 @@ use Illuminate\Http\Request;
 use Modules\Reports\Application\UseCases\SalesReport;
 
 /**
- * Las ventas, en una sola llamada.
- *
- * Una y no cinco: el dueño abre esto desde el teléfono, muchas veces con mala
- * señal, y cinco peticiones son cinco oportunidades de ver la pantalla a
- * medias.
+ * The sales, in a single call: the owner opens this on their phone, often with
+ * poor signal, and five requests are five chances to see half a screen.
  */
 final class ReportsController
 {
     public function __invoke(Request $request, SalesReport $report): JsonResponse
     {
         $data = $request->validate([
-            'periodo' => ['nullable', 'string', 'in:hoy,ayer,semana,mes'],
+            'period' => ['nullable', 'string', 'in:today,yesterday,week,month'],
         ]);
 
-        // Los atajos se resuelven en el SERVIDOR y en la hora del negocio:
-        // calcular «hoy» en el teléfono usaría el huso del teléfono.
-        [$desde, $hasta] = $report->range($data['periodo'] ?? 'hoy');
+        // Resolved on the SERVER in the tenant's local time: computing "today" on
+        // the phone would use the phone's timezone.
+        [$from, $until] = $report->range($data['period'] ?? 'today');
 
-        return response()->json(['data' => $report->forRange($desde, $hasta)]);
+        return response()->json(['data' => $report->forRange($from, $until)]);
     }
 }

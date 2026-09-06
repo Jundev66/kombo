@@ -5,16 +5,11 @@ declare(strict_types=1);
 namespace Modules\Channels\Domain\ValueObjects;
 
 /**
- * Lo que el motor quiere decir, **sin saber por dónde va a salir**.
+ * What the engine wants to say, without knowing where it will come out.
  *
- * Aquí está la decisión que hace que dos canales quepan en un solo motor: el
- * motor pide «muestra estas seis opciones» y **cada adaptador decide cómo**.
- * WhatsApp corta a tres botones por mensaje y a veinte caracteres por título;
- * Telegram admite teclados de la longitud que quieras.
- *
- * Si el motor conociera esos límites, escribiría para el más pobre de los dos
- * y Telegram quedaría igual de estrecho que WhatsApp sin razón. Y el día que
- * entre un tercer canal, habría que revisar el motor entero.
+ * This is what lets two channels share one engine: the engine asks for "show
+ * these six options" and each adapter decides how. Knowing the limits here
+ * would cramp Telegram down to WhatsApp's for no reason.
  */
 final readonly class Reply
 {

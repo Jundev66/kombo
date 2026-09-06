@@ -1,4 +1,4 @@
-// El contrato de GET /api/v1/me y el cliente HTTP.
+// The GET /api/v1/me contract and the HTTP client.
 
 export { allows, can, hasModule, setting } from './capabilities'
 export type {

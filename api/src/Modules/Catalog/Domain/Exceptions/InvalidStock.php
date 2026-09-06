@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Modules\Catalog\Domain\Exceptions;
 
 /**
- * Las existencias no cuadran con si el producto las lleva o no.
+ * The stock figures do not match whether the product tracks stock at all.
  */
 final class InvalidStock extends CatalogException
 {

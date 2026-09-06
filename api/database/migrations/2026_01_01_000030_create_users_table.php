@@ -8,16 +8,14 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * Los usuarios. **Tabla de negocio**, no de plataforma.
+ * The users. A TENANT table, not a platform one.
  *
- * Un usuario pertenece a UN negocio, y el correo es único DENTRO de ese
- * negocio. Es lo que permite que la misma persona —o el mismo correo
- * genérico— exista en dos negocios sin colisionar, y que al iniciar sesión no
- * haya que preguntar «¿a cuál de tus negocios?»: el subdominio ya lo dijo.
+ * A user belongs to ONE tenant and the email is unique within it, so the same
+ * person can exist in two without colliding and signing in never has to ask
+ * which.
  *
- * Se crea con TenantSchema, así que trae `tenant_id`, RLS activado y forzado,
- * su política de aislamiento y el único `(tenant_id, id)` sin que haya que
- * acordarse de nada.
+ * Created with TenantSchema, so `tenant_id`, forced RLS, the isolation policy
+ * and the unique `(tenant_id, id)` all arrive without anyone remembering.
  */
 return new class extends Migration
 {
@@ -29,11 +27,11 @@ return new class extends Migration
             $table->timestampTz('email_verified_at')->nullable();
             $table->string('password');
 
-            // PIN de operación, con hash. La caja y la cocina son máquinas
-            // compartidas del local: nadie va a escribir un correo y una
-            // contraseña larga con las manos ocupadas y un cliente esperando.
-            // Y sirve además para autorizar acciones sensibles a nombre de
-            // quien las autoriza, sin cerrar la sesión de quien las inicia.
+            // Operating PIN, hashed. The till and the kitchen are shared machines on
+            // the floor: nobody types an email and a long password with their hands
+            // full and a customer waiting.
+            // It also authorises sensitive actions in the name of whoever authorises
+            // them, without signing out whoever started them.
             $table->string('pin_hash')->nullable();
 
             $table->boolean('is_active')->default(true);

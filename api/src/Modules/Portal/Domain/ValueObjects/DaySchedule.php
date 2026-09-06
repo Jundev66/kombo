@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Modules\Portal\Domain\ValueObjects;
 
 /**
- * Un día de la semana con su horario, en minutos desde medianoche.
+ * A day of the week with its hours, in minutes from midnight.
  *
- * En minutos y no en `H:i` porque comparar horas como texto es el camino corto
- * a que «09:00» sea mayor que «10:00» el día que alguien guarde «9:00».
+ * Minutes rather than `H:i`, or "09:00" is greater than "10:00" the day
+ * somebody saves "9:00".
  */
 final readonly class DaySchedule
 {
@@ -23,7 +23,7 @@ final readonly class DaySchedule
         return new self(true, null, null);
     }
 
-    /** `null` en cualquiera de las dos horas es cerrado: no hay medio horario. */
+    /** `null` in either time means closed: there is no half-open. */
     public static function open(?string $opensAt, ?string $closesAt): self
     {
         $opens = self::toMinutes($opensAt);

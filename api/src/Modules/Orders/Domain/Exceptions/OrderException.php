@@ -7,6 +7,6 @@ namespace Modules\Orders\Domain\Exceptions;
 use Shared\Domain\Exceptions\UserError;
 
 /**
- * Algo del pedido no cumple sus reglas.
+ * Something about the order breaks its rules.
  */
 abstract class OrderException extends UserError {}

@@ -12,11 +12,10 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Infraestructura, no dominio.
+ * Infrastructure, not domain.
  *
- * El dominio (`Modules\Catalog\Domain\Entities\Product`) no sabe que esto
- * existe: es PHP puro y una prueba de arquitectura lo verifica. Esta clase
- * sólo sabe leer y escribir filas.
+ * `Modules\Catalog\Domain\Entities\Product` does not know this exists — plain
+ * PHP, verified by an architecture test. This class only reads and writes rows.
  */
 #[Fillable([
     'category_id', 'name', 'description', 'photo_url',

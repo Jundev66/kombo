@@ -13,20 +13,18 @@ use Platform\Tenancy\TenantResolver;
 use Platform\Tenancy\TenantStatus;
 
 /**
- * El ciclo de vida del cobro: empezar, cobrar, vencer, suspender.
+ * The billing lifecycle: start, charge, expire, suspend.
  *
- * Toda la aritmética de fechas vive aquí y en ningún otro sitio. Es poca y es
- * aburrida, y por eso mismo estaría repetida en tres pantallas si no tuviera
- * casa: el día que alguien la cambie en una y no en las otras, el negocio
- * cobrado se suspende igual y nadie sabe por qué.
+ * All the date arithmetic lives here and nowhere else. It is short and dull,
+ * which is exactly why it would otherwise be duplicated across three screens.
  */
 final class Subscriptions
 {
     /**
-     * A cuántos días de vencer se avisa.
+     * How many days before expiry a warning goes out.
      *
-     * Dos veces y no cinco: un aviso que llega todos los días deja de leerse, y
-     * el que importa —el de mañana— se pierde entre los otros.
+     * Twice, not five times: a warning that arrives daily stops being read, and
+     * the one that matters gets lost among the others.
      *
      * @var list<int>
      */
@@ -38,11 +36,10 @@ final class Subscriptions
     ) {}
 
     /**
-     * Arranca la suscripción de un negocio nuevo.
+     * Starts a new tenant's subscription, with a trial if the plan has one.
      *
-     * Con período de prueba si el plan lo trae. Y **empieza pagado hasta el
-     * final de la prueba**, no «sin fecha»: un negocio sin `current_period_end`
-     * es un negocio que el trabajo diario no sabe si suspender.
+     * It starts PAID UP TO the end of the trial rather than with no date: a
+     * tenant with no `current_period_end` is one the daily job cannot judge.
      */
     public function start(string $tenantId, string $planCode): SubscriptionModel
     {
@@ -58,12 +55,11 @@ final class Subscriptions
     }
 
     /**
-     * Anota un pago y **extiende el período**.
+     * Records a payment and EXTENDS the period.
      *
-     * Desde el vencimiento actual si todavía no llegó, y desde hoy si ya pasó.
-     * La diferencia importa y es la que la gente espera: quien paga con tres
-     * días de adelanto no pierde esos tres días, y quien paga con diez de
-     * retraso no compra diez días que ya vivió.
+     * From the current expiry if it has not passed, from today if it has. Whoever
+     * pays three days early does not lose those days, and whoever pays ten days
+     * late does not buy ten days they already lived.
      */
     public function registerPayment(
         SubscriptionModel $subscription,
@@ -74,11 +70,11 @@ final class Subscriptions
         ?DateTimeImmutable $paidAt = null,
     ): SubscriptionPaymentModel {
         return DB::transaction(function () use ($subscription, $amountCents, $method, $months, $reference, $paidAt): SubscriptionPaymentModel {
-            $desde = Carbon::instance($subscription->current_period_end)->isFuture()
+            $from = Carbon::instance($subscription->current_period_end)->isFuture()
                 ? Carbon::instance($subscription->current_period_end)
                 : now();
 
-            $hasta = $desde->copy()->addMonths(max($months, 1));
+            $until = $from->copy()->addMonths(max($months, 1));
 
             $payment = SubscriptionPaymentModel::create([
                 'tenant_id' => $subscription->tenant_id,
@@ -87,25 +83,25 @@ final class Subscriptions
                 'method' => $method,
                 'reference' => $reference,
                 'paid_at' => $paidAt ?? now(),
-                'period_from' => $desde->toDateString(),
-                'period_to' => $hasta->toDateString(),
+                'period_from' => $from->toDateString(),
+                'period_to' => $until->toDateString(),
                 'registered_by' => auth('platform')->id(),
             ]);
 
             $subscription->update([
-                'current_period_end' => $hasta,
+                'current_period_end' => $until,
                 'status' => 'active',
             ]);
 
-            // Pagar REACTIVA. Es lo que espera cualquiera que acaba de pagar, y
-            // dejarlo para un segundo paso manual es cómo un cliente al día
-            // sigue sin poder trabajar el lunes por la mañana.
+            // Paying REACTIVATES. It is what anyone who has just paid expects, and
+            // leaving it to a manual second step is how an up-to-date customer still
+            // cannot work on Monday morning.
             $this->setTenantStatus($subscription->tenant_id, TenantStatus::Active);
 
             $this->audit->record('subscription.payment_registered', $subscription->tenant_id, [
                 'amount_cents' => $amountCents,
                 'method' => $method,
-                'period_to' => $hasta->toDateString(),
+                'period_to' => $until->toDateString(),
             ]);
 
             return $payment;
@@ -113,97 +109,95 @@ final class Subscriptions
     }
 
     /**
-     * Los que están a punto de vencer, para avisarles.
+     * Those about to expire, to warn them.
      *
-     * Se marca en la bitácora que ya se avisó, y por eso es **idempotente**:
-     * correr la escoba dos veces el mismo día no manda el aviso dos veces.
+     * The audit log records that a warning went out, which makes this
+     * idempotent: running the sweep twice in a day does not warn twice.
      *
-     * Aquí sólo se DECIDE a quién avisar. Mandarlo es cosa del canal —correo,
-     * WhatsApp— y no de esto: si mañana el aviso sale por otro sitio, esta
-     * lógica no se toca.
+     * It only DECIDES who to warn. Sending is the channel's job, so if the
+     * warning goes out somewhere else tomorrow, this does not change.
      *
      * @return list<array{tenant_id: string, days_left: int, ends_at: string}>
      */
     public function dueForWarning(): array
     {
-        $avisos = [];
+        $notices = [];
 
-        foreach (self::AVISOS as $dias) {
-            $limite = now()->addDays($dias);
+        foreach (self::AVISOS as $days) {
+            $limit = now()->addDays($days);
 
             $subscriptions = SubscriptionModel::query()
                 ->whereNull('cancelled_at')
-                ->whereBetween('current_period_end', [$limite->copy()->startOfDay(), $limite->copy()->endOfDay()])
+                ->whereBetween('current_period_end', [$limit->copy()->startOfDay(), $limit->copy()->endOfDay()])
                 ->get();
 
             foreach ($subscriptions as $subscription) {
-                if ($this->alreadyWarned($subscription->tenant_id, $dias)) {
+                if ($this->alreadyWarned($subscription->tenant_id, $days)) {
                     continue;
                 }
 
                 $this->audit->record('subscription.warned', $subscription->tenant_id, [
-                    'dias' => $dias,
+                    'dias' => $days,
                     'vence' => $subscription->current_period_end->toDateString(),
                 ]);
 
-                $avisos[] = [
+                $notices[] = [
                     'tenant_id' => (string) $subscription->tenant_id,
-                    'days_left' => $dias,
+                    'days_left' => $days,
                     'ends_at' => $subscription->current_period_end->toDateString(),
                 ];
             }
         }
 
-        return $avisos;
+        return $notices;
     }
 
     /**
-     * ¿Ya se avisó de este vencimiento?
+     * Has this expiry already been warned about?
      *
-     * Se mira la bitácora en vez de guardar una columna `warned_at`: la
-     * columna habría que limpiarla al renovar, y el día que se olvide, el
-     * cliente deja de recibir avisos para siempre sin que nadie lo note.
+     * The audit log is checked rather than keeping a `warned_at` column: the
+     * column would need clearing on renewal, and the day that is forgotten the
+     * customer stops getting warnings forever with nobody noticing.
      */
-    private function alreadyWarned(string $tenantId, int $dias): bool
+    private function alreadyWarned(string $tenantId, int $days): bool
     {
         return DB::table('platform_audit_log')
             ->where('tenant_id', $tenantId)
             ->where('action', 'subscription.warned')
             ->where('created_at', '>=', now()->subHours(20))
-            ->whereRaw("details->>'dias' = ?", [(string) $dias])
+            ->whereRaw("details->>'dias' = ?", [(string) $days])
             ->exists();
     }
 
     /**
-     * Pasa la escoba: marca los vencidos y suspende a los que agotaron la
-     * gracia.
+     * Sweeps: marks the overdue and suspends those out of grace.
      *
-     * Se llama desde el trabajo diario, y es **idempotente**: correrlo dos
-     * veces el mismo día no adelanta ni una hora ninguna suspensión.
+     * Called from the daily job, and idempotent: running it twice in a day does
+     * not bring any suspension forward by an hour.
      *
      * @return array{past_due: int, suspended: int}
      */
     public function sweep(): array
     {
-        $vencidas = 0;
-        $suspendidas = 0;
+        $expired = 0;
+        $suspendedOnes = 0;
 
         SubscriptionModel::query()
             ->whereNull('cancelled_at')
             ->where('current_period_end', '<', now())
             ->orderBy('current_period_end')
-            ->chunkById(100, function ($subscriptions) use (&$vencidas, &$suspendidas): void {
+            ->chunkById(100, function ($subscriptions) use (&$expired, &$suspendedOnes): void {
                 foreach ($subscriptions as $subscription) {
-                    $seAcabaLaGracia = Carbon::instance($subscription->suspendsAt())->isPast();
+                    $graceEnds = Carbon::instance($subscription->suspendsAt())->isPast();
 
-                    if ($seAcabaLaGracia) {
+                    if ($graceEnds) {
                         if ($subscription->status !== 'suspended') {
                             $subscription->update(['status' => 'suspended']);
                             $this->setTenantStatus($subscription->tenant_id, TenantStatus::Suspended);
                             $this->audit->record('subscription.suspended', $subscription->tenant_id, [
                                 'vencia' => $subscription->current_period_end->toDateString(),
                             ]);
-                            $suspendidas++;
+                            $suspendedOnes++;
                         }
 
                         continue;
@@ -216,18 +210,18 @@ final class Subscriptions
                             'vencio' => $subscription->current_period_end->toDateString(),
                             'suspende' => $subscription->suspendsAt()->format('Y-m-d'),
                         ]);
-                        $vencidas++;
+                        $expired++;
                     }
                 }
             });
 
-        return ['past_due' => $vencidas, 'suspended' => $suspendidas];
+        return ['past_due' => $expired, 'suspended' => $suspendedOnes];
     }
 
-    /** Cambiar de plan. El período que ya pagó no se toca. */
+    /** Changing plan. The period already paid for is untouched. */
     public function changePlan(SubscriptionModel $subscription, string $planCode): void
     {
-        $anterior = $subscription->plan_code;
+        $previous = $subscription->plan_code;
 
         DB::transaction(function () use ($subscription, $planCode): void {
             $subscription->update(['plan_code' => $planCode]);
@@ -240,17 +234,17 @@ final class Subscriptions
         $this->forgetTenantCache($subscription->tenant_id);
 
         $this->audit->record('subscription.plan_changed', $subscription->tenant_id, [
-            'de' => $anterior,
+            'de' => $previous,
             'a' => $planCode,
         ]);
     }
 
     /**
-     * Cambia el estado del negocio **y limpia su caché**.
+     * Changes the tenant's status AND clears its cache.
      *
-     * Las dos cosas, siempre juntas. Si se olvida la segunda, el negocio
-     * suspendido sigue trabajando hasta que la caché expire —o al revés, el que
-     * acaba de pagar sigue bloqueado— y el fallo no deja rastro en ningún sitio.
+     * Always both. Forget the second and a suspended tenant keeps working until
+     * the cache expires — or one that has just paid stays blocked — and the
+     * failure leaves no trace anywhere.
      */
     public function setTenantStatus(string $tenantId, TenantStatus $status): void
     {

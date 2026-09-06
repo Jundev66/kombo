@@ -8,10 +8,9 @@ use Platform\Modules\ModuleManifest;
 use Platform\Modules\Setting;
 
 /**
- * Los pedidos: lo que se vende, por dónde va y cómo se paga.
+ * The orders: what is sold, where it has got to and how it is paid for.
  *
- * De núcleo, como la carta. Un negocio de comida que no puede tomar un pedido
- * no tiene sistema, y la cocina, la caja y el portal cuelgan todos de aquí.
+ * Core, like the menu. The kitchen, the till and the portal all hang off it.
  */
 final class OrdersModule extends ModuleManifest
 {
@@ -64,9 +63,9 @@ final class OrdersModule extends ModuleManifest
             'orders.confirm',
             'orders.advance',
 
-            // Cancelar va aparte de confirmar, y con su par `_request`: es la
-            // vía natural para sacar comida sin cobrarla, así que el mostrador
-            // puede INICIARLO y el encargado lo autoriza con su PIN.
+            // Cancelling is separate from confirming and has its `_request`
+            // counterpart: it is the natural way to get food out unpaid, so the
+            // counter starts it and the manager authorises it.
             'orders.cancel',
             'orders.cancel_request',
 
@@ -81,18 +80,15 @@ final class OrdersModule extends ModuleManifest
     {
         return [
             /*
-             * Confirmar solo los pedidos que entran.
-             *
-             * Un local con cocina propia quiere mirar antes de aceptar. Uno
-             * pequeño, donde el que atiende es el que cocina, prefiere que
-             * caigan directo. El valor por defecto es el comportamiento de
-             * hoy —confirmar a mano—, así que activarlo es una decisión, no
-             * una sorpresa.
+             * Auto-confirming incoming orders. A shop with its own kitchen
+             * wants to look first; a small one would rather they landed
+             * straight through. The default is today's behaviour, so switching
+             * it on is a decision rather than a surprise.
              */
             'auto_confirm' => Setting::bool(false),
 
-            // A partir de cuántos minutos sin confirmar se marca en el tablero.
-            // Un pedido olvidado veinte minutos es un cliente perdido.
+            // From how many unconfirmed minutes it gets flagged on the board. An order
+            // forgotten for twenty minutes is a lost customer.
             'unconfirmed_alert_minutes' => Setting::int(5)->min(1)->max(60),
         ];
     }

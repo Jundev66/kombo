@@ -1,16 +1,15 @@
 import { api, useBearerToken } from '@kombo/api-client'
 import { terminal } from '@kombo/shell'
 
-// El token cambia dentro de la misma sesión de la pantalla: primero es el de
-// la tablet, y al poner el PIN pasa a ser el del cocinero. Por eso se pasa una
-// FUNCIÓN y no un valor.
+// The token changes within one screen session: first the tablet's, then the
+// cook's once they enter a PIN. Hence a FUNCTION rather than a value.
 useBearerToken(() => terminal.active())
 
 export interface KitchenItem {
   id: string
   name: string
   quantity: number
-  /** Ya en texto: «Sin cebolla». Listos para leer mientras se cocina. */
+  /** Already text: "No onion". Ready to read while cooking. */
   modifiers: string[]
   notes: string | null
 }
@@ -20,15 +19,15 @@ export interface Ticket {
   number: number
   status: 'pending' | 'preparing' | 'ready'
   nextStatus: string | null
-  /** Lo que dice el botón, resuelto por el servidor. */
+  /** What the button says, resolved by the server. */
   nextLabel: string | null
   serviceType: string | null
-  /** Quién la tomó. Aparece en la tarjeta para saber a quién preguntar. */
+  /** Who took it. Shown on the card, so you know who to ask. */
   takenByName: string | null
   notes: string | null
   prepMinutes: number | null
   placedAt: string | null
-  /** Lo calcula el SERVIDOR: el reloj de una tablet casi nunca está bien. */
+  /** Computed by the SERVER: a tablet's clock is almost never right. */
   waitingSeconds: number
   items: KitchenItem[]
 }
@@ -39,9 +38,9 @@ export const kitchen = {
       data: Ticket[]
       meta: {
         staleMinutes: number
-        /** Cuántas comandas vivas hay en total. */
+        /** How many live tickets there are in total. */
         total: number
-        /** Cuántas no caben en la pantalla. Si no es cero, hay que decirlo. */
+        /** How many do not fit on screen. If not zero, it has to be said. */
         hidden: number
       }
     }>('/kitchen/tickets'),

@@ -7,7 +7,7 @@ namespace Modules\Portal\Domain\Exceptions;
 use Shared\Domain\Exceptions\UserError;
 
 /**
- * No se pudo aceptar el comprobante, y el cliente merece saber por qué.
+ * The receipt could not be accepted, and the customer deserves to know why.
  */
 final class ReceiptRefused extends UserError
 {

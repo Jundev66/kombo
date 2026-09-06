@@ -12,12 +12,11 @@ use Platform\Subscription\PlatformAudit;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Los planes: qué se vende y por cuánto.
+ * The plans: what is sold and for how much.
  *
- * Se cobra por **tamaño**, no por funcionalidad básica: ningún negocio se queda
- * sin saber cuánto vendió porque no le alcanza. Lo que separa un plan de otro
- * son los techos —cuántos usuarios, cuántos productos, cuántos pedidos— y los
- * módulos que aportan capacidades nuevas, como la caja o los canales.
+ * Charged by SIZE, not by basic functionality. What separates one plan from
+ * another are the ceilings — users, products, orders — and the modules that add
+ * new capabilities, like the till or the channels.
  */
 final class PlanAdminController
 {
@@ -30,16 +29,16 @@ final class PlanAdminController
     {
         $modulesByPlan = DB::table('plan_modules')->get()->groupBy('plan_code');
 
-        $planes = DB::table('plans')->orderBy('sort_order')->get();
+        $plans = DB::table('plans')->orderBy('sort_order')->get();
 
         return response()->json([
-            'data' => $planes->map(fn (object $plan): array => [
+            'data' => $plans->map(fn (object $plan): array => [
                 'code' => $plan->code,
                 'name' => $plan->name,
                 'description' => $plan->description,
                 'priceCents' => $plan->price_cents,
                 'trialDays' => $plan->trial_days,
-                // `null` es ILIMITADO, nunca cero.
+                // `null` is UNLIMITED, never zero.
                 'maxUsers' => $plan->max_users,
                 'maxProducts' => $plan->max_products,
                 'maxOrdersMonth' => $plan->max_orders_month,
@@ -47,9 +46,8 @@ final class PlanAdminController
                 'tenants' => DB::table('tenants')->where('plan_code', $plan->code)->whereNull('deleted_at')->count(),
             ])->all(),
 
-            // Los módulos que EXISTEN, para poder armar un plan sin
-            // acordárselos de memoria. Salen del registro, no de una lista
-            // escrita a mano que se quedaría vieja.
+            // The modules that EXIST, so a plan can be assembled without recalling
+            // them from memory. Taken from the registry, not a hand-written list.
             'meta' => ['availableModules' => array_keys($this->modules->all())],
         ]);
     }
@@ -62,8 +60,8 @@ final class PlanAdminController
             'price_cents' => ['sometimes', 'integer', 'min:0'],
             'trial_days' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:365'],
 
-            // `null` es ilimitado. Se acepta explícitamente para poder QUITAR
-            // un techo, no sólo subirlo.
+            // `null` is unlimited. Accepted explicitly so a ceiling can be REMOVED,
+            // not only raised.
             'max_users' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'max_products' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'max_orders_month' => ['sometimes', 'nullable', 'integer', 'min:1'],
@@ -94,12 +92,10 @@ final class PlanAdminController
         });
 
         /*
-         * Cambiar un plan NO enciende ni apaga módulos a quien ya lo tiene.
-         *
-         * `tenant_modules` es lo que manda en cada negocio, y el plan es el
-         * techo. Apagarle un módulo a un cliente que lleva meses usándolo
-         * porque alguien editó el plan sería quitarle la caja en mitad del
-         * almuerzo.
+         * Changing a plan does NOT enable or disable modules for tenants that
+         * already have it. `tenant_modules` rules per tenant; the plan is the
+         * ceiling. Taking the till off a customer who has used it for months
+         * because someone edited a plan would land mid-lunch.
          */
         $this->audit->record('plan.updated', null, ['plan' => $code]);
 

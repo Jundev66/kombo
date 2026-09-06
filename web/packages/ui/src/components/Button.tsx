@@ -15,17 +15,17 @@ const VARIANTS: Record<ButtonVariant, string> = {
 const SIZES: Record<ButtonSize, string> = {
   sm: 'h-9 px-3 text-sm',
   md: 'h-11 px-4 text-base',
-  // 56 px: el mínimo con el que se acierta con el pulgar, de pie y con prisa.
+  // 56 px: the minimum you can hit with a thumb, standing up and in a hurry.
   touch: 'min-h-touch px-6 text-lg',
 }
 
 /**
- * Las clases de un botón, para que un ENLACE pueda verse igual.
+ * A button's classes, so a LINK can look the same.
  *
- * Hace falta porque «ir a otra pantalla» es un enlace y «hacer algo» es un
- * botón, y meter un `<Link>` dentro de un `<button>` rompe las dos cosas: no
- * navega, y anida dos controles interactivos que el teclado y los lectores de
- * pantalla no saben interpretar.
+ * Needed because "go to another screen" is a link and "do something" is a
+ * button, and a `<Link>` inside a `<button>` breaks both: it does not navigate,
+ * and it nests two interactive controls that keyboards and screen readers
+ * cannot interpret.
  */
 export function buttonClasses(
   variant: ButtonVariant = 'primary',
@@ -48,16 +48,15 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /**
- * El botón.
+ * The button.
  *
- * Expone `variant` y `size`, **no** un `className` que reemplace su fondo.
- * `className` sirve para posicionar (márgenes, ancho), no para redefinir
- * apariencia: si hace falta una apariencia nueva, es una VARIANTE nueva aquí,
- * no una excepción en una pantalla. Si no, en seis meses hay catorce botones
- * primarios distintos y ninguno es el correcto.
+ * It exposes `variant` and `size`, NOT a `className` that replaces its
+ * background. `className` is for positioning, not for redefining appearance: a
+ * new appearance is a new VARIANT here, or in six months there are fourteen
+ * different primary buttons and none of them is the right one.
  *
- * `primary` es naranja y no verde a propósito: el verde está reservado para
- * estado («esto salió bien»), y cobrar no es un estado.
+ * `primary` is orange rather than green on purpose: green is reserved for
+ * status ("this went well"), and taking payment is not a status.
  */
 export function Button({
   variant = 'primary',

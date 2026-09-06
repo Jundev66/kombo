@@ -9,19 +9,13 @@ use Modules\Portal\Interfaces\Http\Controllers\ReceiptController;
 use Modules\Portal\Interfaces\Http\Controllers\ShopController;
 
 /*
- * Las únicas rutas del sistema SIN sesión.
+ * The only routes in the system without a session: asking somebody in the
+ * street for an account to buy an arepa is the fastest way to lose them.
  *
- * No llevan `auth:sanctum` a propósito: quien las usa es alguien de la calle
- * con un teléfono, y pedirle una cuenta para comprar una arepa es la forma más
- * rápida de que se vaya.
- *
- * Lo que sí llevan es freno. `throttle` en las de escritura, porque son las
- * únicas puertas del sistema que cualquiera en internet puede empujar: sin
- * límite, un script llena la cocina de comandas falsas en un minuto.
- *
- * Los límites se declaran con nombre en `PortalServiceProvider` y no como
- * números aquí: allí está escrito cuánto vale cada uno y, sobre todo, por qué
- * en desarrollo son otros.
+ * What they do carry is a brake. These are the only doors anybody on the
+ * internet can push, and without a limit a script fills the kitchen with fake
+ * tickets in a minute. The limits are named in `PortalServiceProvider`, where
+ * what each is worth — and why development differs — is written down.
  */
 Route::prefix('api/v1/portal')
     ->middleware(['api', 'module:portal'])
@@ -32,13 +26,12 @@ Route::prefix('api/v1/portal')
         Route::post('/orders', [PortalOrderController::class, 'store'])
             ->middleware('throttle:portal-pedidos');
 
-        // Consultar sí es barato, pero la pantalla de seguimiento pregunta
-        // cada pocos segundos: el límite está para el que automatiza, no para
-        // el que espera su comida.
+        // Reading is cheap, but the tracking screen polls every few seconds: the
+        // limit is for whoever automates, not for whoever is waiting for food.
         Route::get('/orders/{token}', [PortalOrderController::class, 'show'])
             ->middleware('throttle:portal-seguimiento');
 
-        // Subir la foto del pago móvil. Más apretado todavía: son archivos.
+        // Uploading the mobile-payment photo. Tighter still: these are files.
         Route::post('/orders/{token}/receipt', ReceiptController::class)
-            ->middleware('throttle:portal-comprobantes');
+            ->middleware('throttle:portal-receipts');
     });

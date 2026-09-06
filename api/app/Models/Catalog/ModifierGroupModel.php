@@ -11,8 +11,8 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Una PREGUNTA que se le hace a quien pide: «¿término de la carne?»,
- * «¿algo más?». `min_choices` y `max_choices` dicen de qué tipo es.
+ * A QUESTION put to whoever is ordering. `min_choices` and `max_choices` say
+ * which kind: optional extras, pick-one, or exclusive.
  */
 #[Fillable(['name', 'min_choices', 'max_choices', 'sort_order', 'is_active'])]
 class ModifierGroupModel extends Model

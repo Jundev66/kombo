@@ -1,18 +1,18 @@
 /**
- * El contrato de `GET /api/v1/me`.
+ * The contract of `GET /api/v1/me`.
  *
- * Es el eje del sistema: el servidor combina plan × módulos encendidos ×
- * configuración × permisos y devuelve el resultado ya resuelto. El frontend
- * pinta menú, rutas y botones a partir de esto y **no decide nada**.
+ * The hub of the system: the server combines plan × enabled modules × settings
+ * × permissions and returns the resolved result. The frontend paints menu,
+ * routes and buttons from this and decides nothing.
  */
 
 /**
- * `string` y NO una unión de literales (`'orders' | 'kitchen' | …`).
+ * `string` and NOT a union of literals (`'orders' | 'kitchen' | …`).
  *
- * Escribir la unión se sentiría más seguro y sería exactamente el error: metería
- * en el cliente una lista que sólo el servidor conoce y que cambia sin
- * desplegar. Un módulo nuevo dejaría de compilar el frontend en vez de,
- * sencillamente, aparecer.
+ * The union would feel safer and would be exactly the mistake: it would put a
+ * list only the server knows, and that changes without deploying, into the
+ * client. A new module would stop the frontend compiling instead of simply
+ * appearing.
  */
 export type ModuleCode = string
 export type PermissionCode = string
@@ -24,13 +24,13 @@ export interface TenantSummary {
   logoUrl: string | null
   status: string
   /**
-   * El huso del negocio, para fechar lo suyo con SU hora.
+   * The tenant's timezone, to date their data in their own time.
    *
-   * Un contenedor en UTC —o el navegador de un dueño de viaje— corre las fechas
-   * de los pedidos, y lo hace de forma que a media mañana todo parece correcto.
+   * A container in UTC — or the browser of an owner abroad — shifts order dates
+   * in a way that looks correct until late in the day.
    */
   timezone: string
-  /** Vencido o suspendido: hay que decírselo antes de que algo deje de andar. */
+  /** Overdue or suspended: they have to be told before something stops working. */
   needsAttention: boolean
   canWrite: boolean
 }
@@ -41,24 +41,24 @@ export interface UserSummary {
   email: string
   isOwner: boolean
   /**
-   * «Dueño», «Encargado». `null` si nadie le asignó rol todavía.
+   * "Owner", "Manager". `null` if nobody has assigned a role yet.
    *
-   * Se enseña junto al nombre porque en un local la misma persona entra desde
-   * sitios distintos, y saber CON QUÉ permisos estás mirando la pantalla es la
-   * diferencia entre «esto no se puede» y «esto no lo puedes tú».
+   * Shown next to the name because the same person signs in from different
+   * places, and knowing WHICH permissions you are looking with is the difference
+   * between "this cannot be done" and "you cannot do this".
    */
   roleName: string | null
   /**
-   * Qué acciones le van a pedir el PIN de un supervisor.
+   * Which actions will ask for a supervisor's PIN.
    *
-   * La caja lo necesita para abrir el diálogo ANTES de intentar la acción, en
-   * vez de después de que el servidor la rechace con un cliente delante.
+   * The till needs it to open the dialog BEFORE attempting the action, rather
+   * than after the server rejects it with a customer waiting.
    */
   needsAuthorization: PermissionCode[]
 }
 
 export interface PlanLimits {
-  /** `null` es ILIMITADO, nunca cero. */
+  /** `null` is UNLIMITED, never zero. */
   maxUsers: number | null
   maxProducts: number | null
   maxOrdersMonth: number | null
@@ -72,13 +72,13 @@ export interface UpgradeableModule {
 
 export interface Capabilities {
   tenant: TenantSummary | null
-  /** `null` = nadie ha entrado todavía → pantalla de login. */
+  /** `null` = nobody has signed in yet → login screen. */
   user: UserSummary | null
   moduleNames: Record<ModuleCode, string>
   demo: boolean
   modules: ModuleCode[]
   permissions: PermissionCode[]
-  /** Claves calificadas `modulo.opcion`, con el valor efectivo y ya casteado. */
+  /** Qualified `module.option` keys, with the effective, already-cast value. */
   settings: Record<string, unknown>
   limits: PlanLimits
   upgradeable: UpgradeableModule[]
@@ -93,11 +93,10 @@ export function can(caps: Capabilities, permission: PermissionCode): boolean {
 }
 
 /**
- * LA comprobación: **módulo encendido Y permiso concedido**.
+ * THE check: module enabled AND permission granted.
  *
- * Un permiso de un módulo apagado nunca concede acceso, aunque el rol lo tenga
- * escrito. El servidor aplica la misma regla, así que la pantalla y la API no
- * pueden discrepar.
+ * A permission of a disabled module never grants access, however the role
+ * reads. The server applies the same rule, so screen and API cannot disagree.
  */
 export function allows(caps: Capabilities, module: ModuleCode, permission: PermissionCode): boolean {
   return hasModule(caps, module) && can(caps, permission)

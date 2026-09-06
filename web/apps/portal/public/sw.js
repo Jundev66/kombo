@@ -1,19 +1,18 @@
 /*
- * El service worker del portal. Escrito a mano, y son cuarenta líneas.
+ * The portal's service worker. Written by hand, and forty lines long.
  *
- * Workbox son ~20 KB de estrategias de las que aquí se usan dos, y esos 20 KB
- * los paga el teléfono de alguien con datos contados. Lo que hace falta es
- * corto y cabe en un fichero que se puede leer entero.
+ * Workbox is ~20 KB of strategies of which two are used here, and those 20 KB
+ * are paid for by somebody's metered phone.
  *
- * **Dos reglas, y la segunda es la importante:**
+ * Two rules, and the second is the important one:
  *
- *   1. El armazón (HTML, JS, CSS) se sirve de la caché si está, y se actualiza
- *      por detrás. Es lo que hace que la carta abra al instante la segunda vez.
+ *   1. The shell (HTML, JS, CSS) is served from cache when present and updated
+ *      behind the scenes. That is what makes the menu open instantly next time.
  *
- *   2. **La API NUNCA se cachea.** Ni los precios, ni si está abierto, ni el
- *      estado de un pedido. Una carta guardada de ayer vende a precios de ayer,
- *      y un pedido «en camino» que en realidad ya llegó hace media hora es peor
- *      que no decir nada.
+ *   2. The API is NEVER cached. Not prices, not whether it is open, not an
+ *      order's status. A menu cached from yesterday sells at yesterday's
+ *      prices, and an "on the way" order that arrived half an hour ago is worse
+ *      than saying nothing.
  */
 
 const CACHE = 'kombo-portal-v1'
@@ -21,8 +20,8 @@ const SHELL = ['/', '/index.html']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)))
-  // Sin esto, una versión nueva se queda esperando a que se cierren todas las
-  // pestañas — que en un teléfono puede ser nunca.
+  // Without this, a new version waits for every tab to close — which on a
+  // phone can be never.
   self.skipWaiting()
 })
 
@@ -38,7 +37,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)
 
-  // Regla 2, primero y sin excepciones.
+  // Rule 2, first and without exceptions.
   if (url.pathname.startsWith('/api/') || event.request.method !== 'GET') {
     return
   }
@@ -58,8 +57,8 @@ self.addEventListener('fetch', (event) => {
 
           return response
         })
-        // Sin red y sin caché: que falle como falla siempre, no con un error
-        // inventado que confunda más.
+        // No network and no cache: let it fail the way it always fails, rather than
+        // with an invented error that confuses further.
         .catch(() => hit)
 
       return hit ?? fresh

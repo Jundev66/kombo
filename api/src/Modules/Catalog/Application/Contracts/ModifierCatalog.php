@@ -5,21 +5,16 @@ declare(strict_types=1);
 namespace Modules\Catalog\Application\Contracts;
 
 /**
- * Los agregados, para quien cobra.
+ * The add-ons, for whoever charges.
  *
- * Segundo puerto que publica la carta. Existe por la misma razón que el de
- * productos: **los identificadores vienen del cliente, los precios NO.** Quien
- * arma un pedido manda qué modificadores eligió; cuánto cuesta cada uno se
- * resuelve aquí, contra la carta, siempre.
- *
- * Sin esto, un navegador manipulado podría mandar «extra queso, -5,00» y el
- * sistema lo cobraría.
+ * Ids come from the client, prices do NOT: a tampered browser could otherwise
+ * send "extra cheese, -5.00" and the system would charge it.
  */
 interface ModifierCatalog
 {
     /**
      * @param  list<string>  $modifierIds
-     * @return array<string, ModifierSnapshot> indexado por id
+     * @return array<string, ModifierSnapshot> indexed by id
      */
     public function findMany(array $modifierIds): array;
 }

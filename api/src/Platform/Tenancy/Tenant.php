@@ -5,16 +5,14 @@ declare(strict_types=1);
 namespace Platform\Tenancy;
 
 /**
- * El negocio en curso.
+ * The current tenant.
  *
- * Es un objeto de sólo lectura y **no un modelo de Eloquent**, a propósito. Se
- * resuelve una vez por petición, se cachea en Redis y se pasea por todo el
- * sistema: si fuera un modelo, cualquiera podría escribirle encima o lanzar
- * consultas desde él sin querer. Aquí no hay nada que tocar.
+ * A read-only object and deliberately NOT an Eloquent model: it is resolved
+ * once per request, cached in Redis and passed all over the system. As a model,
+ * anyone could write to it or fire queries from it by accident.
  *
- * Lleva sólo lo que hace falta para decidir: quién es, si puede entrar y qué
- * plan tiene. Todo lo demás —logo, dirección, configuración— se consulta
- * cuando se necesita.
+ * It carries only what it takes to decide: who it is, whether it may come in,
+ * and which plan it has.
  */
 final readonly class Tenant
 {
@@ -47,7 +45,7 @@ final readonly class Tenant
     }
 
     /**
-     * Esta forma es la que se guarda en caché. Cambiarla obliga a invalidar.
+     * This shape is what gets cached. Changing it forces an invalidation.
      *
      * @return array<string, mixed>
      */

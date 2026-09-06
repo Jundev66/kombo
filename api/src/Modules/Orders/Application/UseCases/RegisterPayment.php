@@ -12,20 +12,15 @@ use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Platform\Audit\AuditLogger;
 
 /**
- * Registrar un pago de un pedido.
+ * Recording a payment against an order. There can be SEVERAL, and that is the
+ * point: people pay in a mix — some cash, the rest by mobile transfer.
  *
- * Puede haber VARIOS por pedido, y ése es todo el punto: aquí se cobra
- * mezclado —tres dólares en efectivo y el resto en bolívares por pago móvil—.
- * Con una sola columna `payment_method` eso no se representa, y el cajero
- * acaba anotando la mitad en el campo de observaciones.
- *
- * El pago móvil se **confirma a mano**: alguien mira el comprobante y dice que
- * sí. No hay API bancaria fiable que preguntar, y fingir que la hay sería
- * peor que asumirlo.
+ * Mobile payment is confirmed by hand: there is no reliable banking API to ask,
+ * and pretending there is would be worse than owning it.
  */
 final class RegisterPayment
 {
-    /** Los que se dan por buenos en el acto: el dinero está en la mano. */
+    /** Those taken as good on the spot: the money is in your hand. */
     private const IMMEDIATE = ['cash_usd', 'cash_bs', 'card'];
 
     public function __construct(
@@ -34,16 +29,11 @@ final class RegisterPayment
     ) {}
 
     /**
-     * @param  bool  $verifiedInPerson  Lo da por bueno quien está cobrando.
-     *                                  En el mostrador el cajero mira la
-     *                                  notificación en su teléfono ANTES de
-     *                                  entregar la comida: ese acto es la
-     *                                  confirmación, y dejar el pago esperando
-     *                                  revisión imprimiría una nota que dice
-     *                                  que el cliente todavía debe. En el
-     *                                  portal es al revés —el comprobante lo
-     *                                  sube el cliente— y por eso el valor por
-     *                                  defecto es que no.
+     * @param  bool  $verifiedInPerson  Taken as good by whoever is charging. At
+     *                                  the counter the cashier checks the
+     *                                  notification before handing over the
+     *                                  food; in the portal the customer uploads
+     *                                  a receipt, so the default is no.
      */
     public function execute(
         string $orderId,
@@ -62,8 +52,8 @@ final class RegisterPayment
                 'method' => $method,
                 'amount_cents' => $amountCents,
                 'currency' => $order->currency,
-                // La tasa de ESTE pago. Si el cliente paga en dos veces y la
-                // tasa cambió entre medias, cada pago vale lo que valía.
+                // THIS payment's rate: paying in two goes across a rate change means each
+                // payment is worth what it was worth.
                 'exchange_rate' => $order->exchange_rate,
                 'reference' => $reference,
                 'receipt_url' => $receiptUrl,
@@ -86,7 +76,7 @@ final class RegisterPayment
         });
     }
 
-    /** Dar por bueno un pago que estaba esperando revisión. */
+    /** Taking a payment that was pending review as good. */
     public function confirm(string $paymentId): OrderModel
     {
         $payment = OrderPaymentModel::find($paymentId) ?? throw new OrderNotFound;
@@ -112,13 +102,10 @@ final class RegisterPayment
     }
 
     /**
-     * Recalcula lo pagado a partir de los pagos CONFIRMADOS.
+     * Recomputes what has been paid from the CONFIRMED payments.
      *
-     * Se recalcula en vez de ir sumando: dos campos que deberían coincidir
-     * —lo pagado y la suma de los pagos— acaban discrepando, y el que se mira
-     * es siempre el equivocado.
-     *
-     * Y si el pedido estaba esperando el pago, ahora ya llegó al negocio.
+     * Recomputed rather than accumulated: two fields that ought to agree end up
+     * disagreeing, and the one being looked at is always the wrong one.
      */
     private function recalculate(OrderModel $order): void
     {

@@ -7,55 +7,46 @@ namespace Platform\Subscription\Backups;
 use Symfony\Component\Process\Process;
 
 /**
- * El volcado de verdad, con `pg_dump`.
+ * The real dump, with `pg_dump`.
  *
- * Tres decisiones que no son evidentes:
- *
- * 1. **Formato `custom` (`-Fc`)**, no SQL plano. Comprime solo, y sobre todo
- *    permite restaurar una tabla suelta con `pg_restore -t`. El día que alguien
- *    borra el catálogo de un negocio no hace falta volver atrás la base entera.
- *
- * 2. **Conecta como el DUEÑO**, no como `kombo_app`. `kombo_app` está sujeto a
- *    Row Level Security: un volcado hecho con él saldría con las tablas VACÍAS
- *    —sin error, sin aviso— porque sin `app.tenant_id` puesto las políticas no
- *    dejan ver una sola fila. Sería un archivo de respaldo perfectamente
- *    formado y perfectamente inútil.
- *
- * 3. **La contraseña va por `PGPASSWORD`**, no en la línea de comandos: los
- *    argumentos de un proceso los ve cualquiera con `ps`.
+ * Three non-obvious decisions: `custom` format (`-Fc`) so a single table can be
+ * restored with `pg_restore -t`; connecting as the OWNER, because `kombo_app`
+ * is subject to RLS and would produce a well-formed dump with every table
+ * EMPTY; and the password via `PGPASSWORD`, since process arguments are visible
+ * to anyone running `ps`.
  */
 final class PgDump implements DatabaseDump
 {
-    public function toFile(string $destino): ?string
+    public function toFile(string $destination): ?string
     {
         /** @var array<string, mixed> $conexion */
-        $conexion = config('database.connections.pgsql_owner');
+        $connection = config('database.connections.pgsql_owner');
 
-        $proceso = new Process(
+        $process = new Process(
             [
                 'pg_dump',
                 '--format=custom',
                 '--no-owner',
                 '--no-privileges',
-                '--file='.$destino,
-                '--host='.$conexion['host'],
-                '--port='.$conexion['port'],
-                '--username='.$conexion['username'],
-                '--dbname='.$conexion['database'],
+                '--file='.$destination,
+                '--host='.$connection['host'],
+                '--port='.$connection['port'],
+                '--username='.$connection['username'],
+                '--dbname='.$connection['database'],
             ],
-            env: ['PGPASSWORD' => (string) $conexion['password']],
+            env: ['PGPASSWORD' => (string) $connection['password']],
             timeout: 900.0,
         );
 
-        $proceso->run();
+        $process->run();
 
-        if ($proceso->isSuccessful()) {
+        if ($process->isSuccessful()) {
             return null;
         }
 
-        // La salida de error de `pg_dump` es la parte útil: dice si es de
-        // versión, de permisos o de conexión. Repetirla entera evita la
-        // conversación de «falló el respaldo» / «¿qué dijo?» / «no sé».
-        return trim($proceso->getErrorOutput()) ?: 'pg_dump terminó con código '.$proceso->getExitCode();
+        // `pg_dump`'s stderr is the useful part: it says whether the problem is
+        // version, permissions or connection. Repeating it whole avoids the
+        // "the backup failed" / "what did it say?" / "no idea" conversation.
+        return trim($process->getErrorOutput()) ?: 'pg_dump terminó con código '.$process->getExitCode();
     }
 }

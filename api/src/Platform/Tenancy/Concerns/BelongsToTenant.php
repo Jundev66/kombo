@@ -9,11 +9,8 @@ use Platform\Tenancy\Scopes\TenantScope;
 use Platform\Tenancy\TenantContext;
 
 /**
- * Lo que hace que un modelo pertenezca a un negocio.
- *
- * Rellena `tenant_id` al crear y filtra al consultar, para que ningún caso de
- * uso tenga que acordarse. Acordarse, en cada consulta, para siempre, no es un
- * plan.
+ * What makes a model belong to a tenant: fills `tenant_id` on create and
+ * filters on query, so no use case has to remember to.
  */
 trait BelongsToTenant
 {
@@ -29,16 +26,14 @@ trait BelongsToTenant
     }
 
     /**
-     * Consultar por encima de los negocios.
+     * Query across tenants.
      *
-     * Existe para el panel de plataforma y para las pruebas de aislamiento, y
-     * **está prohibido dentro de `src/Modules/`** — hay una prueba de
-     * arquitectura que lo verifica.
+     * For the platform dashboard and the isolation tests; forbidden inside
+     * `src/Modules/`, and an architecture test verifies it.
      *
-     * Ojo: esto sólo quita el filtro de Eloquent. Row Level Security sigue
-     * puesta, así que como `kombo_app` esto devuelve exactamente lo mismo. Es
-     * justo lo que comprueba una de las pruebas de aislamiento: que la segunda
-     * defensa aguanta sola cuando se desactiva la primera.
+     * It only drops Eloquent's filter. RLS is still in place, so as `kombo_app`
+     * this returns exactly the same rows — which is what one isolation test
+     * checks: that the second defence holds alone.
      */
     public static function acrossTenants(): Builder
     {

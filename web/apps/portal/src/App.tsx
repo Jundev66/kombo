@@ -9,14 +9,12 @@ import { MenuScreen } from './MenuScreen'
 import { TrackScreen } from './TrackScreen'
 
 /**
- * Todo lo que necesita saber quién es el negocio.
+ * Everything that needs to know which tenant this is.
  *
- * Va en un componente aparte y **no en `App`** por una razón concreta: el
- * carrito se guarda con el negocio en la clave, y `App` se pinta una primera
- * vez cuando todavía no se sabe cuál es. Si el carrito viviera arriba, esa
- * primera pasada leería una clave que no es —y, peor, escribiría un carrito
- * vacío encima del que el cliente tenía guardado—. Montándolo cuando el
- * negocio ya se conoce, ese momento no existe.
+ * A separate component and not `App`, for a concrete reason: the basket is
+ * stored with the tenant in its key, and `App` paints once before the tenant is
+ * known. Living higher up, that first pass would read the wrong key — and
+ * worse, write an empty basket over the customer's saved one.
  */
 function Ordering({ shop, menu }: { shop: Shop; menu: Menu }) {
   const cart = useCart(shop.slug)
@@ -27,12 +25,12 @@ function Ordering({ shop, menu }: { shop: Shop; menu: Menu }) {
         <Route path="/" element={<MenuScreen shop={shop} menu={menu} cart={cart} />} />
         <Route path="/carrito" element={<CheckoutScreen shop={shop} cart={cart} />} />
 
-        {/* El enlace que el cliente guarda. Corto a propósito: se manda por
-            WhatsApp y se lee en voz alta por teléfono. */}
+        {/* The link the customer keeps. Deliberately short: it is sent over
+            WhatsApp and read aloud on the phone. */}
         <Route path="/p/:token" element={<TrackScreen shop={shop} />} />
 
-        {/* Cualquier otra cosa es la carta: un enlace viejo no puede acabar en
-            una pantalla de error. */}
+        {/* Anything else is the menu: an old link must not land on an error
+            screen. */}
         <Route path="*" element={<MenuScreen shop={shop} menu={menu} cart={cart} />} />
       </Routes>
     </BrowserRouter>
@@ -40,14 +38,14 @@ function Ordering({ shop, menu }: { shop: Shop; menu: Menu }) {
 }
 
 /**
- * El portal del cliente.
+ * The customer portal.
  *
- * Tres pantallas y nada más: la carta, el pedido, y dónde va. Un cliente con
- * hambre no explora una aplicación — mira, elige, paga y espera.
+ * Three screens and no more: the menu, the order, and where it is. A hungry
+ * customer does not explore an app — they look, choose, pay and wait.
  *
- * La tienda y la carta se cargan **una vez** al arrancar y se pasan hacia
- * abajo. En un teléfono con mala señal, cada petición de más es otra
- * oportunidad de ver algo a medias y cerrar.
+ * The shop and the menu load ONCE at startup and are passed down. On a phone
+ * with poor signal, every extra request is another chance to see something
+ * half-drawn and close it.
  */
 export function App() {
   const [shop, setShop] = useState<Shop | null>(null)
@@ -57,14 +55,14 @@ export function App() {
 
   useEffect(() => {
     Promise.all([shopApi.shop(), shopApi.menu()])
-      .then(([tienda, carta]) => {
+      .then(([tienda, menu]) => {
         setShop(tienda)
-        setMenu(carta)
+        setMenu(menu)
       })
       .catch((failure: unknown) => {
-        // 404 no es un fallo: es que este negocio no tiene portal, o que la
-        // dirección no es de ningún negocio. Se dice, en vez de dejar una
-        // pantalla girando para siempre.
+        // A 404 is not a failure: either this tenant has no portal, or the address
+        // belongs to no tenant. It is said, rather than leaving a spinner turning
+        // forever.
         if (failure instanceof ApiError && failure.status === 404) {
           setNoPortal(true)
         }

@@ -7,21 +7,18 @@ namespace Shared\Domain\Exceptions;
 use RuntimeException;
 
 /**
- * Un error que le pasa a una PERSONA, no al sistema.
+ * An error that happens to a PERSON, not to the system.
  *
- * «Ese precio no puede ser negativo», «ya tienes un producto con ese nombre».
- * Se renderizan como **422 con forma de error de validación**, para que la
- * pantalla los pinte junto al campo que los causó en vez de soltar un mensaje
- * suelto arriba.
+ * "That price cannot be negative", "you already have a product with that name".
+ * Rendered as 422 shaped like a validation error, so the screen paints them
+ * next to the field that caused them.
  *
- * La distinción importa: sin este tipo, estos casos salían como 500 y
- * «funcionaban» en desarrollo por accidente, porque con APP_DEBUG Laravel
- * incluye el mensaje en el cuerpo. En producción el usuario veía «error del
- * servidor» y nadie entendía por qué.
+ * Without this type they came out as 500 and "worked" in development, because
+ * APP_DEBUG puts the message in the body.
  */
 abstract class UserError extends RuntimeException
 {
-    /** A qué campo del formulario apunta, si apunta a alguno. */
+    /** Which form field it points at, if it points at one. */
     public function field(): ?string
     {
         return null;

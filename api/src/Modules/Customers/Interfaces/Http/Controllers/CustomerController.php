@@ -11,47 +11,34 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * La libreta de clientes.
- *
- * Ordenada por **lo último que pidieron**, no alfabéticamente: la pregunta que
- * se hace aquí es «¿quién viene seguido?» y «¿qué le gustaba a este?», no
- * «¿dónde está González?».
+ * The customer book, ordered by the last thing they ordered rather than
+ * alphabetically: the question here is "who comes back often?".
  */
 final class CustomerController
 {
     public function index(Request $request): JsonResponse
     {
-        $buscar = $request->string('buscar')->toString();
+        $search = $request->string('search')->toString();
 
         $customers = CustomerModel::query()
             ->when(
-                $buscar !== '',
-                function ($q) use ($buscar) {
+                $search !== '',
+                function ($q) use ($search) {
                     /*
-                     * Por nombre con `ilike`, y por teléfono por su HASH.
-                     *
-                     * El número está cifrado y el cifrado de Laravel no es
-                     * determinista, así que no se puede buscar por igualdad ni
-                     * por parecido. El hash resuelve el número completo, que es
-                     * como la gente lo busca de todas formas: lo tiene delante
-                     * en el chat.
+                     * By name with `ilike`, by phone via its HASH. The number
+                     * is encrypted and not deterministic, so it cannot be
+                     * matched by similarity — and the hash resolves the whole
+                     * number, which is how people search anyway.
                      */
-                    return $q->where('name', 'ilike', "%{$buscar}%")
-                        ->orWhere('phone_hash', CustomerModel::hashOf($buscar));
+                    return $q->where('name', 'ilike', "%{$search}%")
+                        ->orWhere('phone_hash', CustomerModel::hashOf($search));
                 },
             )
             ->orderByDesc('last_order_at')
             /*
-             * Paginado, no `limit(100)` a secas.
-             *
-             * Con el tope pelado la pantalla enseñaba cien clientes y no tenía
-             * forma de saber que había más — ni de llegar a ellos. Un negocio
-             * con cuatrocientos veía cien y ninguna señal, que es la peor
-             * manera de cortar una lista: quien la mira no sabe que le falta
-             * algo, así que ni siquiera busca.
-             *
-             * El mismo `meta` que ya devuelve el catálogo, para que las dos
-             * pantallas se pinten igual.
+             * Paginated, not a bare `limit(100)`. With the plain cap a tenant
+             * with four hundred customers saw a hundred and no signal at all,
+             * which is the worst way to truncate a list.
              */
             ->paginate(100);
 
@@ -65,14 +52,13 @@ final class CustomerController
         ]);
     }
 
-    /** La ficha, con lo que ha pedido. */
+    /** The record, with what they have ordered. */
     public function show(string $id): JsonResponse
     {
         $customer = CustomerModel::find($id) ?? throw new NotFoundHttpException('Ese cliente no existe.');
 
-        // Se unen por teléfono y no por una clave foránea: los pedidos guardan
-        // el número copiado, así que uno de hace seis meses se lee entero
-        // aunque el cliente se borre.
+        // Joined by phone rather than a foreign key: orders store the number as a
+        // copy, so an old one reads in full even if the customer is deleted.
         $orders = OrderModel::where('customer_phone', $customer->phone)
             ->orderByDesc('placed_at')
             ->limit(30)
@@ -95,9 +81,8 @@ final class CustomerController
     }
 
     /**
-     * La nota: «no le pongan cebolla», «paga siempre en efectivo».
-     *
-     * Es lo único que se edita a mano aquí. El resto lo lleva el sistema solo.
+     * The note: "no onion for them", "always pays cash". The only thing edited
+     * by hand here; the system keeps the rest up to date.
      */
     public function update(Request $request, string $id): JsonResponse
     {

@@ -17,6 +17,6 @@ Route::prefix('api/v1')
         Route::post('/notes/{id}/reprint', [DeliveryNoteController::class, 'reprint'])
             ->middleware('permission:notes.reprint');
 
-        // Anular no está aquí: es `POST /counter/sales/{orderId}/void`, porque
-        // anular el papel es anular la venta.
+        // Voiding is not here: it is `POST /counter/sales/{orderId}/void`, because
+        // voiding the paper is voiding the sale.
     });

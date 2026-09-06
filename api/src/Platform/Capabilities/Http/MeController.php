@@ -11,19 +11,14 @@ use Platform\Modules\ModuleRegistry;
 use Platform\Tenancy\TenantContext;
 
 /**
- * `GET /api/v1/me` — el eje del sistema.
+ * `GET /api/v1/me` — the hub of the system.
  *
- * Devuelve el negocio, quién entró, y las capacidades **ya resueltas**: qué
- * módulos están encendidos, qué permisos tiene esta persona, cómo está
- * configurado cada módulo y cuáles son los techos del plan.
+ * Returns the tenant, who signed in, and the already-resolved capabilities. The
+ * frontend paints menu, routes and buttons from this and decides nothing; the
+ * server later validates against the very same source.
  *
- * El frontend pinta menú, rutas y botones a partir de esto y **no decide
- * nada**. No existe una lista de módulos escrita en React; el servidor valida
- * después contra exactamente la misma fuente que pintó la pantalla.
- *
- * **Responde también SIN sesión**, y eso es a propósito: la pantalla de login
- * necesita el nombre y el logo del negocio antes de que nadie entre. Un login
- * que dice «Kombo» en vez de «El Sazón» parece de otro producto.
+ * It answers WITHOUT a session too: the login screen needs the tenant's name
+ * and logo before anyone signs in.
  */
 final class MeController
 {
@@ -36,7 +31,7 @@ final class MeController
     public function __invoke(Request $request): JsonResponse
     {
         if (! $this->context->has()) {
-            // Dominio raíz o `admin.`: no hay negocio, y eso no es un error.
+            // Root domain or `admin.`: there is no tenant, and that is not an error.
             return response()->json([
                 'tenant' => null,
                 'user' => null,
@@ -53,13 +48,11 @@ final class MeController
                 'slug' => $tenant->slug,
                 'logoUrl' => $tenant->logoUrl,
                 'status' => $tenant->status->value,
-                // El huso del NEGOCIO. El panel enseña fechas de pedidos, y la
-                // regla de la casa es que un dato que depende del negocio se
-                // resuelve con SU hora: un dueño que abre el panel de viaje
-                // vería el pedido de anoche fechado hoy.
+                // The TENANT's timezone. An owner opening the dashboard while travelling
+                // would otherwise see last night's order dated today.
                 'timezone' => $tenant->timezone,
-                // Que el negocio sepa que está vencido antes de descubrirlo
-                // porque algo dejó de funcionar.
+                // So the tenant knows it is overdue before discovering it because
+                // something stopped working.
                 'needsAttention' => $tenant->status->needsAttention(),
                 'canWrite' => $tenant->status->allowsWrites(),
             ],
@@ -69,18 +62,16 @@ final class MeController
                 'name' => $user->name,
                 'email' => $user->email,
                 'isOwner' => $user->isOwner(),
-                // El nombre del rol, no su código: va a una pantalla. Sirve
-                // para que quien mira sepa con qué permisos está mirando.
+                // The role's name, not its code: it goes on a screen, so whoever is
+                // looking knows which permissions they are looking with.
                 'roleName' => $user->roles->first()?->name,
-                // La caja necesita saber CUÁLES acciones le van a pedir un PIN,
-                // para abrir el diálogo antes de intentarlas en vez de después
-                // de que el servidor la rechace con el cliente delante.
+                // The till needs to know WHICH actions will ask for a PIN, so it can open
+                // the dialog beforehand rather than after a rejection.
                 'needsAuthorization' => $user->permissionsNeedingAuthorization(),
             ],
 
-            // Las etiquetas del menú salen del manifiesto del backend, no de
-            // una constante en React: así renombrar un módulo es una línea en
-            // un sitio.
+            // Menu labels come from the backend manifest, not a constant in React:
+            // renaming a module is one line in one place.
             'moduleNames' => $this->moduleNames(),
 
             'demo' => config('kombo.demo_tools') === true,

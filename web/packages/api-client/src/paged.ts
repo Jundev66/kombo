@@ -1,18 +1,17 @@
 /**
- * Una lista que no cabe entera.
+ * A list that does not fit whole.
  *
- * El servidor pagina en tres sitios —la carta, los clientes y los negocios de
- * la super administración— y siempre con la misma forma. Está aquí, en el
- * contrato, y no repetida en cada `api/*.ts`: cuando cada pantalla se
- * describía su propio `meta`, dos de las tres se olvidaban de leerlo y
- * cortaban la lista sin decir nada.
+ * The server paginates in three places — the menu, the customers and the
+ * platform's tenants — always in the same shape. It lives here in the contract
+ * rather than repeated in each `api/*.ts`: when every screen described its own
+ * `meta`, two of the three forgot to read it and truncated silently.
  *
- * Qué cortaba cada una, y por qué se pagina en vez de traerlo todo: KMB-0009.
+ * What each one truncated, and why it paginates: KMB-0009.
  */
 export interface PageMeta {
   page: number
   lastPage: number
-  /** Cuántas hay EN TOTAL, no cuántas caben. Es el número que se enseña. */
+  /** How many there are IN TOTAL, not how many fit. This is the number shown. */
   total: number
 }
 
@@ -21,7 +20,7 @@ export interface Paged<T> {
   meta: PageMeta
 }
 
-/** ¿Queda otra página por pedir? */
+/** Is there another page to ask for? */
 export function hasMore(meta: PageMeta): boolean {
   return meta.page < meta.lastPage
 }

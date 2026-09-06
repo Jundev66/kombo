@@ -5,34 +5,25 @@ declare(strict_types=1);
 namespace Platform\Modules;
 
 /**
- * Qué es un módulo.
+ * What a module is.
  *
- * **Módulo ≠ carpeta.** Es una carpeta MÁS este manifiesto, y de aquí sale
- * todo lo demás:
- *
- * - Encender uno es **una fila en `tenant_modules`, sin desplegar nada**.
- * - Sus permisos aparecen y desaparecen del sistema con él: un permiso de un
- *   módulo apagado no existe, aunque el rol lo tenga escrito.
- * - El panel genera su formulario de configuración solo, a partir del tipo de
- *   cada `Setting`.
- * - Sus rutas las carga PlatformServiceProvider bajo el middleware
- *   `module:{code}`; **`routes/api.php` no se toca al añadir un módulo**.
- *
- * Ese conjunto es lo que hace que crecer sea barato. Si algún día añadir una
- * capacidad exige tocar el núcleo, el diseño se rompió y hay que arreglar el
- * diseño, no seguir adelante.
+ * A module is a directory PLUS this manifest, and everything follows: enabling
+ * one is a row in `tenant_modules` with nothing to deploy; its permissions
+ * exist only while it does; the dashboard generates its settings form from the
+ * `Setting` types; and its routes are loaded under `module:{code}`, so
+ * `routes/api.php` is never touched to add a module.
  */
 abstract class ModuleManifest
 {
-    /** Identificador estable. Va en `tenant_modules` y en `module:{code}`. */
+    /** Stable identifier. Used in `tenant_modules` and in `module:{code}`. */
     abstract public function code(): string;
 
-    /** Cómo se llama en el menú del dueño. En español, sin jerga. */
+    /** How it reads in the owner's menu. In Spanish, no jargon. */
     abstract public function name(): string;
 
     /**
-     * En lengua de mostrador y de resultados, no de programador:
-     * «Cobrar en el local y entregar una nota», no «Módulo POS».
+     * In counter language, not programmer language: "Cobrar en el local y
+     * entregar una nota", not "POS module".
      */
     public function description(): string
     {
@@ -40,10 +31,10 @@ abstract class ModuleManifest
     }
 
     /**
-     * De qué otros módulos depende, por código.
+     * Which other modules it depends on, BY CODE.
      *
-     * Por CÓDIGO y no importando su clase: un módulo que nombra la clase de
-     * otro ya no se puede borrar sin romper el arranque.
+     * By code rather than by importing their class: a module that names
+     * another's class can no longer be deleted without breaking boot.
      *
      * @return list<string>
      */
@@ -53,11 +44,11 @@ abstract class ModuleManifest
     }
 
     /**
-     * Los permisos que este módulo aporta al sistema.
+     * The permissions this module contributes.
      *
-     * Convención para el flujo de autorización por PIN: `orders.void` es
-     * ejecutar; `orders.void_request` es iniciar. **No son el mismo permiso y
-     * nadie tiene los dos.**
+     * Convention for the PIN authorization flow: `orders.void` executes,
+     * `orders.void_request` starts. They are not the same permission and nobody
+     * holds both.
      *
      * @return list<string>
      */
@@ -74,21 +65,21 @@ abstract class ModuleManifest
         return [];
     }
 
-    /** Ruta al archivo de rutas de este módulo, si tiene. */
+    /** Path to this module's route file, if it has one. */
     public function routes(): ?string
     {
         return null;
     }
 
-    /** Carpeta de migraciones propias, si tiene. */
+    /** Its own migrations directory, if it has one. */
     public function migrations(): ?string
     {
         return null;
     }
 
     /**
-     * Núcleo: todo negocio lo tiene siempre, no depende del plan y no se puede
-     * apagar. Es lo mínimo sin lo cual el sistema no es un sistema.
+     * Core: every tenant always has it, it does not depend on the plan and it
+     * cannot be switched off.
      */
     public function isCore(): bool
     {

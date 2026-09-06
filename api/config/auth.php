@@ -47,17 +47,12 @@ return [
         ],
 
         /*
-         * La super administración entra por su propia puerta.
+         * Platform administration comes in through its own door.
          *
-         * Guard aparte y no una bandera sobre `users`: un administrador de
-         * plataforma y el empleado de un negocio no son la misma cosa con un
-         * permiso más. Entran por sitios distintos —`admin.dominio` contra el
-         * subdominio del negocio—, viven en tablas distintas, y confundirlos es
-         * cómo se acaba dando acceso a la facturación de todos los clientes al
-         * empleado de uno.
-         *
-         * Su cookie de sesión es la misma de Laravel, pero el guard es otro:
-         * estar dentro de un negocio no deja entrar aquí, ni al revés.
+         * A separate guard rather than a flag on `users`: they enter at
+         * different addresses, live in different tables, and confusing them is
+         * how one customer's employee ends up with access to everybody's
+         * billing. Being inside a tenant does not get you in here.
          */
         'platform' => [
             'driver' => 'session',

@@ -7,16 +7,11 @@ namespace Platform\Tenancy\Exceptions;
 use RuntimeException;
 
 /**
- * Se pidió el negocio en curso y no hay ninguno.
+ * The current tenant was asked for and there is none.
  *
- * Esto es un error de programación, no una situación de negocio: significa que
- * un trozo de código que asume contexto se ejecutó fuera de una petición de
- * negocio (una cola sin contexto, un comando de consola, el panel de
- * plataforma).
- *
- * Lanza en vez de devolver null a propósito. Un `?Tenant` obligaría a cada
- * llamador a decidir qué hacer cuando falta, y tarde o temprano alguien
- * decidiría «seguir sin filtrar».
+ * A programming error, not a business one: code that assumes context ran
+ * outside a tenant request. It throws rather than returning null on purpose —
+ * a `?Tenant` would let some caller decide to "carry on unfiltered".
  */
 final class TenantNotResolved extends RuntimeException
 {

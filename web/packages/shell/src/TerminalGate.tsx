@@ -4,8 +4,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { terminal } from './terminal'
 
 /**
- * Quién puede entrar en esta pantalla. Lo responde el servidor con el token
- * del aparato, que no sirve para nada más.
+ * Who may sign in at this screen. The server answers with the device token,
+ * which is good for nothing else.
  */
 export interface Staff {
   id: string
@@ -14,7 +14,7 @@ export interface Staff {
 }
 
 const doorway = {
-  /** El nombre del NEGOCIO. `/me` responde sin sesión, justo para esto. */
+  /** The TENANT's name. `/me` answers without a session, precisely for this. */
   businessName: async (fallback: string): Promise<string> => {
     try {
       const caps = await api.capabilities()
@@ -40,23 +40,22 @@ const doorway = {
 
 interface TerminalGateProps {
   onReady: () => void
-  /** El nombre por defecto del aparato: «Cocina», «Caja 1». */
+  /** The device's default name: "Cocina", "Caja 1". */
   deviceName: string
-  /** «¿Quién está en la cocina?», «¿Quién está en la caja?» */
+  /** "Who is in the kitchen?", "Who is at the till?" */
   question: string
 }
 
 /**
- * Cómo se entra a una pantalla del local. **Dos puertas, no una.**
+ * How a shop-floor screen is entered. Two doors, not one.
  *
- * La tablet de la cocina y la máquina del mostrador son otras máquinas: con
- * una sesión de navegador esto sólo funcionaría donde alguien abrió el panel.
- * Por eso hay un alta —una vez en la vida del aparato, con correo y
- * contraseña— y después un PIN de cuatro dígitos, que es lo único que se puede
- * teclear con las manos ocupadas o con un cliente esperando.
+ * The kitchen tablet and the counter machine are other machines: with a browser
+ * session this would only work where somebody opened the dashboard. So there is
+ * a registration — once in the device's life, with email and password — and
+ * then a four-digit PIN, the only thing that can be typed with full hands.
  *
- * Lo usan la cocina y la caja, y es el MISMO portero a propósito: dos copias
- * de una puerta acaban divergiendo justo en el detalle que las hacía seguras.
+ * The kitchen and the till share this gate on purpose: two copies of a door
+ * diverge exactly in the detail that made them safe.
  */
 export function TerminalGate({ onReady, deviceName, question }: TerminalGateProps) {
   const [businessName, setBusinessName] = useState(deviceName)
@@ -71,8 +70,8 @@ export function TerminalGate({ onReady, deviceName, question }: TerminalGateProp
   return (
     <main className="grid min-h-dvh place-items-center bg-[var(--surface-sunken)] p-4">
       <div className="w-full max-w-sm rounded-[var(--radius-lg)] bg-[var(--surface-raised)] p-6">
-        {/* El nombre del NEGOCIO, no el de la plataforma: quien enciende la
-            tablet tiene que saber que está en el local correcto. */}
+        {/* The TENANT's name, not the platform's: whoever switches the tablet on
+            has to know they are in the right shop. */}
         <h1 className="mb-6 text-center text-xl font-bold text-[var(--text-strong)]">
           {businessName}
         </h1>
@@ -88,8 +87,8 @@ export function TerminalGate({ onReady, deviceName, question }: TerminalGateProp
 }
 
 /**
- * Alta de la pantalla. La hace una vez alguien con contraseña —el dueño, el
- * encargado— cuando se pone la tablet.
+ * Registering the screen. Done once by somebody with a password — the owner or
+ * the manager — when the tablet is set up.
  */
 function DeviceStep({ defaultName, onDone }: { defaultName: string; onDone: () => void }) {
   const [name, setName] = useState(defaultName)
@@ -149,10 +148,10 @@ function DeviceStep({ defaultName, onDone }: { defaultName: string; onDone: () =
 }
 
 /**
- * Quién está en la máquina ahora mismo.
+ * Who is at the machine right now.
  *
- * Nombres para tocar, no un campo de correo: nadie escribe
- * `carlos@elsazon.test` con las manos ocupadas.
+ * Names to tap, not an email field: nobody types `carlos@elsazon.test` with
+ * their hands full.
  */
 function PersonStep({
   question,
@@ -173,7 +172,7 @@ function PersonStep({
       .staff()
       .then((r) => setStaff(r.staff))
       .catch(() => {
-        // El token de la tablet ya no vale: hay que darla de alta otra vez.
+        // The tablet's token is no longer valid: it has to be registered again.
         terminal.endShift()
         onForget()
       })
@@ -251,8 +250,8 @@ function PersonStep({
                 const next = (pin + key).slice(0, 4)
                 setPin(next)
 
-                // Se envía SOLO al llegar al cuarto dígito. Un botón de
-                // confirmar de más es un toque de más con las manos ocupadas.
+                // Submitted only on reaching the fourth digit. An extra confirm button is
+                // an extra tap with full hands.
                 if (next.length === 4) void submit(next)
               }}
               className="min-h-touch rounded-[var(--radius-md)] bg-[var(--surface-sunken)] text-xl font-medium text-[var(--text-strong)]"

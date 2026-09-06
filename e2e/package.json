@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
-    "report": "playwright show-report --host 0.0.0.0 reportes"
+    "report": "playwright show-report --host 0.0.0.0 reports"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",

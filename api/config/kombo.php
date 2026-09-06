@@ -5,66 +5,58 @@ declare(strict_types=1);
 return [
 
     /*
-     * El dominio raíz del que cuelgan los negocios.
+     * The root domain the tenants hang off: `elsazon.localhost` in
+     * development, `elsazon.kombo.app` in production.
      *
-     * `elsazon.localhost` en desarrollo, `elsazon.kombo.app` en producción. El
-     * resolutor de negocios extrae el subdominio contra este valor: si el host
-     * no termina en él, no hay negocio que resolver y la petición sigue sin
-     * contexto (que es lo que necesita la super administración).
+     * The resolver extracts the subdomain against this value; a host that does
+     * not end in it carries on with no tenant, which is what platform
+     * administration needs.
      */
     'root_domain' => env('KOMBO_ROOT_DOMAIN', 'localhost'),
 
     /*
-     * El dominio de la super administración. No es un negocio y nunca lo será:
-     * `admin` está en la lista de slugs reservados del resolutor.
+     * The platform administration domain. Not a tenant and never will be:
+     * `admin` is on the resolver's reserved list.
      */
     'admin_host' => env('KOMBO_ADMIN_HOST', 'admin.localhost'),
 
     /*
-     * Herramientas de demostración (cambiar de usuario sin contraseña, sembrar
-     * datos). Es una bandera propia y no una comprobación directa de APP_ENV
-     * para poder PROBARLA sin falsear el entorno: falsear APP_ENV arrastra la
-     * exención de CSRF del entorno de pruebas y convierte el test en una pelea
-     * con el framework.
+     * Demo tooling (switching user without a password, seeding data).
+     *
+     * Its own flag rather than an APP_ENV check so it can be TESTED without
+     * faking the environment — faking APP_ENV drags in the test CSRF exemption
+     * and turns the test into a fight with the framework.
      */
     'demo_tools' => env('KOMBO_DEMO_TOOLS', env('APP_ENV') === 'local'),
 
     /*
-     * Cuánto se cachea la resolución de subdominio → negocio.
+     * How long the subdomain → tenant resolution is cached.
      *
-     * Es una consulta por petición si no se cachea. Con caché, el precio a
-     * pagar es acordarse de invalidarla: cualquier operación que cambie el
-     * identificador o el estado de un negocio tiene que llamar a
-     * TenantResolver::forget(). Si no, el síntoma engaña — /me responde bien
-     * (viene de caché) y TODAS las consultas devuelven cero filas, porque RLS
-     * filtra por un identificador que ya no existe.
+     * The price is remembering to invalidate: anything that changes a tenant's
+     * id or status must call TenantResolver::forget(). Otherwise the symptom
+     * misleads — `/me` answers from cache while every query returns zero rows,
+     * because RLS filters by an id that no longer exists.
      */
     'tenant_cache_ttl' => (int) env('KOMBO_TENANT_CACHE_TTL', 3600),
 
     /*
-     * La dirección pública del portal de un negocio, con `{slug}` donde va el
-     * suyo.
+     * The public address of a tenant's portal, with `{slug}` where its own
+     * goes.
      *
-     * Hace falta porque los enlaces que manda el bot se arman FUERA de una
-     * petición HTTP: un aviso de «tu pedido está listo» sale de la cola, donde
-     * no hay `Host` del que deducir nada. Poner ahí `url()` daría la dirección
-     * del último trabajo que corrió, que puede ser de otro negocio.
+     * Needed because the bot's links are assembled outside an HTTP request:
+     * `url()` in a queued job gives the address of the last job that ran.
      */
     'public_url' => env('KOMBO_PUBLIC_URL', 'http://{slug}.localhost:8010'),
 
     /*
-     * Dónde se dejan los respaldos dentro del servidor.
+     * Where backups are left on the server.
      *
-     * Fuera de `storage/app` a propósito: `storage/app` es lo que el propio
-     * respaldo empaqueta, así que guardarlos ahí haría que cada copia
-     * contuviera a la anterior. En pocas semanas el respaldo pesaría más que
-     * todos los datos juntos.
-     *
-     * En producción es un volumen aparte (ver `compose.prod.yml`), para poder
-     * bajarlo con `docker cp` sin tocar nada más.
+     * Outside `storage/app` on purpose: that is what the backup packs up, so
+     * each copy would contain the previous one and within weeks weigh more than
+     * the data. In production it is a separate volume (see `compose.prod.yml`).
      */
     'backups' => [
-        'path' => env('KOMBO_BACKUP_PATH', storage_path('respaldos')),
+        'path' => env('KOMBO_BACKUP_PATH', storage_path('backups')),
     ],
 
 ];

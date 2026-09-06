@@ -5,17 +5,14 @@ declare(strict_types=1);
 namespace Platform\Modules;
 
 /**
- * Una opción de configuración de un módulo.
+ * One of a module's settings.
  *
- * **El valor por defecto vive en el código, no en la base.** Añadir una opción
- * es una línea en `settings()` del manifiesto: cero migraciones, cero filas
- * que rellenar, y cambiarlo para todos los negocios es editar esa línea.
- * `tenant_settings` sólo guarda lo que un negocio cambió.
+ * The default lives in the code, not the database: adding an option is a line
+ * in the manifest's `settings()` — no migration, no rows to backfill — and
+ * `tenant_settings` only stores what a tenant changed.
  *
- * Ese detalle es el que hace barato el segundo escalón de la regla de oro:
- * ante «el cliente X necesita que esto se comporte distinto», se añade una
- * opción con el valor por defecto IGUAL al comportamiento de hoy. Todos la
- * reciben, nadie lo nota, y el cliente X la cambia.
+ * That is what makes "customer X needs this to behave differently" cheap: add
+ * an option whose default equals today's behaviour, and only X changes it.
  */
 final readonly class Setting
 {
@@ -45,7 +42,7 @@ final readonly class Setting
         return new self(SettingType::Text, $default, rules: ['string']);
     }
 
-    /** En centavos, como todo el dinero del sistema. */
+    /** In cents, like all money in the system. */
     public static function money(int $defaultCents): self
     {
         return new self(SettingType::Money, $defaultCents, rules: ['integer', 'min:0']);
@@ -79,9 +76,7 @@ final readonly class Setting
         return new self($this->type, $this->default, $this->options, [...$this->rules, "max:{$value}"]);
     }
 
-    /**
-     * De cómo se guardó (siempre texto) a cómo se usa.
-     */
+    /** From how it was stored (always text) to how it is used. */
     public function cast(mixed $raw): mixed
     {
         return match ($this->type) {
@@ -91,7 +86,7 @@ final readonly class Setting
         };
     }
 
-    /** Cómo se escribe en `tenant_settings`, que sólo guarda texto. */
+    /** How it is written to `tenant_settings`, which only stores text. */
     public function serialize(mixed $value): string
     {
         if (is_bool($value)) {

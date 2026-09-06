@@ -7,17 +7,14 @@ namespace Modules\Catalog\Domain\ValueObjects;
 use Modules\Catalog\Domain\Exceptions\InvalidProductName;
 
 /**
- * El nombre de un producto.
- *
- * Se normalizan los espacios porque «Reina  Pepiada» y «Reina Pepiada» son el
- * mismo producto para cualquiera menos para una comparación de cadenas, y
- * acaban siendo dos filas en la carta.
+ * A product's name. Whitespace is normalised, or "Reina  Pepiada" and "Reina
+ * Pepiada" end up as two rows on the menu.
  */
 final readonly class ProductName
 {
     private const MIN = 2;
 
-    /** Lo que cabe en la comanda y en el botón de la caja sin partirse. */
+    /** What fits on the ticket and on the till button without wrapping. */
     private const MAX = 120;
 
     private function __construct(public string $value) {}

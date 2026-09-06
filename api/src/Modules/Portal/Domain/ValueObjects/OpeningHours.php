@@ -7,23 +7,19 @@ namespace Modules\Portal\Domain\ValueObjects;
 use DateTimeImmutable;
 
 /**
- * ¿Está abierto ahora mismo?
+ * Is it open right now? Two decisions that look like details and are not.
  *
- * Dos decisiones que parecen detalles y no lo son:
+ * A shift can cross midnight — "six in the evening to two in the morning" is
+ * normal for fast food, and a naive `close > open` shows the tenant closed
+ * during its best hours.
  *
- * **Un turno puede cruzar la medianoche.** «De 6 de la tarde a 2 de la
- * madrugada» es el horario normal de media comida rápida, y con una
- * comparación ingenua (`cierra > abre`) ese negocio aparece cerrado justo en
- * sus mejores horas.
- *
- * **Un día sin configurar está CERRADO.** El fallo seguro es no aceptar: un
- * pedido que entra un día que nadie configuró llega a una cocina apagada, y el
- * cliente se queda esperando comida que nadie está haciendo.
+ * An unconfigured day is CLOSED. The safe failure: an order on a day nobody
+ * configured reaches a kitchen with the lights off.
  */
 final readonly class OpeningHours
 {
     /**
-     * @param  array<int, DaySchedule>  $days  indexado por día de la semana, 0 = domingo
+     * @param  array<int, DaySchedule>  $days  indexed by weekday, 0 = Sunday
      */
     private function __construct(private array $days) {}
 
@@ -35,14 +31,14 @@ final readonly class OpeningHours
         return new self($days);
     }
 
-    /** Nadie configuró nada: cerrado siempre. */
+    /** Nobody configured anything: closed always. */
     public static function never(): self
     {
         return new self([]);
     }
 
     /**
-     * @param  DateTimeImmutable  $at  la hora LOCAL del negocio, ya convertida.
+     * @param  DateTimeImmutable  $at  the tenant's LOCAL time, already converted.
      */
     public function isOpenAt(DateTimeImmutable $at): bool
     {
@@ -53,8 +49,8 @@ final readonly class OpeningHours
             return true;
         }
 
-        // Las dos de la madrugada del martes todavía pertenecen al turno del
-        // LUNES. Sin esto, el negocio cierra solo a medianoche.
+        // Two in the morning on Tuesday still belongs to MONDAY's shift, or the
+        // tenant closes itself at midnight.
         return $this->openIn(($weekday + 6) % 7, $minutes + 1440);
     }
 
@@ -69,7 +65,7 @@ final readonly class OpeningHours
         $opens = $day->opensMinutes;
         $closes = $day->closesMinutes;
 
-        // Cierra antes de abrir: el turno cruza la medianoche.
+        // Closes before it opens: the shift crosses midnight.
         if ($closes <= $opens) {
             $closes += 1440;
         }

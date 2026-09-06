@@ -8,12 +8,10 @@ use Illuminate\Contracts\Auth\Factory as Auth;
 use Platform\Tenancy\TenantContext;
 
 /**
- * Las capacidades de ESTA petición, calculadas una sola vez.
+ * This request's capabilities, computed once.
  *
- * Singleton explícito y memoizado por petición: entre el middleware de módulo,
- * el de permiso y el propio caso de uso, esto se pregunta tres o cuatro veces
- * en cada petición, y recalcularlo cada vez sería tres o cuatro viajes a Redis
- * para obtener lo mismo.
+ * Memoised per request: between the module middleware, the permission
+ * middleware and the use case itself, this is asked three or four times.
  */
 final class CurrentCapabilities
 {
@@ -31,9 +29,8 @@ final class CurrentCapabilities
     }
 
     /**
-     * Descarta y recalcula. Hace falta cuando algo cambió DENTRO de la misma
-     * petición: encender un módulo y responder ya con el menú nuevo, sin que
-     * el dueño tenga que recargar para ver lo que acaba de activar.
+     * Discards and recomputes. Needed when something changed WITHIN the same
+     * request — enabling a module and answering with the new menu already.
      */
     public function refresh(): TenantCapabilities
     {
@@ -42,7 +39,7 @@ final class CurrentCapabilities
         return $this->get();
     }
 
-    /** Lo llama ResolveTenant: la memoria vale por petición, no más. */
+    /** Called by ResolveTenant: the memo is good for one request, no more. */
     public function reset(): void
     {
         $this->resolved = null;
@@ -55,9 +52,8 @@ final class CurrentCapabilities
     {
         $user = $this->auth->guard()->user();
 
-        // Sin sesión, cero permisos — no es un error: `/me` responde sin
-        // sesión a propósito, porque la pantalla de login necesita el nombre y
-        // el logo del negocio antes de que nadie entre.
+        // No session means zero permissions, and that is not an error: `/me`
+        // answers without one so the login screen can show the tenant's name.
         if ($user === null) {
             return [];
         }

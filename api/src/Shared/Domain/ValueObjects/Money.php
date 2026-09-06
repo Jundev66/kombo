@@ -7,17 +7,13 @@ namespace Shared\Domain\ValueObjects;
 use InvalidArgumentException;
 
 /**
- * Dinero, en centavos enteros. Nunca float.
+ * Money, in whole cents. Never a float.
  *
- * `0.1 + 0.2 !== 0.3` no es una curiosidad académica: es un cuadre de caja que
- * no cierra al final del día y media hora de alguien buscando un céntimo que
- * nunca existió. Todos los importes del sistema viven en `int` de centavos.
+ * `0.1 + 0.2 !== 0.3` is not an academic curiosity: it is a cash count that
+ * does not balance and half an hour hunting a cent that never existed.
  *
- * El dólar es la moneda de VALOR: precios, totales y reportes se guardan aquí.
- * El bolívar es moneda de COBRO y presentación — se calcula al momento con la
- * tasa vigente y se congela en el documento que se emitió. Eso es lo que hace
- * que un reporte de seis meses signifique algo y que una nota de entrega de
- * marzo siga diciendo lo que decía en marzo.
+ * The dollar is the unit of value; the bolívar is computed at the moment and
+ * frozen into the document issued.
  *
  * @see ExchangeRate
  */
@@ -39,9 +35,8 @@ final readonly class Money
     }
 
     /**
-     * Sólo para entrada de usuario y semillas. El resto del sistema habla en
-     * centavos: si estás llamando a esto desde un caso de uso, probablemente
-     * el importe ya venía en centavos y lo estás degradando de ida y vuelta.
+     * For user input and seeds only. The rest of the system speaks in cents: if
+     * you are calling this from a use case, the amount probably already was.
      */
     public static function fromAmount(string|float|int $amount, string $currency = 'USD'): self
     {
@@ -51,8 +46,8 @@ final readonly class Money
             throw new InvalidArgumentException("«{$amount}» no es un importe válido.");
         }
 
-        // round() antes de (int) porque (int) trunca: 2.999999 por coma
-        // flotante se convertiría en 299 en vez de 300.
+        // round() before (int) because (int) truncates: 2.999999 from floating
+        // point would become 299 instead of 300.
         return new self((int) round(((float) $normalized) * 100), strtoupper($currency));
     }
 
@@ -71,8 +66,8 @@ final readonly class Money
     }
 
     /**
-     * Multiplica por una cantidad que puede ser decimal (0,5 kg de queso).
-     * Redondea UNA sola vez, al final.
+     * Multiplies by a possibly fractional quantity (0.5 kg of cheese), rounding
+     * ONCE at the end.
      */
     public function times(int|float $factor): self
     {
@@ -102,12 +97,9 @@ final readonly class Money
     }
 
     /**
-     * Reparte un importe en N partes SIN perder ni ganar un céntimo.
-     *
-     * Repartir 100 entre 3 da [34, 33, 33], no tres veces 33,33. El resto se
-     * distribuye de uno en uno entre las primeras partes. Hace falta para el
-     * pago mixto y para prorratear un descuento entre las líneas de un pedido:
-     * la suma de las partes tiene que dar exactamente el total, siempre.
+     * Splits an amount into N parts without losing or gaining a cent: 100 three
+     * ways is [34, 33, 33], not three times 33.33. Needed for mixed payment and
+     * for prorating a discount across lines.
      *
      * @return list<self>
      */
@@ -129,7 +121,7 @@ final readonly class Money
     }
 
     /**
-     * Para mostrar. Nunca para calcular ni para guardar.
+     * For display. Never for computing and never for storing.
      */
     public function format(): string
     {

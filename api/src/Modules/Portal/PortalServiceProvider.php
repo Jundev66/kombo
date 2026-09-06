@@ -12,12 +12,11 @@ use Illuminate\Support\ServiceProvider;
 use Modules\Portal\Interfaces\Console\CancelExpiredOrdersCommand;
 
 /**
- * Todo el enganche del portal: su orden programada.
+ * The portal's entire hook-up: its scheduled job.
  *
- * La tarea vive aquí y no en `routes/console.php` por la misma razón que las
- * rutas viven en el manifiesto: borrar la carpeta del módulo tiene que
- * llevarse todo lo suyo, sin dejar una línea huérfana en un fichero común que
- * empiece a fallar.
+ * The task lives here rather than in `routes/console.php` for the same reason
+ * routes live in the manifest — deleting the module takes everything of its own
+ * with it, leaving no orphaned line in a shared file.
  */
 final class PortalServiceProvider extends ServiceProvider
 {
@@ -28,63 +27,52 @@ final class PortalServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        $this->registrarFrenos();
+        $this->registerThrottles();
 
         $this->app->booted(function (): void {
             /*
-             * Cada diez minutos, no cada minuto.
-             *
-             * La ventana de pago se mide en horas: afinar el cierre al minuto
-             * no le sirve a nadie y despierta el proceso 1.440 veces al día en
-             * una máquina que además está cocinando.
+             * Every ten minutes, not every minute: the payment window is
+             * measured in hours, and waking the process 1,440 times a day on a
+             * machine that is also cooking helps nobody.
              */
             $this->app->make(Schedule::class)
-                ->command('pedidos:cerrar-vencidos')
+                ->command('orders:cancel-expired')
                 ->everyTenMinutes()
                 ->withoutOverlapping();
         });
     }
 
     /**
-     * Los frenos del portal.
+     * The portal's brakes.
      *
-     * Son las ÚNICAS puertas del sistema sin sesión: cualquiera en internet
-     * puede empujarlas, y sin límite un script llena la cocina de comandas
-     * falsas en un minuto. Van por dirección de origen, que es lo único que
-     * hay para distinguir a quien pide de quien abusa.
+     * The only doors with no session, so they go by source address — the only
+     * thing there is to tell whoever is ordering from whoever is abusing.
      *
-     * ── Por qué son configurables ──────────────────────────────────────────
-     *
-     * En producción los valores son los de abajo y no se tocan. En desarrollo
-     * hacen falta más altos, y no por comodidad: el navegador de las pruebas,
-     * el bot y todo lo demás salen de la MISMA máquina, así que un límite por
-     * dirección deja de medir a un cliente y pasa a medir al equipo entero. Con
-     * los valores de producción, una suite que hace ocho pedidos seguidos falla
-     * con «Too Many Attempts» en una prueba que no tiene nada que ver — y se
-     * pierde una tarde buscándolo en el sitio equivocado.
-     *
-     * Se apoya en `demo_tools`, que es la misma bandera que ya decide qué es un
-     * entorno de trabajo y qué es el servidor de un cliente.
+     * Configurable because development needs higher values, and not for
+     * convenience: the test browser and the bot come from the SAME machine, so
+     * a per-address limit stops measuring one customer and starts measuring the
+     * whole suite. It leans on `demo_tools`, the flag that already tells a
+     * working environment from a customer's server.
      */
-    private function registrarFrenos(): void
+    private function registerThrottles(): void
     {
-        $suelto = config('kombo.demo_tools') === true;
+        $loose = config('kombo.demo_tools') === true;
 
         RateLimiter::for(
             'portal-pedidos',
-            fn (Request $request): Limit => Limit::perMinute($suelto ? 200 : 8)->by($request->ip() ?? 'sin-ip'),
+            fn (Request $request): Limit => Limit::perMinute($loose ? 200 : 8)->by($request->ip() ?? 'sin-ip'),
         );
 
         RateLimiter::for(
             'portal-seguimiento',
-            fn (Request $request): Limit => Limit::perMinute($suelto ? 600 : 120)->by($request->ip() ?? 'sin-ip'),
+            fn (Request $request): Limit => Limit::perMinute($loose ? 600 : 120)->by($request->ip() ?? 'sin-ip'),
         );
 
-        // Más apretado que los pedidos: son archivos, y subir archivos sin
-        // sesión es la puerta más cara de todas.
+        // Tighter than orders: these are files, and uploading files with no
+        // session is the most expensive door of all.
         RateLimiter::for(
-            'portal-comprobantes',
-            fn (Request $request): Limit => Limit::perMinute($suelto ? 100 : 5)->by($request->ip() ?? 'sin-ip'),
+            'portal-receipts',
+            fn (Request $request): Limit => Limit::perMinute($loose ? 100 : 5)->by($request->ip() ?? 'sin-ip'),
         );
     }
 }

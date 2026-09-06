@@ -12,18 +12,10 @@ use Illuminate\Validation\ValidationException;
 use Platform\Audit\AuditLogger;
 
 /**
- * La segunda puerta: dar de alta una pantalla. **Una sola vez en su vida.**
+ * Second door: registering a screen, once in its life.
  *
- * La hace alguien con correo y contraseña —el dueño, el encargado— cuando se
- * pone la tablet en la cocina o la PC en el mostrador. Devuelve un token que
- * se queda en esa máquina.
- *
- * Ese token **no opera nada por sí solo**: su única habilidad es `device`, que
- * sirve para pedir la lista de nombres y validar un PIN. Y punto.
- *
- * La razón es concreta: ese token vive en una máquina de local que se presta,
- * se roba y a veces se vende. Si sirviera para vender o para anular, robarla
- * sería robar el negocio.
+ * Returns a token whose only ability is `device` — list the staff names and
+ * validate a PIN. Shop machines get lent, lost and sold; this one is worthless.
  */
 final class DeviceTokenController
 {
@@ -45,8 +37,8 @@ final class DeviceTokenController
             ]);
         }
 
-        // Dar de alta otra vez la misma pantalla revoca el token anterior. Es
-        // lo que quieres si la tablet se perdió y estás configurando la nueva.
+        // Registering the same screen again revokes the previous token, which is
+        // what you want when the tablet was lost and you are setting up the new one.
         $user->tokens()->where('name', $data['device'])->delete();
 
         $token = $user->createToken($data['device'], ['device']);

@@ -17,14 +17,13 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Un usuario pertenece a UN negocio.
+ * A user belongs to ONE tenant, and the email is unique WITHIN it.
  *
- * El correo es único DENTRO del negocio, no en todo el sistema. Es lo que
- * permite que la misma persona trabaje en dos locales, y que al iniciar sesión
- * no haya que preguntar «¿a cuál de tus negocios?»: el subdominio ya lo dijo.
+ * That lets the same person work at two locations, and means signing in never
+ * has to ask "which of your businesses?" — the subdomain already said.
  *
- * `tenant_id` NO es asignable en masa —lo vigila una prueba de arquitectura— y
- * lo rellena solo el trait BelongsToTenant al crear.
+ * `tenant_id` is not mass assignable (an architecture test watches that); the
+ * BelongsToTenant trait fills it in on create.
  */
 #[Fillable(['name', 'email', 'password', 'pin_hash', 'is_active'])]
 #[Hidden(['password', 'pin_hash', 'remember_token'])]
@@ -43,8 +42,8 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
             'is_active' => 'boolean',
             'password' => 'hashed',
-            // El PIN se guarda con hash igual que la contraseña. Que sean
-            // cuatro dígitos no lo hace menos secreto: autoriza anular ventas.
+            // The PIN is hashed like the password. Four digits does not make it less
+            // of a secret: it authorises voiding sales.
             'pin_hash' => 'hashed',
         ];
     }
@@ -61,12 +60,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Los permisos de este usuario.
+     * This user's permissions.
      *
-     * El dueño devuelve `['*']` en vez de una lista: se EXPANDE después contra
-     * los módulos que el negocio tenga encendidos hoy. Si se le guardaran los
-     * permisos uno a uno, el día que encendiera un módulo nuevo no podría
-     * usarlo hasta que alguien le añadiera los permisos a mano.
+     * An owner gets `['*']` rather than a list, expanded afterwards against
+     * whichever modules the tenant has on today. Stored one by one, enabling a
+     * new module would leave them unable to use it until somebody added them.
      *
      * @return list<string>
      */
@@ -84,10 +82,10 @@ class User extends Authenticatable
     }
 
     /**
-     * Los que puede INICIAR pero no ejecutar solo.
+     * The ones they can START but not carry out alone.
      *
-     * La caja necesita esta lista para saber cuándo abrir el diálogo del PIN
-     * antes de intentar la acción, en vez de tras un rechazo del servidor.
+     * The till needs this to open the PIN dialog before attempting the action
+     * rather than after the server rejects it.
      *
      * @return list<string>
      */

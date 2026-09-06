@@ -8,15 +8,15 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * El índice que sirve a los reportes, y sólo ése.
+ * The index that serves the reports, and only that one.
  *
- * Todas las consultas de aquí preguntan lo mismo: «los pedidos de este negocio
- * que se confirmaron entre estas dos fechas». Sin este índice, PostgreSQL
- * recorre la tabla entera de pedidos —la de un año— cada vez que el dueño abre
- * la pantalla desde el teléfono.
+ * Every query here asks the same thing: "this business's orders confirmed
+ * between these two dates". Without this index, PostgreSQL walks the entire
+ * orders table — a year of it — every time the owner opens the screen on their
+ * phone.
  *
- * El de `(tenant_id, status, placed_at)` que ya existe no sirve aquí: ordena
- * primero por estado, y estas consultas no filtran por uno solo.
+ * The existing `(tenant_id, status, placed_at)` is no use here: it orders by
+ * status first, and these queries do not filter on a single one.
  */
 return new class extends Migration
 {

@@ -9,15 +9,14 @@ use Modules\Reports\Interfaces\Http\Controllers\ReportsController;
 Route::prefix('api/v1')
     ->middleware(['api', 'auth:sanctum', 'module:reports'])
     ->group(function (): void {
-        // Ver los totales va con su propio permiso: hay negocios donde el
-        // encargado opera todo el día y el dueño prefiere que no los vea.
+        // Seeing the totals has its own permission: in some tenants the manager
+        // works all day and the owner would rather they did not.
         Route::get('/reports/sales', ReportsController::class)
             ->middleware('permission:reports.view_sales');
 
         /*
-         * Exportar. Es un GET a propósito: así sigue funcionando cuando el
-         * negocio está suspendido, que es justo cuando más falta hace —sus
-         * datos son suyos aunque nos deba tres meses—.
+         * Exporting. A GET on purpose, so it keeps working while the tenant is
+         * suspended — exactly when it is needed most.
          */
         Route::get('/reports/export', ExportController::class)
             ->middleware('permission:reports.view_sales');

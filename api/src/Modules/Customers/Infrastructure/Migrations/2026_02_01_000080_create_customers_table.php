@@ -8,18 +8,13 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * Los clientes del negocio, identificados por su teléfono.
+ * The tenant's customers, identified by phone number.
  *
- * **No lleva clave foránea desde `orders`**, y es deliberado. Los pedidos ya
- * guardan el nombre y el teléfono copiados —como el nombre del producto— así
- * que un pedido de hace seis meses se lee entero aunque el cliente se borre. La
- * ficha se une por teléfono al consultarla.
+ * No foreign key from `orders`, deliberately: orders already store name and
+ * phone as copies, so an old order reads in full even if the customer is
+ * deleted — and `Orders` never learns this module exists.
  *
- * La ventaja de no tener la columna: `Orders` no sabe que este módulo existe, y
- * apagar los clientes no deja pedidos apuntando a una tabla que ya no se usa.
- *
- * El teléfono va CIFRADO, como en `users`: es un dato personal, y una lista de
- * teléfonos filtrada es exactamente lo que un competidor querría.
+ * The phone number is ENCRYPTED, as in `users`.
  */
 return new class extends Migration
 {
@@ -27,9 +22,9 @@ return new class extends Migration
     {
         TenantSchema::create('customers', function (Blueprint $table): void {
             /*
-             * El teléfono cifrado NO se puede indexar ni buscar por igualdad
-             * —el cifrado de Laravel no es determinista—, así que al lado va un
-             * hash: sirve para encontrar al cliente sin poder leer el número.
+             * An encrypted phone cannot be indexed or matched by equality —
+             * Laravel's encryption is not deterministic — so a hash goes
+             * alongside: enough to find the customer without reading the number.
              */
             $table->text('phone');
             $table->string('phone_hash', 64);
@@ -37,8 +32,7 @@ return new class extends Migration
             $table->string('name')->nullable();
             $table->text('notes')->nullable();
 
-            // Se mantienen solos, por evento. Sirven para el «quién compra
-            // más» sin tener que sumar todos los pedidos cada vez.
+            // Maintained by event, so "who buys most" does not sum every order.
             $table->integer('orders_count')->default(0);
             $table->bigInteger('spent_cents')->default(0);
             $table->timestampTz('last_order_at')->nullable();

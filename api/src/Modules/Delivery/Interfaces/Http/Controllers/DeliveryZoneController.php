@@ -10,15 +10,15 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Las zonas de reparto: un barrio, su tarifa y cuánto se tarda en llegar.
+ * The delivery zones: a neighbourhood, its fee, and how long it takes.
  */
 final class DeliveryZoneController
 {
     public function index(Request $request): JsonResponse
     {
         $zones = DeliveryZoneModel::query()
-            // El panel necesita ver las apagadas para volver a encenderlas; el
-            // portal, no.
+            // The dashboard needs the switched-off ones to switch them back on; the
+            // portal does not.
             ->when(! $request->boolean('incluir_inactivas'), fn ($q) => $q->where('is_active', true))
             ->orderBy('sort_order')
             ->orderBy('name')
@@ -44,11 +44,8 @@ final class DeliveryZoneController
     }
 
     /**
-     * Apagar una zona, no borrarla.
-     *
-     * Un pedido de hace dos meses fue a algún sitio, y borrar la zona dejaría
-     * ese pedido sin explicación. Se apaga: deja de ofrecerse y lo viejo sigue
-     * legible.
+     * Switching a zone off, not deleting it: an order from two months ago went
+     * somewhere, and deleting the zone would leave it unexplained.
      */
     public function destroy(string $id): JsonResponse
     {

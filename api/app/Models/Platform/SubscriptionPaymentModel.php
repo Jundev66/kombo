@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
-/** Un pago de suscripción, anotado a mano por quien lo vio entrar. */
+/** A subscription payment, recorded by hand by whoever saw it come in. */
 #[Fillable([
     'tenant_id', 'subscription_id', 'amount_cents', 'currency', 'method',
     'reference', 'paid_at', 'period_from', 'period_to', 'receipt_url',

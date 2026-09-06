@@ -8,25 +8,21 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Los planes.
+ * The plans.
  *
- * Se cobra por TAMAÑO, no por funcionalidad básica: ningún negocio se queda
- * sin saber cuánto vendió porque no le alcanza. Lo que separa los planes es
- * cuántos usuarios, cuántos productos y cuántos pedidos al mes — más los
- * módulos que aportan capacidades nuevas (la caja, los canales).
- *
- * Es aditivo (`upsert`): volver a sembrar no pisa lo que un negocio ya tiene
- * ni duplica filas.
+ * You pay for SIZE, not for basic functionality. What separates them is how
+ * many users, products and orders a month — plus the modules that add new
+ * capabilities. Additive (`upsert`), so re-seeding overwrites nothing.
  */
 class PlanSeeder extends Seeder
 {
     public function run(): void
     {
-        // `null` significa ILIMITADO. Nunca cero: cero es "ninguno", que es
-        // una respuesta distinta y mucho peor de depurar.
+        // `null` means UNLIMITED. Never zero: zero is "none", a different answer
+        // and far worse to debug.
         $plans = [
             [
-                'code' => 'inicial',
+                'code' => 'starter',
                 'name' => 'Inicial',
                 'description' => 'Para empezar a dejar el cuaderno hoy, sin pagar nada.',
                 'sort_order' => 1,
@@ -35,13 +31,12 @@ class PlanSeeder extends Seeder
                 'max_products' => 60,
                 'max_orders_month' => 300,
                 'trial_days' => null,
-                // El portal va también en el plan gratis: es cómo un negocio
-                // pequeño empieza a recibir pedidos, y cobrarlo aparte sería
-                // cobrar por lo básico.
+                // The portal is in the free plan too: it is how a small tenant starts
+                // taking orders, and charging for it would be charging for the basics.
                 'modules' => ['catalog', 'orders', 'kitchen', 'portal'],
             ],
             [
-                'code' => 'negocio',
+                'code' => 'business',
                 'name' => 'Negocio',
                 'description' => 'El local completo: caja, portal de pedidos y WhatsApp.',
                 'sort_order' => 2,
@@ -53,7 +48,7 @@ class PlanSeeder extends Seeder
                 'modules' => ['catalog', 'orders', 'kitchen', 'portal', 'counter', 'documents', 'delivery', 'channels', 'reports', 'customers'],
             ],
             [
-                'code' => 'completo',
+                'code' => 'complete',
                 'name' => 'Completo',
                 'description' => 'Sin límites de equipo, con reportes comparativos.',
                 'sort_order' => 3,

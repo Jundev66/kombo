@@ -8,39 +8,27 @@ use Illuminate\Support\Facades\Schema;
 use Platform\Tenancy\Database\TenantSchema;
 
 /**
- * Los canales: WhatsApp y Telegram.
+ * The channels: WhatsApp and Telegram.
  *
- * Hay una decisión de fondo aquí que conviene entender antes de tocar nada.
+ * A message from Meta carries no subdomain — it arrives at a shared URL with
+ * the number's id in the body — so we must know whose it is BEFORE querying
+ * anything of theirs, which is what RLS prevents without context. Hence two
+ * tables:
  *
- * **Un mensaje que llega de Meta no trae subdominio.** Todo el sistema resuelve
- * el negocio a partir de la dirección desde la que se pidió la página, y un
- * webhook no tiene esa dirección: llega a una URL común, con el identificador
- * del número de WhatsApp dentro del cuerpo. Hay que saber de qué negocio es
- * ANTES de poder consultar nada suyo — y consultar sus tablas es justo lo que
- * RLS impide sin contexto.
+ *   `channel_routes`    platform-level, no RLS. The phone book: "this number
+ *                       belongs to this tenant". No credentials, no messages.
+ *   `channel_accounts`  tenant-level, RLS, credentials ENCRYPTED. Only read
+ *                       once we know whose it is.
  *
- * De ahí las dos tablas:
- *
- *   `channel_routes`    De plataforma, sin `tenant_id` propio y sin RLS. Es la
- *                       guía telefónica: «este número de WhatsApp es de este
- *                       negocio». Nada más. Ni credenciales, ni mensajes.
- *
- *   `channel_accounts`  De negocio, con RLS y las credenciales CIFRADAS. Sólo
- *                       se lee cuando ya se sabe de quién es.
- *
- * Podrían ser una sola tabla, y sería un error: las credenciales de todos los
- * negocios juntas en una tabla sin RLS es un fallo a un `where` de distancia.
+ * One table would put every tenant's credentials one `where` away.
  */
 return new class extends Migration
 {
     public function up(): void
     {
         /*
-         * La guía telefónica de los webhooks.
-         *
-         * Es el equivalente exacto de `tenants.slug` para un mensaje: responde
-         * «¿de quién es esto?» cuando todavía no hay negocio en contexto. Por
-         * eso vive en la plataforma y no lleva RLS — igual que `tenants`.
+         * The webhooks' phone book: the exact equivalent of `tenants.slug` for
+         * a message, answering "whose is this?" before there is any context.
          */
         Schema::create('channel_routes', function (Blueprint $table): void {
             $table->uuid('id')->primary();
@@ -48,12 +36,10 @@ return new class extends Migration
             $table->string('channel');
 
             /*
-             * Lo que identifica esta cuenta EN el canal: el `phone_number_id`
-             * de Meta, o el identificador del bot de Telegram.
-             *
-             * Único de forma GLOBAL, no por negocio: un mismo número de
-             * WhatsApp no puede pertenecer a dos negocios, y la unicidad tiene
-             * que valer antes de saber de cuál es.
+             * What identifies this account ON the channel: Meta's
+             * `phone_number_id`, or the Telegram bot's id. Unique GLOBALLY, not
+             * per tenant — the same number cannot belong to two tenants, and
+             * that has to hold before we know whose it is.
              */
             $table->string('external_id');
 
@@ -70,24 +56,20 @@ return new class extends Migration
             $table->string('channel');
             $table->string('external_id');
 
-            // Cómo lo llama el dueño: «el WhatsApp del local».
+            // What the owner calls it: "the shop's WhatsApp".
             $table->string('label')->nullable();
 
             /*
-             * CIFRADAS en la base, con el cast `encrypted` del modelo.
-             *
-             * No es una precaución teórica: aquí dentro va el token permanente
-             * con el que se puede escribir a todos los clientes del negocio en
-             * su nombre. Un volcado de la base que se filtre no puede ser
-             * también una lista de tokens listos para usar.
+             * ENCRYPTED, via the model's `encrypted` cast. What goes in here is
+             * the permanent token that can write to every customer in the
+             * tenant's name: a leaked dump must not also be a list of
+             * ready-to-use tokens.
              */
             $table->text('credentials')->nullable();
 
             /*
-             * El secreto con el que se firma —o se comprueba— cada webhook.
-             *
-             * Aparte de las credenciales porque se consulta en cada mensaje que
-             * entra, antes de hacer nada más.
+             * The secret each webhook is signed with. Kept apart from the
+             * credentials because it is read on every incoming message.
              */
             $table->text('webhook_secret')->nullable();
 
@@ -100,25 +82,22 @@ return new class extends Migration
         TenantSchema::create('conversations', function (Blueprint $table): void {
             $table->string('channel');
 
-            // Con quién se habla, del lado del canal: el teléfono en WhatsApp,
-            // el chat_id en Telegram.
+            // Who is being talked to, on the channel's side: the phone number on
+            // WhatsApp, the chat_id on Telegram.
             $table->string('external_chat_id');
 
             $table->string('customer_name')->nullable();
             $table->string('customer_phone')->nullable();
 
             /*
-             * Alguien del negocio tomó la conversación.
-             *
-             * Mientras esté puesto, el bot **se calla**. Es la salida que
-             * necesita cualquier bot para no ser un muro: el cliente pide
-             * hablar con una persona y deja de recibir menús automáticos
-             * encima de lo que está escribiendo.
+             * Somebody from the tenant took the conversation over; while it is
+             * set, the bot goes quiet. The escape hatch any bot needs so as not
+             * to be a wall.
              */
             $table->boolean('is_human_takeover')->default(false);
             $table->timestampTz('takeover_at')->nullable();
 
-            // Dónde se quedó la conversación: en el menú, viendo una categoría.
+            // Where the conversation got to: at the menu, viewing a category.
             $table->string('state')->default('idle');
             $table->jsonb('state_data')->default('{}');
 
@@ -131,18 +110,16 @@ return new class extends Migration
         TenantSchema::create('messages', function (Blueprint $table): void {
             TenantSchema::references($table, 'conversation_id', 'conversations', onDelete: 'cascade');
 
-            // `in` lo escribió el cliente; `out` lo mandamos nosotros.
+            // `in` was written by the customer; `out` was sent by us.
             $table->string('direction');
 
             $table->text('content')->nullable();
             $table->string('message_type')->default('text');
 
             /*
-             * El identificador que le puso el canal.
-             *
-             * Se guarda para poder responder «esto ya lo procesamos» si Meta
-             * reintenta el mismo mensaje — que lo hace, y más de lo que uno
-             * espera.
+             * The id the channel gave it, stored so we can answer "already
+             * processed" when Meta retries — which it does, more than you would
+             * expect.
              */
             $table->string('external_id')->nullable();
 

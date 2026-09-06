@@ -11,18 +11,14 @@ use Platform\Audit\AuditLogger;
 use Platform\Tenancy\TenantContext;
 
 /**
- * Emitir la nota de entrega de un pedido.
+ * Issuing an order's delivery note.
  *
- * Dos cosas que parecen detalles de implementación y son decisiones:
+ * The sequence number is generated under a lock, per tenant and series, with
+ * the unique `(tenant_id, series, number)` behind it.
  *
- * **El correlativo se genera bajo cerrojo por negocio y serie.** Dos cajas
- * cobrando a la vez no pueden sacar el mismo número, y detrás está el único
- * `(tenant_id, series, number)` por si algo fallara.
- *
- * **Se guarda un `snapshot` con el documento tal como se imprimió.** Reimprimir
- * la nota de hace tres meses tiene que dar exactamente el mismo papel, aunque
- * el producto se haya renombrado o borrado. Reconstruirla desde las tablas
- * vivas daría otro papel, y el que reclama tiene el original en la mano.
+ * A `snapshot` stores the document exactly as printed: reprinting a note from
+ * three months ago has to produce the same piece of paper, and whoever is
+ * complaining has the original in their hand.
  */
 final class IssueDeliveryNote
 {
@@ -36,9 +32,8 @@ final class IssueDeliveryNote
 
     public function execute(OrderModel $order, ?string $customerName = null, ?string $customerTaxId = null): DeliveryNoteModel
     {
-        // Una nota por pedido. Si ya la tiene, se devuelve la misma en vez de
-        // emitir otra: cobrar dos veces por un doble toque no puede generar
-        // dos documentos con dos números distintos.
+        // One note per order. If it already has one the same is returned: a double
+        // tap cannot produce two documents with two different numbers.
         $existing = DeliveryNoteModel::where('order_id', $order->id)->first();
 
         if ($existing !== null) {
@@ -74,12 +69,11 @@ final class IssueDeliveryNote
     }
 
     /**
-     * Anular una nota.
+     * Voiding a note. It does NOT release the number.
      *
-     * **No libera el número.** La nota queda anulada con su motivo y su autor,
-     * y el siguiente documento toma el siguiente número. Un correlativo que se
-     * reutiliza no sirve para nada: si dos papeles pueden llevar el mismo
-     * número, el número deja de identificar a ninguno.
+     * The note stays voided with its reason and author, and the next document
+     * takes the next number. If two pieces of paper can carry the same number,
+     * the number identifies neither.
      */
     public function void(string $noteId, string $reason): DeliveryNoteModel
     {
@@ -108,9 +102,9 @@ final class IssueDeliveryNote
 
     private function nextNumber(string $series): int
     {
-        // Cerrojo consultivo por negocio y serie: se suelta solo al terminar la
-        // transacción, y funciona también con la tabla vacía —justo la primera
-        // nota del día, cuando dos cajas arrancan a la vez—.
+        // Advisory lock per tenant and series: released when the transaction ends,
+        // and it works on an empty table too — the first note of the day, when two
+        // tills start at once.
         $this->db->select('select pg_advisory_xact_lock(hashtext(?))', [
             "notes:{$this->context->id()}:{$series}",
         ]);
@@ -124,14 +118,14 @@ final class IssueDeliveryNote
     }
 
     /**
-     * El documento, congelado.
+     * The document, frozen.
      *
      * @return array<string, mixed>
      */
     private function snapshot(OrderModel $order): array
     {
         return [
-            // Lo primero, y literal: este papel dice lo que es.
+            // First, and verbatim: this piece of paper says what it is.
             'title' => 'NOTA DE ENTREGA',
             'disclaimer' => 'No es una factura',
 
@@ -154,8 +148,8 @@ final class IssueDeliveryNote
             'deliveryFeeCents' => $order->delivery_fee_cents,
             'totalCents' => $order->total_cents,
             'currency' => $order->currency,
-            // La tasa con la que se cobró, congelada: el importe en bolívares
-            // de esta nota no puede cambiar mañana.
+            // The rate it was charged at, frozen: this note's bolívar amount cannot
+            // change tomorrow.
             'exchangeRate' => $order->exchange_rate === null ? null : (float) $order->exchange_rate,
 
             'payments' => $order->payments->map(fn ($p): array => [

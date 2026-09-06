@@ -12,14 +12,11 @@ use Modules\Catalog\Domain\ValueObjects\StockPolicy;
 use Shared\Domain\ValueObjects\Money;
 
 /**
- * Algo que este negocio vende.
+ * Something this tenant sells.
  *
- * PHP puro: ni Eloquent, ni peticiones, ni base de datos. Una prueba de
- * arquitectura lo verifica. La razón práctica es que las reglas de abajo —qué
- * precio es válido, cuándo se considera que cambió, si hay existencias— tienen
- * que valer igual llamadas desde la caja, desde el portal, desde el bot y
- * desde un importador de Excel. Metidas en un modelo, valen sólo donde alguien
- * se acordó de llamarlas.
+ * Plain PHP — no Eloquent, no requests, no database; an architecture test
+ * verifies it. The rules below have to hold identically from the till, the
+ * portal, the bot and an Excel importer.
  */
 final class Product
 {
@@ -59,16 +56,15 @@ final class Product
             description: $description,
             photoUrl: $photoUrl,
             active: true,
-            // Se sella al nacer para que «desde cuándo no reviso este precio»
-            // tenga respuesta desde el primer día.
+            // Stamped at birth so "how long since I reviewed this price" has an
+            // answer from day one.
             priceUpdatedAt: $now ?? new DateTimeImmutable,
         );
     }
 
     /**
-     * Rehidrata desde la base. No valida: lo que ya está guardado, está
-     * guardado, y reventar al LEER convierte un dato viejo en una pantalla
-     * caída.
+     * Rehydrates from the database without validating: blowing up on READ turns
+     * stale data into a broken screen.
      */
     public static function rehydrate(
         string $id,
@@ -86,12 +82,11 @@ final class Product
     }
 
     /**
-     * Cambiar el precio.
+     * Changing the price.
      *
-     * **`price_updated_at` sólo se mueve si el precio cambió de verdad.**
-     * Guardar el formulario sin tocar el precio no puede hacer parecer que se
-     * revisó: en un país con inflación, esa fecha es justo lo que el dueño mira
-     * para saber qué lleva meses sin ajustar, y ensuciarla la vuelve inútil.
+     * `price_updated_at` only moves if the price really changed. In a country
+     * with inflation that date is what the owner scans for what has gone months
+     * without adjustment, and dirtying it makes it useless.
      */
     public function changePriceTo(Money $newPrice, ?DateTimeImmutable $now = null): void
     {
@@ -136,10 +131,8 @@ final class Product
     }
 
     /**
-     * Sacarlo de la carta sin borrarlo.
-     *
-     * Nunca se borra un producto que ya se vendió: los pedidos viejos lo
-     * referencian y una comanda de hace tres meses tiene que poder leerse.
+     * Takes it off the menu without deleting it: old orders reference it and a
+     * kitchen ticket from three months ago has to stay readable.
      */
     public function deactivate(): void
     {
@@ -152,11 +145,8 @@ final class Product
     }
 
     /**
-     * ¿Se le puede vender a alguien ahora mismo?
-     *
-     * Junta las dos razones por las que no se puede —lo sacaron de la carta, o
-     * se acabó— para que ninguna pantalla tenga que acordarse de comprobar las
-     * dos por su cuenta.
+     * Can it be sold right now? Both reasons it cannot be — off the menu, or
+     * sold out — so no screen has to remember to check both.
      */
     public function isSellable(int $quantity = 1): bool
     {
@@ -210,9 +200,8 @@ final class Product
 
     private static function assertSellablePrice(Money $price): void
     {
-        // Un MODIFICADOR sí puede descontar («sin queso», -0,50). Un producto
-        // no: un plato que cuesta menos que nada es siempre un error de
-        // tecleo, y descubrirlo al cuadrar la caja es tarde.
+        // A MODIFIER may take money off ("no cheese", -0.50); a product may not.
+        // A dish costing less than nothing is always a typo.
         if ($price->isNegative()) {
             throw new InvalidPrice('El precio no puede ser negativo.');
         }

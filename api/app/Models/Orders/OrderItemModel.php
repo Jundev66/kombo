@@ -11,8 +11,8 @@ use Platform\Tenancy\Concerns\BelongsToTenant;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * Una línea del pedido. Nombre y precio COPIADOS del catálogo al pedir:
- * el producto puede cambiar de nombre o desaparecer, el pedido no.
+ * One line of the order. Name and price COPIED from the catalog at order time:
+ * the product may be renamed or disappear, the order may not.
  */
 #[Fillable(['order_id', 'product_id', 'product_name', 'unit_price_cents',
     'quantity', 'modifiers_total_cents', 'line_total_cents', 'notes', 'sort_order'])]

@@ -10,10 +10,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Platform\Tenancy\Concerns\UsesUuidV7;
 
 /**
- * La suscripción de un negocio.
+ * A tenant's subscription.
  *
- * Todo gira alrededor de `current_period_end`. No hay banderas que alguien
- * tenga que acordarse de mover: hay una fecha, y un trabajo diario que la mira.
+ * Everything turns on `current_period_end`. No flags anyone has to remember to
+ * move: a date, and a daily job that looks at it.
  */
 #[Fillable([
     'tenant_id', 'plan_code', 'status', 'started_at',
@@ -41,7 +41,7 @@ class SubscriptionModel extends Model
         return $this->hasMany(SubscriptionPaymentModel::class, 'subscription_id')->latest('paid_at');
     }
 
-    /** Cuándo deja de poder escribir si no paga. */
+    /** When it stops being able to write if nobody pays. */
     public function suspendsAt(): \DateTimeImmutable
     {
         return $this->current_period_end->addDays($this->grace_days)->toDateTimeImmutable();

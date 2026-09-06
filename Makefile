@@ -1,12 +1,12 @@
 .DEFAULT_GOAL := help
 
-# ── Entorno ─────────────────────────────────────────────────────────────────
+# ── Environment ─────────────────────────────────────────────────────────────
 
 up:               ## Levantar todo (nginx, api, colas, postgres, redis y las 5 apps)
 	docker compose up -d
 
 up-lite:          ## Sólo lo imprescindible: API, base, panel y cocina (máquinas justas)
-	docker compose up -d nginx api postgres redis panel kds
+	docker compose up -d nginx api postgres redis dashboard kds
 
 setup:            ## Primera vez: .env, clave, migraciones y base de pruebas
 	docker compose exec api cp -n .env.example .env || true
@@ -27,8 +27,8 @@ logs:             ## Seguir los logs
 down:             ## Apagar
 	docker compose down
 
-# ── El registro de trabajos ─────────────────────────────────────────────────
-# El porqué de cómo están las cosas. Ver docs/trabajos/README.md.
+# ── The work log ────────────────────────────────────────────────────────────
+# The why behind how things are. See docs/trabajos/README.md.
 
 trabajo:          ## Abrir un trabajo nuevo: make trabajo t="Paginar la carta"
 	@test -n "$(t)" || (echo 'Falta el título: make trabajo t="Paginar la carta"' >&2; exit 1)
@@ -40,8 +40,8 @@ trabajos:         ## Regenerar el índice del registro
 trabajos-check:   ## Códigos únicos, cabeceras completas e índice al día
 	@./scripts/trabajos.sh verificar
 
-# ── Verificar ───────────────────────────────────────────────────────────────
-# Esto es lo que tiene que estar verde antes de decir "listo".
+# ── Verify ──────────────────────────────────────────────────────────────────
+# What has to be green before saying "done".
 
 test:             ## Toda la suite del backend
 	docker compose exec api ./vendor/bin/pest

@@ -8,12 +8,11 @@ use Modules\Orders\Domain\Exceptions\InvalidQuantity;
 use Shared\Domain\ValueObjects\Money;
 
 /**
- * Una línea del pedido: dos reinas pepiadas, una sin cebolla.
+ * One line of the order: two reinas pepiadas, one without onion.
  *
- * El nombre y el precio unitario van **copiados** del catálogo al momento de
- * pedir. Es deliberado y es la regla más importante de aquí: un ticket de hace
- * seis meses debe decir lo que decía cuando se imprimió, aunque el producto se
- * haya renombrado, encarecido o borrado.
+ * Name and unit price are COPIED from the catalog at order time. A ticket from
+ * six months ago must say what it said when it was printed, even if the product
+ * has since been renamed, repriced or deleted.
  */
 final readonly class OrderLine
 {
@@ -34,10 +33,8 @@ final readonly class OrderLine
     }
 
     /**
-     * Lo que suman los agregados de UNA unidad.
-     *
-     * Dos hamburguesas con extra queso llevan el extra dos veces: el queso va
-     * en cada una, no en el pedido.
+     * What the add-ons on ONE unit come to: two burgers with extra cheese carry
+     * the extra twice.
      */
     public function modifiersTotal(): Money
     {
@@ -51,11 +48,9 @@ final readonly class OrderLine
     }
 
     /**
-     * El total de la línea.
-     *
-     * `(precio + agregados) × cantidad`, y NO `precio × cantidad + agregados`.
-     * La diferencia se ve en cuanto alguien pide dos de algo con extra: la
-     * segunda fórmula cobra un solo extra y regala el otro.
+     * The line total: `(price + add-ons) × quantity`, and NOT
+     * `price × quantity + add-ons`, which charges for one extra and gives the
+     * other away.
      */
     public function total(): Money
     {
@@ -63,10 +58,8 @@ final readonly class OrderLine
     }
 
     /**
-     * Los agregados en texto, para la comanda y para el documento.
-     *
-     * Ya resueltos: la cocina lee «SIN CEBOLLA · EXTRA QUESO», no una lista de
-     * identificadores que habría que ir a buscar.
+     * The add-ons as text for the ticket and the document: the kitchen reads
+     * "NO ONION · EXTRA CHEESE", not ids to look up.
      */
     public function modifiersText(): string
     {

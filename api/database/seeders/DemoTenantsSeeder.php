@@ -86,8 +86,12 @@ class DemoTenantsSeeder extends Seeder
         $this->openingHours($tenantId);
         $this->portalSettings($tenantId);
 
+        // Only the arepera gets a menu. La Esquina stays empty on purpose: it is
+        // the tenant the "an empty menu says what to do" test needs, and an
+        // arepera with nothing to sell is not a demonstration of anything.
         if ($slug === 'elsazon') {
             $this->zones($tenantId);
+            $this->menu($tenantId);
         }
 
         $roles = $this->roles($tenantId);
@@ -193,6 +197,103 @@ class DemoTenantsSeeder extends Seeder
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    /**
+     * The arepera's menu: six categories and more than sixty products.
+     *
+     * The size is not decoration. The products screen pages at fifty, and a menu
+     * that fits on one page never exercises the notice that says how many are
+     * being seen out of how many — the very thing KMB-0009 is about. A real
+     * arepera has this many; the demo may as well look like one.
+     */
+    private function menu(string $tenantId): void
+    {
+        // Seeding runs before EVERY test run. Without this the menu would double
+        // each time and «Se ven 50 de N» would say something different every day.
+        if (DB::table('categories')->where('tenant_id', $tenantId)->exists()) {
+            return;
+        }
+
+        $menu = [
+            ['Arepas', 12, [
+                ['Reina Pepiada', 450], ['Pelúa', 480], ['Dominó', 380],
+                ['Catira', 450], ['Rumbera', 500], ['Sifrina', 500],
+                ['Pabellón', 550], ['Perico', 350], ['Queso de mano', 400],
+                ['Queso guayanés', 420], ['Queso amarillo', 350],
+                ['Carne mechada', 500], ['Pollo mechado', 450],
+                ['Chicharrón', 480], ['Jamón y queso', 400], ['Atún', 430],
+                ['Caraotas con queso', 380], ['Pernil', 500],
+                ['Salchicha', 380], ['Huevos revueltos', 350],
+                ['Aguacate con queso', 420], ['Tocineta con queso', 460],
+                ['Mechada con aguacate', 550], ['Vegetariana', 400],
+            ]],
+            ['Cachapas y bollos', 15, [
+                ['Cachapa sencilla', 400], ['Cachapa con queso de mano', 550],
+                ['Cachapa con cochino frito', 650], ['Cachapa con nata y queso', 600],
+                ['Cachapa con pernil', 620], ['Bollo pelón', 400],
+            ]],
+            ['Empanadas', 10, [
+                ['Empanada de carne mechada', 300], ['Empanada de pollo', 300],
+                ['Empanada de queso', 250], ['Empanada de cazón', 350],
+                ['Empanada de pabellón', 380], ['Empanada de caraotas', 280],
+                ['Empanada de pernil', 320], ['Empanada de dominó', 280],
+            ]],
+            ['Pasapalos', 10, [
+                ['Tequeños (6 unidades)', 400], ['Tequeños de queso crema', 450],
+                ['Yuca frita', 300], ['Tostones', 300], ['Papas fritas', 300],
+                ['Chicharrón', 450], ['Mandocas (3 unidades)', 280],
+            ]],
+            ['Bebidas', 3, [
+                ['Jugo de parchita', 250], ['Jugo de lechosa', 250],
+                ['Jugo de mora', 280], ['Jugo de guayaba', 250],
+                ['Batido de fresa con leche', 350], ['Merengada de chocolate', 380],
+                ['Papelón con limón', 200], ['Chicha andina', 300],
+                ['Malta', 200], ['Refresco', 180],
+                ['Café con leche', 150], ['Café negro', 100],
+            ]],
+            ['Postres', 2, [
+                ['Quesillo', 300], ['Torta de auyama', 320],
+                ['Marquesa de chocolate', 350], ['Dulce de lechosa', 280],
+                ['Golfeado con queso', 300], ['Tres leches', 380],
+            ]],
+        ];
+
+        foreach ($menu as $categoryOrder => [$categoryName, $prepMinutes, $products]) {
+            $categoryId = (string) Str::uuid7();
+
+            DB::table('categories')->insert([
+                'id' => $categoryId,
+                'tenant_id' => $tenantId,
+                'name' => $categoryName,
+                'sort_order' => $categoryOrder,
+                'is_active' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $rows = [];
+
+            foreach ($products as $order => [$name, $priceCents]) {
+                $rows[] = [
+                    'id' => (string) Str::uuid7(),
+                    'tenant_id' => $tenantId,
+                    'category_id' => $categoryId,
+                    'name' => $name,
+                    'price_cents' => $priceCents,
+                    'currency' => 'USD',
+                    'price_updated_at' => now(),
+                    'prep_minutes' => $prepMinutes,
+                    'is_active' => true,
+                    'track_stock' => false,
+                    'sort_order' => $order,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+
+            DB::table('products')->insert($rows);
+        }
     }
 
     private function zones(string $tenantId): void

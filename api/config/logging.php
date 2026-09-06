@@ -60,10 +60,17 @@ return [
             'ignore_exceptions' => false,
         ],
 
+        // `permission`, on all three: whoever writes the log first owns the file,
+        // and that is not always the same user. `artisan` and the queue worker run
+        // as root, php-fpm serves as www-data. With Monolog's default 0644 the
+        // server cannot append to a file the queue created — it throws, and the
+        // request that only meant to log a warning answers 500. A rejected webhook
+        // stops being a 403 and becomes a server error. KMB-0012.
         'single' => [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'permission' => 0666,
             'replace_placeholders' => true,
         ],
 
@@ -72,6 +79,7 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'max_files' => env('LOG_DAILY_DAYS', 14),
+            'permission' => 0666,
             'replace_placeholders' => true,
         ],
 
@@ -80,6 +88,7 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'max_files' => 3,
+            'permission' => 0666,
             'replace_placeholders' => true,
         ],
 

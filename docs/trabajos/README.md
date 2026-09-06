@@ -36,3 +36,4 @@ mitad de la memoria de este proyecto, y no se van a reescribir aquí.
 | [KMB-0010](KMB-0010-iconos-propios-y-menu-agrupado/) | Iconos propios, menú agrupado y enlaces entre pantallas | funcionalidad | hecho |
 | [KMB-0011](KMB-0011-toda-la-app-responsive-no-solo-del-telefono-hacia-/) | Toda la app responsive, no sólo del teléfono hacia abajo | arreglo | hecho |
 | [KMB-0012](KMB-0012-nginx-resuelve-el-nombre-del-api-en-cada-peticion/) | nginx resuelve el nombre del api en cada petición | arreglo | hecho |
+| [KMB-0013](KMB-0013-las-dos-pruebas-que-quedaban-cuando-el-ci-por-fin-/) | Las dos pruebas que quedaban cuando el CI por fin pudo correr | arreglo | hecho |

@@ -35,3 +35,4 @@ mitad de la memoria de este proyecto, y no se van a reescribir aquí.
 | [KMB-0009](KMB-0009-ninguna-lista-corta-en-silencio/) | Ninguna lista corta en silencio | arreglo | hecho |
 | [KMB-0010](KMB-0010-iconos-propios-y-menu-agrupado/) | Iconos propios, menú agrupado y enlaces entre pantallas | funcionalidad | hecho |
 | [KMB-0011](KMB-0011-toda-la-app-responsive-no-solo-del-telefono-hacia-/) | Toda la app responsive, no sólo del teléfono hacia abajo | arreglo | hecho |
+| [KMB-0012](KMB-0012-nginx-resuelve-el-nombre-del-api-en-cada-peticion/) | nginx resuelve el nombre del api en cada petición | arreglo | hecho |

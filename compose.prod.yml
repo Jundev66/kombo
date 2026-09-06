@@ -94,11 +94,15 @@ services:
     environment:
       KOMBO_ROOT_DOMAIN: ${KOMBO_ROOT_DOMAIN:?falta el dominio raíz}
       KOMBO_ADMIN_HOST: ${KOMBO_ADMIN_HOST:?falta el host de administración}
+      # Substitution is limited to our own names. Otherwise it replaces EVERY
+      # name that exists in the environment, and an nginx variable — `$php`,
+      # `$tenant`, `$uri` — would be eaten the day one of them collides.
+      NGINX_ENVSUBST_FILTER: '^KOMBO_'
     volumes:
       # `templates/` is nginx's way of substituting variables at startup, so the
       # customer's domain is not baked into the image.
       - ./docker/nginx/prod.conf:/etc/nginx/templates/default.conf.template:ro
-      - ./docker/nginx/seguridad.conf:/etc/nginx/snippets/seguridad.conf:ro
+      - ./docker/nginx/security.conf:/etc/nginx/snippets/security.conf:ro
       - ./docker/nginx/cloudflare-ips.conf:/etc/nginx/snippets/cloudflare-ips.conf:ro
       # Cloudflare's origin certificate. See `docs/despliegue.md`.
       - ./certs:/etc/nginx/certs:ro

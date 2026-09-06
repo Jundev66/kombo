@@ -49,4 +49,17 @@ echo "→ Cerrando lo que quedó abierto de otras corridas…"
 docker compose exec -T api php artisan demo:clean --hours=0 >/dev/null
 
 echo "→ Corriendo las pruebas…"
-exec docker compose run --rm e2e npx playwright test "${ARGS[@]}"
+
+# The wait goes INSIDE `docker compose run`, because it is that command that may
+# have just recreated `api` while reconciling dependencies. Through nginx and
+# not `exec`, because nginx→api is precisely the hop that breaks: the day it
+# does, this prints one line instead of leaving every test to fail against a
+# 502 with a page that points at the frontend. KMB-0012.
+exec docker compose run --rm e2e sh -c '
+    for _ in $(seq 1 30); do
+        curl -sf -o /dev/null http://nginx/up && exec npx playwright test "$@"
+        sleep 1
+    done
+    echo "nginx no alcanza a la API en treinta segundos." >&2
+    exit 1
+' e2e "${ARGS[@]}"
